@@ -1,8 +1,9 @@
 """Input handling utilities for the budget planner."""
 from datetime import datetime
-from typing import Optional, Tuple, Set
+from typing import Optional, Tuple, Set, Dict
 from models.transaction import Transaction, TransactionType
 from ui.display import Display
+from wallet.wallet import Wallet
 
 
 class InputHandler:
@@ -186,10 +187,86 @@ class InputHandler:
         parts = command.split()
         if len(parts) != 2:
             return None, None
-        
+
         action = parts[0]
         try:
             index = int(parts[1])
             return action, index
         except ValueError:
             return None, None
+
+    @staticmethod
+    def parse_named_command(command: str) -> Tuple[Optional[str], Optional[str]]:
+        """Parse commands like 'wallet Main', 'switch Savings'."""
+        parts = command.split(maxsplit=1)
+        if len(parts) != 2:
+            return None, None
+        return parts[0], parts[1]
+
+    @staticmethod
+    def get_wallet_input() -> Optional[Dict]:
+        """Get all inputs for a new wallet step by step."""
+        Display.show_header("New Wallet")
+
+        # Step 1: Name (required)
+        name = input("Enter wallet name: ").strip()
+        if not name:
+            Display.show_error("Wallet name cannot be empty")
+            return None
+
+        # Step 2: Currency
+        currency = input("Enter currency (default: KZT): ").strip()
+        if not currency:
+            currency = "KZT"
+
+        # Step 3: Starting balance
+        starting_str = input("Enter starting balance (default: 0): ").strip()
+        starting_value = None
+        if starting_str:
+            try:
+                starting_value = float(starting_str)
+            except ValueError:
+                Display.show_info("Invalid amount. Starting with 0.")
+
+        # Step 4: Description
+        description = input("Enter description (optional): ").strip()
+
+        return {
+            "name": name,
+            "currency": currency,
+            "starting_value": starting_value,
+            "description": description,
+        }
+
+    @staticmethod
+    def get_wallet_edit_input(wallet: Wallet) -> Optional[Dict]:
+        """Get inputs for editing a wallet."""
+        Display.show_header("Edit Wallet")
+        Display.show_info("Press Enter to keep current value")
+
+        print(f"\nCurrent values:")
+        print(f"   Name:        {wallet.name}")
+        print(f"   Currency:    {wallet.currency}")
+        print(f"   Description: {wallet.description or 'N/A'}")
+        print()
+
+        # Name
+        new_name = input(f"Name [{wallet.name}]: ").strip()
+        if not new_name:
+            new_name = wallet.name
+
+        # Currency
+        new_currency = input(f"Currency [{wallet.currency}]: ").strip()
+        if not new_currency:
+            new_currency = wallet.currency
+
+        # Description
+        new_desc = input(f"Description [{wallet.description or 'N/A'}]: ").strip()
+        if not new_desc:
+            new_desc = wallet.description
+
+        return {
+            "new_name": new_name if new_name != wallet.name else None,
+            "currency": new_currency if new_currency != wallet.currency else None,
+            "description": new_desc,
+        }
