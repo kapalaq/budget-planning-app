@@ -1,9 +1,12 @@
 """Input handling utilities for the budget planner."""
 from datetime import datetime
-from typing import Optional, Tuple, Set, Dict
+from typing import Optional, Tuple, Set, Dict, List, TYPE_CHECKING
 from models.transaction import Transaction, TransactionType
 from ui.display import Display
-from wallet.wallet import Wallet
+from wallet.wallet import Wallet, WalletType
+
+if TYPE_CHECKING:
+    from wallet.wallet_manager import WalletManager
 
 
 class InputHandler:
@@ -204,22 +207,44 @@ class InputHandler:
         return parts[0], parts[1]
 
     @staticmethod
+    def get_wallet_type() -> Optional[WalletType]:
+        """Get wallet type from user."""
+        print("\n📁 Wallet Types:")
+        print("   1. Regular - Standard wallet for daily transactions")
+        print("   2. Deposit - Savings with interest rate and maturity date")
+
+        choice = input("Select wallet type (1/2): ").strip()
+
+        if choice == "1":
+            return WalletType.REGULAR
+        elif choice == "2":
+            return WalletType.DEPOSIT
+        else:
+            Display.show_error("Invalid selection")
+            return None
+
+    @staticmethod
     def get_wallet_input() -> Optional[Dict]:
         """Get all inputs for a new wallet step by step."""
         Display.show_header("New Wallet")
 
-        # Step 1: Name (required)
+        # Step 1: Wallet type
+        wallet_type = InputHandler.get_wallet_type()
+        if wallet_type is None:
+            return None
+
+        # Step 2: Name (required)
         name = input("Enter wallet name: ").strip()
         if not name:
             Display.show_error("Wallet name cannot be empty")
             return None
 
-        # Step 2: Currency
+        # Step 3: Currency
         currency = input("Enter currency (default: KZT): ").strip()
         if not currency:
             currency = "KZT"
 
-        # Step 3: Starting balance
+        # Step 4: Starting balance
         starting_str = input("Enter starting balance (default: 0): ").strip()
         starting_value = None
         if starting_str:
@@ -228,14 +253,61 @@ class InputHandler:
             except ValueError:
                 Display.show_info("Invalid amount. Starting with 0.")
 
-        # Step 4: Description
+        # Step 5: Description
         description = input("Enter description (optional): ").strip()
 
-        return {
+        result = {
             "name": name,
             "currency": currency,
             "starting_value": starting_value,
             "description": description,
+            "wallet_type": wallet_type,
+        }
+
+        # Step 6: Deposit-specific inputs
+        if wallet_type == WalletType.DEPOSIT:
+            deposit_data = InputHandler.get_deposit_input()
+            if deposit_data is None:
+                return None
+            result.update(deposit_data)
+
+        return result
+
+    @staticmethod
+    def get_deposit_input() -> Optional[Dict]:
+        """Get deposit-specific inputs."""
+        print("\n--- Deposit Settings ---")
+
+        # Interest rate
+        rate_str = input("Enter annual interest rate (e.g., 12.5 for 12.5%): ").strip()
+        try:
+            interest_rate = float(rate_str)
+            if interest_rate <= 0:
+                Display.show_error("Interest rate must be positive")
+                return None
+        except ValueError:
+            Display.show_error("Invalid interest rate")
+            return None
+
+        # Term in months
+        term_str = input("Enter term in months: ").strip()
+        try:
+            term_months = int(term_str)
+            if term_months <= 0:
+                Display.show_error("Term must be positive")
+                return None
+        except ValueError:
+            Display.show_error("Invalid term")
+            return None
+
+        # Capitalization
+        cap_choice = input("Enable interest capitalization? (y/n, default: n): ").strip().lower()
+        capitalization = cap_choice == 'y'
+
+        return {
+            "interest_rate": interest_rate,
+            "term_months": term_months,
+            "capitalization": capitalization,
         }
 
     @staticmethod
@@ -269,4 +341,115 @@ class InputHandler:
             "new_name": new_name if new_name != wallet.name else None,
             "currency": new_currency if new_currency != wallet.currency else None,
             "description": new_desc,
+        }
+
+    @staticmethod
+    def get_transfer_input(
+        current_wallet: Wallet,
+        available_wallets: List[Wallet]
+    ) -> Optional[Dict]:
+        """Get all inputs for a new transfer.
+
+        Args:
+            current_wallet: The wallet from which money is being transferred.
+            available_wallets: List of all available wallets (excluding current).
+
+        Returns:
+            Dictionary with transfer details or None if cancelled.
+        """
+        Display.show_header("New Transfer")
+
+        # Filter out current wallet from available options
+        target_wallets = [w for w in available_wallets if w.name != current_wallet.name]
+
+        if not target_wallets:
+            Display.show_error("No other wallets available for transfer. Create another wallet first.")
+            return None
+
+        # Step 1: Select target wallet
+        print(f"\nTransferring FROM: {current_wallet.name} ({current_wallet.currency})")
+        print(f"Available balance: {current_wallet.balance:.2f}")
+        print("\nSelect target wallet:")
+        for i, wallet in enumerate(target_wallets, 1):
+            print(f"   {i}. {wallet.name} ({wallet.currency}) - Balance: {wallet.balance:.2f}")
+
+        choice = input("\nSelect wallet (number): ").strip()
+        try:
+            choice_num = int(choice)
+            if 1 <= choice_num <= len(target_wallets):
+                target_wallet = target_wallets[choice_num - 1]
+            else:
+                Display.show_error("Invalid selection")
+                return None
+        except ValueError:
+            Display.show_error("Invalid selection")
+            return None
+
+        # Step 2: Amount
+        amount = InputHandler.get_amount()
+        if amount is None:
+            return None
+
+        # Step 3: Description
+        description = InputHandler.get_description()
+
+        # Step 4: Date
+        date = InputHandler.get_datetime()
+
+        return {
+            "target_wallet_name": target_wallet.name,
+            "amount": amount,
+            "description": description,
+            "datetime_created": date,
+        }
+
+    @staticmethod
+    def get_transfer_edit_input(transfer: "Transaction") -> Optional[Dict]:
+        """Get inputs for editing a transfer transaction.
+
+        Note: For transfers, only amount, description, and date can be edited.
+        The category remains 'Transfer' and wallets cannot be changed.
+        """
+        Display.show_header("Edit Transfer")
+        Display.show_info("Press Enter to keep current value")
+        Display.show_info("Note: Transfer category and wallets cannot be changed")
+
+        print(f"\nCurrent values:")
+        print(transfer.detailed_str())
+        print()
+
+        # Amount
+        amount_str = input(f"Amount [{transfer.amount}]: ").strip()
+        if amount_str:
+            try:
+                amount = float(amount_str)
+                if amount <= 0:
+                    Display.show_error("Amount must be positive")
+                    return None
+            except ValueError:
+                Display.show_error("Invalid amount")
+                return None
+        else:
+            amount = transfer.amount
+
+        # Description
+        desc_input = input(f"Description [{transfer.description or 'N/A'}]: ").strip()
+        description = desc_input if desc_input else transfer.description
+
+        # Date
+        current_date = transfer.datetime_created.strftime("%Y-%m-%d")
+        date_str = input(f"Date [{current_date}]: ").strip()
+        if date_str:
+            try:
+                date = datetime.strptime(date_str, "%Y-%m-%d")
+            except ValueError:
+                Display.show_info("Invalid date format. Keeping current date.")
+                date = transfer.datetime_created
+        else:
+            date = transfer.datetime_created
+
+        return {
+            "amount": amount,
+            "description": description,
+            "datetime_created": date,
         }

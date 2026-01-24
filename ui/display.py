@@ -4,7 +4,7 @@ from typing import List, Dict, TYPE_CHECKING
 if TYPE_CHECKING:
     from wallet.wallet_manager import WalletManager
 from models.transaction import Transaction
-from wallet.wallet import Wallet
+from wallet.wallet import Wallet, DepositWallet, WalletType
 from strategies.sorting import SortingContext, WalletSortingContext
 
 
@@ -27,26 +27,38 @@ class Display:
     
     @staticmethod
     def show_balance(wallet: Wallet):
-        """Display the total balance."""
+        """Display the total balance with income/expense breakdown."""
         balance = wallet.balance
         sign = "+" if balance >= 0 else ""
-        print(f"\n💰 Total Balance: {sign}{balance:.2f}")
-    
+        print(f"\n💰 Balance: {sign}{balance:.2f} {wallet.currency}")
+        print(f"   Income:  +{wallet.total_income:.2f}")
+        print(f"   Expense: -{wallet.total_expense:.2f}")
+
     @staticmethod
     def show_category_breakdown(wallet: Wallet):
-        """Display category contributions."""
-        totals = wallet.get_category_totals()
-        percentages = wallet.get_category_percentages()
-        
-        if not totals:
+        """Display category contributions for income and expenses separately."""
+        income_by_cat = wallet.get_income_by_category()
+        expense_by_cat = wallet.get_expense_by_category()
+        income_pct = wallet.get_income_percentages()
+        expense_pct = wallet.get_expense_percentages()
+
+        if not income_by_cat and not expense_by_cat:
             print("\n📊 No transactions yet")
             return
-        
-        print("\n📊 Category Breakdown:")
-        for category, total in sorted(totals.items()):
-            pct = percentages.get(category, 0)
-            sign = "+" if total >= 0 else ""
-            print(f"   {category}: {sign}{total:.2f} ({pct:.1f}%)")
+
+        # Show income breakdown
+        if income_by_cat:
+            print("\n📈 Income by Category:")
+            for category, amount in sorted(income_by_cat.items(), key=lambda x: -x[1]):
+                pct = income_pct.get(category, 0)
+                print(f"   {category}: +{amount:.2f} ({pct:.1f}%)")
+
+        # Show expense breakdown
+        if expense_by_cat:
+            print("\n📉 Expenses by Category:")
+            for category, amount in sorted(expense_by_cat.items(), key=lambda x: -x[1]):
+                pct = expense_pct.get(category, 0)
+                print(f"   {category}: -{amount:.2f} ({pct:.1f}%)")
     
     @staticmethod
     def show_transactions(wallet: Wallet):
@@ -84,6 +96,7 @@ class Display:
         print("+--------- Transaction Commands ---------+")
         print("   +          - Add income transaction")
         print("   -          - Add expense transaction")
+        print("   transfer   - Transfer money between wallets")
         print("   show <N>   - Show details of transaction N")
         print("   edit <N>   - Edit transaction N")
         print("   delete <N> - Delete transaction N")
@@ -98,6 +111,7 @@ class Display:
         print("   switch <name>        - Switch to a wallet")
         print("   sort_wallets         - Change wallet sorting")
         print("+----------- General Commands -----------+")
+        print("   home       - Show dashboard")
         print("   help       - Show this help message")
         print("   quit       - Exit the program")
     
@@ -148,18 +162,23 @@ class Display:
         for i, w in enumerate(wallets, 1):
             marker = " *" if current and w.name == current.name else ""
             sign = "+" if w.balance >= 0 else ""
+            wallet_type_tag = f"[{w.wallet_type.value[0].upper()}]"
             print(
-                f"   {i}. {w.name} ({w.currency}) - {sign}{w.balance:.2f}{marker}"
+                f"   {i}. {wallet_type_tag} {w.name} ({w.currency}) - "
+                f"{sign}{w.balance:.2f}{marker}"
             )
 
         if current:
             print(f"\n   * Current wallet: {current.name}")
+        print("\n   [R] = Regular, [D] = Deposit")
 
     @staticmethod
     def show_wallet_detail(wallet: Wallet):
         """Display detailed wallet information."""
-        Display.show_header(f"Wallet: {wallet.name}")
+        wallet_type_label = wallet.wallet_type.value.capitalize()
+        Display.show_header(f"{wallet_type_label} Wallet: {wallet.name}")
         print(f"   ID:          {wallet.id}")
+        print(f"   Type:        {wallet_type_label}")
         print(f"   Name:        {wallet.name}")
         print(f"   Currency:    {wallet.currency}")
         print(f"   Description: {wallet.description or 'N/A'}")
@@ -168,6 +187,28 @@ class Display:
         print(f"   Income:      +{wallet.total_income:.2f}")
         print(f"   Expense:     -{wallet.total_expense:.2f}")
         print(f"   Transactions: {wallet.transaction_count()}")
+
+        # Show deposit-specific information
+        if isinstance(wallet, DepositWallet):
+            Display.show_deposit_details(wallet)
+
+    @staticmethod
+    def show_deposit_details(wallet: DepositWallet):
+        """Display deposit-specific details."""
+        print("\n   --- Deposit Details ---")
+        print(f"   Interest Rate:    {wallet.interest_rate:.2f}% per year")
+        print(f"   Term:             {wallet.term_months} months")
+        print(f"   Capitalization:   {'Yes' if wallet.capitalization else 'No'}")
+        print(f"   Maturity Date:    {wallet.maturity_date.strftime('%Y-%m-%d')}")
+
+        if wallet.is_matured:
+            print("   Status:           MATURED")
+        else:
+            print(f"   Days to Maturity: {wallet.days_until_maturity} days")
+
+        print(f"\n   Principal:        {wallet.principal:.2f} {wallet.currency}")
+        print(f"   Accrued Interest: {wallet.calculate_accrued_interest():.2f} {wallet.currency}")
+        print(f"   Total at Maturity: {wallet.calculate_maturity_amount():.2f} {wallet.currency}")
 
     @staticmethod
     def show_wallet_sorting_options():

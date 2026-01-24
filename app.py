@@ -1,4 +1,5 @@
 """Main application class for the budget planner."""
+from models.category import CategoryManager
 from wallet.wallet import Wallet
 from wallet.wallet_manager import WalletManager
 from commands.handlers import CommandFactory

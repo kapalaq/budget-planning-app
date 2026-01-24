@@ -4,8 +4,8 @@ from typing import Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from wallet.wallet_manager import WalletManager
-from wallet.wallet import Wallet
-from models.transaction import TransactionType
+from wallet.wallet import Wallet, DepositWallet, WalletType
+from models.transaction import Transaction, Transfer, TransactionType
 from ui.display import Display
 from ui.input_handler import InputHandler
 
@@ -90,16 +90,39 @@ class EditTransactionCommand(Command):
             Display.show_error(f"Transaction #{self._index} not found")
             return True
 
-        categories = wallet.category_manager.get_categories(transaction.transaction_type)
-        updated = InputHandler.get_edit_input(transaction, categories)
-
-        if updated:
-            if wallet.update_transaction(self._index, updated):
-                Display.show_success("Transaction updated successfully!")
+        # Handle transfer edits differently
+        if isinstance(transaction, Transfer):
+            edit_data = InputHandler.get_transfer_edit_input(transaction)
+            if edit_data:
+                # Create a simple Transaction object with the updated values
+                updated = Transaction(
+                    amount=edit_data["amount"],
+                    transaction_type=transaction.transaction_type,
+                    category="Transfer",
+                    description=edit_data["description"],
+                    datetime_created=edit_data["datetime_created"],
+                )
+                if wallet.update_transaction(self._index, updated):
+                    Display.show_success(
+                        "Transfer updated successfully! "
+                        "(Both wallets have been synchronized)"
+                    )
+                else:
+                    Display.show_error("Failed to update transfer")
             else:
-                Display.show_error("Failed to update transaction")
+                Display.show_info("Edit cancelled")
         else:
-            Display.show_error("Edit cancelled")
+            # Regular transaction edit
+            categories = wallet.category_manager.get_categories(transaction.transaction_type)
+            updated = InputHandler.get_edit_input(transaction, categories)
+
+            if updated:
+                if wallet.update_transaction(self._index, updated):
+                    Display.show_success("Transaction updated successfully!")
+                else:
+                    Display.show_error("Failed to update transaction")
+            else:
+                Display.show_info("Edit cancelled")
 
         return True
 
@@ -125,6 +148,13 @@ class DeleteTransactionCommand(Command):
 
         Display.show_transaction_detail(transaction)
 
+        # Show additional warning for transfers
+        if isinstance(transaction, Transfer):
+            Display.show_info(
+                "This is a transfer. Deleting it will also remove "
+                "the corresponding transaction from the other wallet."
+            )
+
         if InputHandler.confirm("Are you sure you want to delete this transaction?"):
             if wallet.delete_transaction(self._index):
                 Display.show_success("Transaction deleted successfully!")
@@ -132,6 +162,47 @@ class DeleteTransactionCommand(Command):
                 Display.show_error("Failed to delete transaction")
         else:
             Display.show_info("Deletion cancelled")
+
+        return True
+
+
+class TransferCommand(Command):
+    """Command to transfer money between wallets."""
+
+    def __init__(self, wallet_manager: "WalletManager"):
+        self._wallet_manager = wallet_manager
+
+    def execute(self) -> bool:
+        wallet = self._wallet_manager.current_wallet
+        if not wallet:
+            Display.show_error("No wallet selected. Create or switch to a wallet first.")
+            return True
+
+        if self._wallet_manager.wallet_count() < 2:
+            Display.show_error("You need at least two wallets to make a transfer.")
+            return True
+
+        # Get all wallets for selection
+        available_wallets = self._wallet_manager.get_sorted_wallets()
+
+        transfer_data = InputHandler.get_transfer_input(wallet, available_wallets)
+
+        if transfer_data:
+            if self._wallet_manager.transfer(
+                from_wallet_name=wallet.name,
+                to_wallet_name=transfer_data["target_wallet_name"],
+                amount=transfer_data["amount"],
+                description=transfer_data["description"],
+                datetime_created=transfer_data["datetime_created"],
+            ):
+                Display.show_success(
+                    f"Transferred {transfer_data['amount']:.2f} from "
+                    f"'{wallet.name}' to '{transfer_data['target_wallet_name']}'!"
+                )
+            else:
+                Display.show_error("Failed to complete transfer")
+        else:
+            Display.show_info("Transfer cancelled")
 
         return True
 
@@ -173,15 +244,24 @@ class ShowPercentagesCommand(Command):
             Display.show_error("No wallet selected.")
             return True
 
-        percentages = wallet.get_category_percentages()
+        income_pct = wallet.get_income_percentages()
+        expense_pct = wallet.get_expense_percentages()
 
-        if not percentages:
+        if not income_pct and not expense_pct:
             Display.show_info("No transactions to calculate percentages")
             return True
 
         Display.show_header("Category Percentages")
-        for category, pct in sorted(percentages.items(), key=lambda x: -x[1]):
-            print(f"   {category}: {pct:.1f}%")
+
+        if income_pct:
+            print("\n📈 Income:")
+            for category, pct in sorted(income_pct.items(), key=lambda x: -x[1]):
+                print(f"   {category}: {pct:.1f}%")
+
+        if expense_pct:
+            print("\n📉 Expenses:")
+            for category, pct in sorted(expense_pct.items(), key=lambda x: -x[1]):
+                print(f"   {category}: {pct:.1f}%")
 
         return True
 
@@ -257,12 +337,26 @@ class AddWalletCommand(Command):
         wallet_data = InputHandler.get_wallet_input()
 
         if wallet_data:
-            new_wallet = Wallet(
-                name=wallet_data["name"],
-                starting_value=wallet_data["starting_value"],
-                currency=wallet_data["currency"],
-                description=wallet_data["description"],
-            )
+            wallet_type = wallet_data.get("wallet_type", WalletType.REGULAR)
+
+            if wallet_type == WalletType.DEPOSIT:
+                new_wallet = DepositWallet(
+                    name=wallet_data["name"],
+                    interest_rate=wallet_data["interest_rate"],
+                    term_months=wallet_data["term_months"],
+                    starting_value=wallet_data["starting_value"],
+                    currency=wallet_data["currency"],
+                    description=wallet_data["description"],
+                    capitalization=wallet_data.get("capitalization", False),
+                )
+            else:
+                new_wallet = Wallet(
+                    name=wallet_data["name"],
+                    starting_value=wallet_data["starting_value"],
+                    currency=wallet_data["currency"],
+                    description=wallet_data["description"],
+                )
+
             if self._wallet_manager.add_wallet(new_wallet):
                 Display.show_success(f"Wallet '{new_wallet.name}' created successfully!")
             else:
@@ -388,6 +482,8 @@ class CommandFactory:
             return AddTransactionCommand(self._wallet_manager, TransactionType.INCOME)
         elif command_str_lower == "-":
             return AddTransactionCommand(self._wallet_manager, TransactionType.EXPENSE)
+        elif command_str_lower == "transfer":
+            return TransferCommand(self._wallet_manager)
         elif command_str_lower == "sort":
             return ChangeSortingCommand(self._wallet_manager)
         elif command_str_lower == "percent":
@@ -396,7 +492,7 @@ class CommandFactory:
             return HelpCommand()
         elif command_str_lower in ("quit", "exit", "q"):
             return QuitCommand()
-        elif command_str_lower == "" or command_str_lower == "refresh":
+        elif command_str_lower in ("", "refresh", "home"):
             return RefreshCommand(self._wallet_manager)
 
         # Wallet commands (simple)
