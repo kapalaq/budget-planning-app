@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import List, Optional
 
 from models.category import CategoryManager
+from models.recurrence_scheduler import RecurrenceScheduler
 from wallet.wallet import Wallet
 from models.transaction import Transfer, TransactionType
 from strategies.sorting import WalletSortingContext
@@ -16,6 +17,7 @@ class WalletManager:
         self._current_wallet: Optional[Wallet] = None
         self._sorting_context = WalletSortingContext()
         self._category_manager = CategoryManager()
+        self._recurrence_scheduler = RecurrenceScheduler(self)
 
     @property
     def sorting_context(self) -> WalletSortingContext:
@@ -24,6 +26,10 @@ class WalletManager:
     @property
     def current_wallet(self) -> Optional[Wallet]:
         return self._current_wallet
+
+    @property
+    def recurrence_scheduler(self) -> RecurrenceScheduler:
+        return self._recurrence_scheduler
 
     def switch_wallet(self, name: str) -> bool:
         """Switch to a wallet by its name."""
@@ -68,6 +74,9 @@ class WalletManager:
 
         del self._wallets[name.lower()]
 
+        # Remove recurring transactions for this wallet
+        self._recurrence_scheduler.remove_recurring_for_wallet(name)
+
         # If we deleted the current wallet, switch to another or None
         if self._current_wallet and self._current_wallet.name.lower() == name:
             if self._wallets:
@@ -93,6 +102,12 @@ class WalletManager:
             del self._wallets[old_name.lower()]
             wallet.name = new_name
             self._wallets[new_name.lower()] = wallet
+
+            # Update recurring transactions that reference this wallet
+            for recurring in self._recurrence_scheduler.get_recurring_for_wallet(
+                old_name
+            ):
+                recurring.wallet_name = new_name
 
         # Update other fields if provided
         if currency:

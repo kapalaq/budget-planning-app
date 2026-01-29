@@ -4,6 +4,7 @@ from typing import List, Dict, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from wallet.wallet_manager import WalletManager
+    from models.recurrence import RecurringTransaction
 from models.transaction import Transaction, TransactionType
 from wallet.wallet import Wallet, DepositWallet, WalletType
 from strategies.sorting import SortingContext, WalletSortingContext
@@ -202,7 +203,8 @@ class Display:
             return
 
         for i, t in enumerate(transactions, 1):
-            print(f"   {i}. {t}")
+            rec_marker = " (R)" if getattr(t, "recurrence_id", None) else ""
+            print(f"   {i}. {t}{rec_marker}")
     
     @staticmethod
     def show_transaction_detail(transaction: Transaction):
@@ -258,6 +260,13 @@ class Display:
         print("   delete_wallet <name> - Delete a wallet")
         print("   switch <name>        - Switch to a wallet")
         print("   sort_wallets         - Change wallet sorting")
+        print("+-------- Recurring Commands ------------+")
+        print("   +r              - Add recurring income")
+        print("   -r              - Add recurring expense")
+        print("   recurring       - List recurring transactions")
+        print("   show_rec <N>    - Show recurring details")
+        print("   edit_rec <N>    - Edit recurring transaction")
+        print("   delete_rec <N>  - Delete recurring transaction")
         print("+----------- General Commands -----------+")
         print("   home       - Show dashboard")
         print("   help       - Show this help message")
@@ -417,3 +426,20 @@ class Display:
             return
         for i, f in enumerate(filters, 1):
             print(f"   {i}. {f.name}: {f.description}")
+
+    @staticmethod
+    def show_recurring_transactions(recurring_list: List["RecurringTransaction"]):
+        """Display a list of recurring transactions."""
+        Display.show_header("Recurring Transactions")
+        if not recurring_list:
+            print("   No recurring transactions")
+            return
+
+        for i, r in enumerate(recurring_list, 1):
+            print(f"   {i}. {r.summary_str()}")
+
+    @staticmethod
+    def show_recurring_detail(recurring: "RecurringTransaction"):
+        """Display detailed recurring transaction information."""
+        Display.show_header("Recurring Transaction Details")
+        print(recurring.detailed_str())

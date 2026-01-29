@@ -32,6 +32,14 @@ class BudgetPlannerApp:
 
     def _process_input(self) -> bool:
         """Process user input and return whether to continue."""
+        # Materialize any due recurring transactions
+        scheduler = self._wallet_manager.recurrence_scheduler
+        generated = scheduler.process_due_transactions()
+        if generated > 0:
+            Display.show_info(
+                f"{generated} recurring transaction(s) generated"
+            )
+
         command_str = InputHandler.get_command()
         command = self._command_factory.create_command(command_str)
 

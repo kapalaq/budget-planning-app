@@ -6,6 +6,7 @@ if TYPE_CHECKING:
     from wallet.wallet_manager import WalletManager
 from wallet.wallet import Wallet, DepositWallet, WalletType
 from models.transaction import Transaction, Transfer, TransactionType
+from models.recurrence import RecurringTransaction
 from ui.display import Display
 from ui.input_handler import InputHandler
 
@@ -564,6 +565,171 @@ class ChangeWalletSortingCommand(Command):
         return True
 
 
+# ============= Recurring Transaction Commands =============
+
+
+class AddRecurringCommand(Command):
+    """Command to add a new recurring transaction."""
+
+    def __init__(
+        self, wallet_manager: "WalletManager", transaction_type: TransactionType
+    ):
+        self._wallet_manager = wallet_manager
+        self._transaction_type = transaction_type
+
+    def execute(self) -> bool:
+        wallet = self._wallet_manager.current_wallet
+        if not wallet:
+            Display.show_error("No wallet selected. Create or switch to a wallet first.")
+            return True
+
+        categories = wallet.category_manager.get_categories(self._transaction_type)
+        recurring = InputHandler.get_recurring_transaction_input(
+            self._transaction_type, categories, wallet.name
+        )
+
+        if recurring:
+            scheduler = self._wallet_manager.recurrence_scheduler
+            scheduler.add_recurring(recurring)
+            # Immediately materialize any due transactions
+            count = scheduler.process_due_transactions()
+            Display.show_success(
+                f"Recurring transaction created! "
+                f"({count} transaction(s) generated)"
+            )
+        else:
+            Display.show_error("Recurring transaction cancelled")
+
+        return True
+
+
+class ShowRecurringListCommand(Command):
+    """Command to show all recurring transactions."""
+
+    def __init__(self, wallet_manager: "WalletManager"):
+        self._wallet_manager = wallet_manager
+
+    def execute(self) -> bool:
+        scheduler = self._wallet_manager.recurrence_scheduler
+        recurring_list = scheduler.get_all_recurring()
+        Display.show_recurring_transactions(recurring_list)
+        return True
+
+
+class ShowRecurringDetailCommand(Command):
+    """Command to show details of a recurring transaction."""
+
+    def __init__(self, wallet_manager: "WalletManager", index: int):
+        self._wallet_manager = wallet_manager
+        self._index = index
+
+    def execute(self) -> bool:
+        scheduler = self._wallet_manager.recurrence_scheduler
+        recurring = scheduler.get_recurring_by_index(self._index)
+
+        if recurring:
+            Display.show_recurring_detail(recurring)
+        else:
+            Display.show_error(f"Recurring transaction #{self._index} not found")
+
+        return True
+
+
+class EditRecurringCommand(Command):
+    """Command to edit a recurring transaction."""
+
+    def __init__(self, wallet_manager: "WalletManager", index: int):
+        self._wallet_manager = wallet_manager
+        self._index = index
+
+    def execute(self) -> bool:
+        scheduler = self._wallet_manager.recurrence_scheduler
+        recurring = scheduler.get_recurring_by_index(self._index)
+
+        if not recurring:
+            Display.show_error(f"Recurring transaction #{self._index} not found")
+            return True
+
+        wallet = self._wallet_manager.get_wallet(recurring.wallet_name)
+        if not wallet:
+            Display.show_error(f"Wallet '{recurring.wallet_name}' not found")
+            return True
+
+        categories = wallet.category_manager.get_categories(recurring.transaction_type)
+        edit_data = InputHandler.get_recurring_edit_input(recurring, categories)
+
+        if not edit_data:
+            Display.show_info("Edit cancelled")
+            return True
+
+        action = edit_data["action"]
+
+        if action == "edit_template":
+            recurring.amount = edit_data["amount"]
+            recurring.category = edit_data["category"]
+            recurring.description = edit_data["description"]
+            Display.show_success("Recurring transaction template updated!")
+        elif action == "skip_date":
+            recurring.exceptions.add(edit_data["date"])
+            Display.show_success(
+                f"Date {edit_data['date'].strftime('%Y-%m-%d')} will be skipped"
+            )
+        elif action == "toggle_active":
+            if recurring.is_active:
+                scheduler.deactivate_recurring(recurring.id)
+                Display.show_success("Recurring transaction paused")
+            else:
+                scheduler.activate_recurring(recurring.id)
+                Display.show_success("Recurring transaction resumed")
+
+        return True
+
+
+class DeleteRecurringCommand(Command):
+    """Command to delete a recurring transaction."""
+
+    def __init__(self, wallet_manager: "WalletManager", index: int):
+        self._wallet_manager = wallet_manager
+        self._index = index
+
+    def execute(self) -> bool:
+        scheduler = self._wallet_manager.recurrence_scheduler
+        recurring = scheduler.get_recurring_by_index(self._index)
+
+        if not recurring:
+            Display.show_error(f"Recurring transaction #{self._index} not found")
+            return True
+
+        Display.show_recurring_detail(recurring)
+
+        delete_option = InputHandler.get_recurring_delete_option()
+        if delete_option is None or delete_option == 0:
+            Display.show_info("Deletion cancelled")
+            return True
+
+        wallet = self._wallet_manager.get_wallet(recurring.wallet_name)
+        rec_id = recurring.id
+
+        if delete_option == 2 and wallet:
+            # Delete future generated transactions
+            deleted = wallet.delete_future_by_recurrence(rec_id)
+            Display.show_info(f"Removed {deleted} future transaction(s)")
+        elif delete_option == 3 and wallet:
+            # Delete ALL generated transactions
+            all_rec_transactions = wallet.get_transactions_by_recurrence(rec_id)
+            for t in all_rec_transactions:
+                wallet.delete_transaction(t.id)
+            Display.show_info(
+                f"Removed {len(all_rec_transactions)} generated transaction(s)"
+            )
+
+        # Remove the template
+        scheduler.remove_recurring(rec_id)
+        Display.show_success("Recurring transaction deleted!")
+
+        return True
+
+
 class CommandFactory:
     """Factory for creating commands."""
 
@@ -579,6 +745,12 @@ class CommandFactory:
             return AddTransactionCommand(self._wallet_manager, TransactionType.INCOME)
         elif command_str_lower == "-":
             return AddTransactionCommand(self._wallet_manager, TransactionType.EXPENSE)
+        elif command_str_lower == "+r":
+            return AddRecurringCommand(self._wallet_manager, TransactionType.INCOME)
+        elif command_str_lower == "-r":
+            return AddRecurringCommand(self._wallet_manager, TransactionType.EXPENSE)
+        elif command_str_lower == "recurring":
+            return ShowRecurringListCommand(self._wallet_manager)
         elif command_str_lower == "transfer":
             return TransferCommand(self._wallet_manager)
         elif command_str_lower == "sort":
@@ -603,6 +775,7 @@ class CommandFactory:
             return ChangeWalletSortingCommand(self._wallet_manager)
 
         # Transaction indexed commands (show 1, edit 2, delete 3)
+        # Also handles recurring indexed commands (show_rec 1, edit_rec 2, delete_rec 3)
         action, index = InputHandler.parse_indexed_command(command_str_lower)
         if action and index:
             if action == "show":
@@ -611,6 +784,12 @@ class CommandFactory:
                 return EditTransactionCommand(self._wallet_manager, index)
             elif action == "delete":
                 return DeleteTransactionCommand(self._wallet_manager, index)
+            elif action == "show_rec":
+                return ShowRecurringDetailCommand(self._wallet_manager, index)
+            elif action == "edit_rec":
+                return EditRecurringCommand(self._wallet_manager, index)
+            elif action == "delete_rec":
+                return DeleteRecurringCommand(self._wallet_manager, index)
 
         # Wallet named commands (wallet Name, switch Name, etc.)
         # Keep original case for wallet names

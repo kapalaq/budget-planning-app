@@ -2,6 +2,14 @@
 from datetime import datetime
 from typing import Optional, Tuple, Set, Dict, List, TYPE_CHECKING
 from models.transaction import Transaction, TransactionType
+from models.recurrence import (
+    RecurrenceRule,
+    RecurringTransaction,
+    Frequency,
+    Weekday,
+    EndCondition,
+    WEEKDAY_NAMES,
+)
 from ui.display import Display
 from wallet.wallet import Wallet, WalletType
 from strategies.filtering import (
@@ -18,6 +26,8 @@ from strategies.filtering import (
     ExpenseOnlyFilter,
     TransferOnlyFilter,
     NoTransfersFilter,
+    RecurringOnlyFilter,
+    NonRecurringFilter,
     CategoryFilter,
     AmountRangeFilter,
     LargeTransactionsFilter,
@@ -555,6 +565,10 @@ class InputHandler:
             return TransferOnlyFilter()
         elif choice == "4":
             return NoTransfersFilter()
+        elif choice == "5":
+            return RecurringOnlyFilter()
+        elif choice == "6":
+            return NonRecurringFilter()
         else:
             Display.show_error("Invalid option")
             return None
@@ -720,3 +734,352 @@ class InputHandler:
         except ValueError:
             Display.show_error("Invalid input")
             return None
+
+    # ============= Recurrence Input Methods =============
+
+    @staticmethod
+    def _get_interval(unit: str) -> int:
+        """Get the recurrence interval from user."""
+        interval_str = input(f"Every how many {unit}? (default: 1): ").strip()
+        if not interval_str:
+            return 1
+        try:
+            interval = int(interval_str)
+            if interval < 1:
+                Display.show_error("Interval must be at least 1. Using 1.")
+                return 1
+            return interval
+        except ValueError:
+            Display.show_info("Invalid input. Using 1.")
+            return 1
+
+    @staticmethod
+    def _get_weekdays() -> Set[Weekday]:
+        """Get weekday selection from user."""
+        print("\nSelect days (comma-separated numbers):")
+        print("   1. Monday    2. Tuesday   3. Wednesday  4. Thursday")
+        print("   5. Friday    6. Saturday  7. Sunday")
+        selection = input("Days: ").strip()
+        if not selection:
+            return set()
+
+        weekdays = set()
+        try:
+            nums = [int(x.strip()) for x in selection.split(",")]
+            for n in nums:
+                if 1 <= n <= 7:
+                    weekdays.add(Weekday(n - 1))
+                else:
+                    Display.show_error(f"Invalid day number: {n}")
+        except ValueError:
+            Display.show_error("Invalid input. Use numbers separated by commas.")
+        return weekdays
+
+    @staticmethod
+    def _get_month_weekday() -> Tuple[Optional[int], Optional[Weekday]]:
+        """Get 'Nth weekday of month' from user."""
+        print("\nWhich occurrence? (e.g., 1st Monday)")
+        week_str = input("Week number (1-5): ").strip()
+        try:
+            week = int(week_str)
+            if not 1 <= week <= 5:
+                Display.show_error("Must be between 1 and 5")
+                return None, None
+        except ValueError:
+            Display.show_error("Invalid input")
+            return None, None
+
+        print("Which day?")
+        print("   1. Monday    2. Tuesday   3. Wednesday  4. Thursday")
+        print("   5. Friday    6. Saturday  7. Sunday")
+        day_str = input("Day: ").strip()
+        try:
+            day = int(day_str)
+            if 1 <= day <= 7:
+                return week, Weekday(day - 1)
+            Display.show_error("Invalid day number")
+            return None, None
+        except ValueError:
+            Display.show_error("Invalid input")
+            return None, None
+
+    @staticmethod
+    def _get_end_condition(rule: RecurrenceRule) -> RecurrenceRule:
+        """Get end condition from user and update the rule."""
+        print("\nEnd Condition:")
+        print("   1. Never")
+        print("   2. On a specific date")
+        print("   3. After N occurrences")
+        choice = input("Select (default: 1): ").strip()
+
+        if choice == "2":
+            date_str = input("End date (YYYY-MM-DD): ").strip()
+            try:
+                end_date = datetime.strptime(date_str, "%Y-%m-%d")
+                rule.end_condition = EndCondition.ON_DATE
+                rule.end_date = end_date
+            except ValueError:
+                Display.show_info("Invalid date. Setting to 'Never'.")
+        elif choice == "3":
+            count_str = input("Number of occurrences: ").strip()
+            try:
+                count = int(count_str)
+                if count > 0:
+                    rule.end_condition = EndCondition.AFTER_COUNT
+                    rule.max_occurrences = count
+                else:
+                    Display.show_info("Must be positive. Setting to 'Never'.")
+            except ValueError:
+                Display.show_info("Invalid input. Setting to 'Never'.")
+
+        return rule
+
+    @staticmethod
+    def _get_custom_recurrence() -> Optional[RecurrenceRule]:
+        """Get a fully custom recurrence rule from user."""
+        print("\nCustom Recurrence:")
+        print("   1. Daily")
+        print("   2. Weekly")
+        print("   3. Monthly")
+        print("   4. Yearly")
+        freq_choice = input("Select frequency: ").strip()
+
+        if freq_choice == "1":
+            interval = InputHandler._get_interval("days")
+            rule = RecurrenceRule(frequency=Frequency.DAILY, interval=interval)
+        elif freq_choice == "2":
+            interval = InputHandler._get_interval("weeks")
+            weekdays = InputHandler._get_weekdays()
+            rule = RecurrenceRule(
+                frequency=Frequency.WEEKLY, interval=interval, weekdays=weekdays
+            )
+        elif freq_choice == "3":
+            interval = InputHandler._get_interval("months")
+            print("\nMonthly pattern:")
+            print("   1. Same day of month")
+            print("   2. Nth weekday (e.g., 1st Monday)")
+            pattern = input("Select (default: 1): ").strip()
+            if pattern == "2":
+                week, weekday = InputHandler._get_month_weekday()
+                if week is None:
+                    return None
+                rule = RecurrenceRule(
+                    frequency=Frequency.MONTHLY,
+                    interval=interval,
+                    month_week=week,
+                    month_weekday=weekday,
+                )
+            else:
+                rule = RecurrenceRule(
+                    frequency=Frequency.MONTHLY, interval=interval
+                )
+        elif freq_choice == "4":
+            interval = InputHandler._get_interval("years")
+            rule = RecurrenceRule(frequency=Frequency.YEARLY, interval=interval)
+        else:
+            Display.show_error("Invalid selection")
+            return None
+
+        return InputHandler._get_end_condition(rule)
+
+    @staticmethod
+    def get_recurrence_rule_input() -> Optional[RecurrenceRule]:
+        """Get a recurrence rule from user via menu selection."""
+        print("\nRecurrence Pattern:")
+        print("   1. Daily")
+        print("   2. Weekly")
+        print("   3. Monthly")
+        print("   4. Yearly")
+        print("   5. Every Weekday (Mon-Fri)")
+        print("   6. Custom")
+        print("   0. Cancel")
+        choice = input("Select pattern: ").strip()
+
+        if choice == "0":
+            return None
+        elif choice == "1":
+            rule = RecurrenceRule(frequency=Frequency.DAILY)
+        elif choice == "2":
+            weekdays = InputHandler._get_weekdays()
+            rule = RecurrenceRule(frequency=Frequency.WEEKLY, weekdays=weekdays)
+        elif choice == "3":
+            print("\nMonthly pattern:")
+            print("   1. Same day of month")
+            print("   2. Nth weekday (e.g., 1st Monday)")
+            pattern = input("Select (default: 1): ").strip()
+            if pattern == "2":
+                week, weekday = InputHandler._get_month_weekday()
+                if week is None:
+                    return None
+                rule = RecurrenceRule(
+                    frequency=Frequency.MONTHLY,
+                    month_week=week,
+                    month_weekday=weekday,
+                )
+            else:
+                rule = RecurrenceRule(frequency=Frequency.MONTHLY)
+        elif choice == "4":
+            rule = RecurrenceRule(frequency=Frequency.YEARLY)
+        elif choice == "5":
+            rule = RecurrenceRule(
+                frequency=Frequency.WEEKLY,
+                weekdays={
+                    Weekday.MONDAY,
+                    Weekday.TUESDAY,
+                    Weekday.WEDNESDAY,
+                    Weekday.THURSDAY,
+                    Weekday.FRIDAY,
+                },
+            )
+        elif choice == "6":
+            return InputHandler._get_custom_recurrence()
+        else:
+            Display.show_error("Invalid selection")
+            return None
+
+        return InputHandler._get_end_condition(rule)
+
+    @staticmethod
+    def get_recurring_transaction_input(
+        transaction_type: TransactionType,
+        categories: Set[str],
+        wallet_name: str,
+    ) -> Optional[RecurringTransaction]:
+        """Get all inputs for a new recurring transaction."""
+        type_name = "Income" if transaction_type == TransactionType.INCOME else "Expense"
+        Display.show_header(f"New Recurring {type_name}")
+
+        # Step 1: Amount
+        amount = InputHandler.get_amount()
+        if amount is None:
+            return None
+
+        # Step 2: Category
+        category = InputHandler.get_category(categories, transaction_type)
+        if category is None:
+            return None
+
+        # Step 3: Description
+        description = InputHandler.get_description()
+
+        # Step 4: Start date
+        print("\nStart date for recurrence:")
+        start_date = InputHandler.get_datetime()
+
+        # Step 5: Recurrence rule
+        rule = InputHandler.get_recurrence_rule_input()
+        if rule is None:
+            return None
+
+        return RecurringTransaction(
+            amount=amount,
+            transaction_type=transaction_type,
+            category=category,
+            description=description,
+            recurrence_rule=rule,
+            start_date=start_date,
+            wallet_name=wallet_name,
+        )
+
+    @staticmethod
+    def get_recurring_edit_input(
+        recurring: RecurringTransaction, categories: Set[str]
+    ) -> Optional[Dict]:
+        """Get edit inputs for a recurring transaction.
+
+        Returns a dict describing the edit action, or None if cancelled.
+        """
+        Display.show_header("Edit Recurring Transaction")
+        print(f"\nCurrent details:")
+        print(recurring.detailed_str())
+
+        print("\nEdit Options:")
+        print("   1. Edit template (affects future occurrences)")
+        print("   2. Skip a specific future date")
+        print("   3. Pause" if recurring.is_active else "   3. Resume")
+        print("   0. Cancel")
+        choice = input("Select option: ").strip()
+
+        if choice == "0":
+            return None
+        elif choice == "1":
+            return InputHandler._get_recurring_template_edit(recurring, categories)
+        elif choice == "2":
+            return InputHandler._get_recurring_skip_date()
+        elif choice == "3":
+            return {"action": "toggle_active"}
+        else:
+            Display.show_error("Invalid option")
+            return None
+
+    @staticmethod
+    def _get_recurring_template_edit(
+        recurring: RecurringTransaction, categories: Set[str]
+    ) -> Optional[Dict]:
+        """Get template field edits for a recurring transaction."""
+        Display.show_info("Press Enter to keep current value")
+
+        # Amount
+        amount_str = input(f"Amount [{recurring.amount}]: ").strip()
+        if amount_str:
+            try:
+                amount = float(amount_str)
+                if amount <= 0:
+                    Display.show_error("Amount must be positive")
+                    return None
+            except ValueError:
+                Display.show_error("Invalid amount")
+                return None
+        else:
+            amount = recurring.amount
+
+        # Category
+        print(f"\nCurrent category: {recurring.category}")
+        change_cat = input("Change category? (y/n): ").strip().lower()
+        if change_cat == "y":
+            category = InputHandler.get_category(
+                categories, recurring.transaction_type
+            )
+            if category is None:
+                return None
+        else:
+            category = recurring.category
+
+        # Description
+        desc_input = input(
+            f"Description [{recurring.description or 'N/A'}]: "
+        ).strip()
+        description = desc_input if desc_input else recurring.description
+
+        return {
+            "action": "edit_template",
+            "amount": amount,
+            "category": category,
+            "description": description,
+        }
+
+    @staticmethod
+    def _get_recurring_skip_date() -> Optional[Dict]:
+        """Get a date to skip for a recurring transaction."""
+        date_str = input("Enter date to skip (YYYY-MM-DD): ").strip()
+        try:
+            skip_date = datetime.strptime(date_str, "%Y-%m-%d")
+            return {"action": "skip_date", "date": skip_date}
+        except ValueError:
+            Display.show_error("Invalid date format")
+            return None
+
+    @staticmethod
+    def get_recurring_delete_option() -> Optional[int]:
+        """Get deletion scope for a recurring transaction."""
+        print("\nDelete Options:")
+        print("   1. Delete template only (keep generated transactions)")
+        print("   2. Delete template + future generated transactions")
+        print("   3. Delete template + ALL generated transactions")
+        print("   0. Cancel")
+        choice = input("Select option: ").strip()
+
+        if choice in ("0", "1", "2", "3"):
+            return int(choice)
+        Display.show_error("Invalid option")
+        return None

@@ -24,6 +24,7 @@ class Transaction:
     description: str = ""
     datetime_created: datetime = field(default_factory=datetime.now)
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
+    recurrence_id: Optional[str] = None
     __is_transfer: bool = False
     
     @property
@@ -56,9 +57,12 @@ class Transaction:
     def detailed_str(self) -> str:
         """Return detailed string representation."""
         sign = "+" if self.transaction_type == TransactionType.INCOME else "-"
+        type_label = 'Income' if self.transaction_type == TransactionType.INCOME else 'Expense'
+        if self.recurrence_id:
+            type_label += " (Recurring)"
         return (
             f"ID: {self.id}\n"
-            f"Type: {self.transaction_type.value} ({'Income' if self.transaction_type == TransactionType.INCOME else 'Expense'})\n"
+            f"Type: {self.transaction_type.value} ({type_label})\n"
             f"Amount: {sign}{abs(self.amount):.2f}\n"
             f"Category: {self.category}\n"
             f"Description: {self.description or 'N/A'}\n"
