@@ -6,15 +6,15 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+from typing import Any, Dict
+
 import uvicorn
 from fastapi import FastAPI
-from typing import Any, Dict
 
 import logger_setup
 from api.request_handler import RequestHandler
 from wallet.wallet import Wallet
 from wallet.wallet_manager import WalletManager
-
 
 logger = logging.getLogger(__name__)
 
@@ -196,8 +196,3 @@ def delete_recurring(index: int, delete_option: int = 1):
             "data": {"index": index, "delete_option": delete_option},
         }
     )
-
-
-if __name__ == "__main__":
-    logger.info("Starting Budget Planner API server")
-    uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=False)

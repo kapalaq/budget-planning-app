@@ -5,10 +5,10 @@ dispatches each action to the FastAPI backend over HTTP.
 """
 
 import logging
+import os
 
 import requests
 from dotenv import load_dotenv
-import os
 
 load_dotenv()
 
