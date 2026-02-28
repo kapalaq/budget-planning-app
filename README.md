@@ -24,12 +24,17 @@ Start the backend and frontend in two separate terminals.
 
 **Terminal 1 — backend:**
 ```bash
-cd app && uvicorn app:app --host 0.0.0.0 --port 8080
+cd app/backend && uvicorn app:app --host 0.0.0.0 --port 8080
 ```
 
 **Terminal 2 — CLI frontend:**
 ```bash
-python app/main.py
+cd app && python backend/main.py
+```
+
+**Terminal 3 — Telegram frontend:**
+```bash
+cd app && python -m telegram.bot
 ```
 
 The backend URL can be configured via the `BACKEND_URL` environment variable (default: `http://localhost:8080`).
@@ -39,7 +44,7 @@ The backend URL can be configured via the `BACKEND_URL` environment variable (de
 ## Architecture
 
 ```
-CLI Frontend (main.py + ui/)
+CLI Frontend (main.py + ui/) || Telegram Frontend(telegram/)
         │  HTTP (GET/POST/PUT/DELETE)
         ▼
 FastAPI Backend (app.py)
