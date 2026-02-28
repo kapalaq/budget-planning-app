@@ -1,7 +1,8 @@
 """Category management for transactions."""
-from typing import Set
-from models.transaction import TransactionType
 
+from typing import Set
+
+from models.transaction import TransactionType
 
 # Reserved category name for transfers - cannot be used for regular transactions
 TRANSFER_CATEGORY = "Transfer"
@@ -18,7 +19,15 @@ class CategoryManager:
     def _initialize_default_categories(self):
         """Initialize with some default categories."""
         self._income_categories = {"Salary", "Freelance", "Investment", "Gift", "Other"}
-        self._expense_categories = {"Food", "Transport", "Entertainment", "Bills", "Shopping", "Health", "Other"}
+        self._expense_categories = {
+            "Food",
+            "Transport",
+            "Entertainment",
+            "Bills",
+            "Shopping",
+            "Health",
+            "Other",
+        }
 
     def get_categories(self, transaction_type: TransactionType) -> Set[str]:
         """Get categories for a specific transaction type (excludes Transfer)."""

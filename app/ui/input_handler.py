@@ -1,6 +1,7 @@
 """Input handling utilities for the budget planner (frontend side)."""
+
 from datetime import datetime
-from typing import Optional, Tuple, Set, Dict, List
+from typing import Dict, List, Optional, Tuple
 
 
 class InputHandler:
@@ -26,7 +27,9 @@ class InputHandler:
             return None
 
     @staticmethod
-    def get_category(categories: List[str], transaction_type_name: str) -> Optional[str]:
+    def get_category(
+        categories: List[str], transaction_type_name: str
+    ) -> Optional[str]:
         """Get a category from user, with option to add new.
 
         Args:
@@ -73,9 +76,7 @@ class InputHandler:
     @staticmethod
     def get_datetime() -> Optional[str]:
         """Get datetime from user, defaulting to now. Returns ISO string or None for now."""
-        date_str = input(
-            "Enter date (YYYY-MM-DD) or press Enter for today: "
-        ).strip()
+        date_str = input("Enter date (YYYY-MM-DD) or press Enter for today: ").strip()
 
         if not date_str:
             return None  # caller will use current time
@@ -171,9 +172,7 @@ class InputHandler:
                 category = current["category"]
 
         # Description
-        desc_input = input(
-            f"Description [{current['description'] or 'N/A'}]: "
-        ).strip()
+        desc_input = input(f"Description [{current['description'] or 'N/A'}]: ").strip()
         description = desc_input if desc_input else current["description"]
 
         # Date
@@ -227,9 +226,7 @@ class InputHandler:
             amount = current["amount"]
 
         # Description
-        desc_input = input(
-            f"Description [{current['description'] or 'N/A'}]: "
-        ).strip()
+        desc_input = input(f"Description [{current['description'] or 'N/A'}]: ").strip()
         description = desc_input if desc_input else current["description"]
 
         # Date
@@ -348,9 +345,7 @@ class InputHandler:
         """Get deposit-specific inputs."""
         print("\n--- Deposit Settings ---")
 
-        rate_str = input(
-            "Enter annual interest rate (e.g., 12.5 for 12.5%): "
-        ).strip()
+        rate_str = input("Enter annual interest rate (e.g., 12.5 for 12.5%): ").strip()
         try:
             interest_rate = float(rate_str)
             if interest_rate <= 0:
@@ -371,9 +366,7 @@ class InputHandler:
             return None
 
         cap_choice = (
-            input("Enable interest capitalization? (y/n, default: n): ")
-            .strip()
-            .lower()
+            input("Enable interest capitalization? (y/n, default: n): ").strip().lower()
         )
         capitalization = cap_choice == "y"
 
@@ -1043,9 +1036,7 @@ class InputHandler:
         if choice == "0":
             return None
         elif choice == "1":
-            return InputHandler._get_recurring_template_edit(
-                recurring_data, categories
-            )
+            return InputHandler._get_recurring_template_edit(recurring_data, categories)
         elif choice == "2":
             return InputHandler._get_recurring_skip_date()
         elif choice == "3":
@@ -1078,9 +1069,7 @@ class InputHandler:
         change_cat = input("Change category? (y/n): ").strip().lower()
         if change_cat == "y":
             type_name = (
-                "Income"
-                if recurring_data["transaction_type"] == "+"
-                else "Expense"
+                "Income" if recurring_data["transaction_type"] == "+" else "Expense"
             )
             category = InputHandler.get_category(categories, type_name)
             if category is None:

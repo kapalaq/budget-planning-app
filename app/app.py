@@ -1,9 +1,11 @@
 """Main application class for the budget planner."""
+
 import logging
-from wallet.wallet import Wallet
-from wallet.wallet_manager import WalletManager
+
 from api.request_handler import RequestHandler
 from ui.display import Display
+from wallet.wallet import Wallet
+from wallet.wallet_manager import WalletManager
 
 logger = logging.getLogger(__name__)
 

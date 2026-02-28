@@ -5,8 +5,9 @@ This is the main entry point for the application.
 Run with: python main.py
 """
 
-import sys
 import os
+import sys
+
 # Add the project root to the path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -19,5 +20,5 @@ def main():
     app.run()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

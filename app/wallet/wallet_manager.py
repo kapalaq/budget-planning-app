@@ -1,12 +1,13 @@
 """Wallet Manager module to work with different wallets."""
+
 from datetime import datetime
 from typing import List, Optional
 
 from models.category import CategoryManager
 from models.recurrence_scheduler import RecurrenceScheduler
-from wallet.wallet import Wallet
-from models.transaction import Transfer, TransactionType
+from models.transaction import TransactionType, Transfer
 from strategies.sorting import WalletSortingContext
+from wallet.wallet import Wallet
 
 
 class WalletManager:
@@ -87,8 +88,13 @@ class WalletManager:
         wallet_to_delete.delete()
         return True
 
-    def update_wallet(self, old_name: str, new_name: str = None,
-                       currency: str = None, description: str = None) -> bool:
+    def update_wallet(
+        self,
+        old_name: str,
+        new_name: str = None,
+        currency: str = None,
+        description: str = None,
+    ) -> bool:
         """Update a wallet by its name."""
         wallet = self._wallets.get(old_name.lower())
         if wallet is None:
@@ -123,7 +129,7 @@ class WalletManager:
         to_wallet_name: str,
         amount: float,
         description: str = "",
-        datetime_created: datetime = None
+        datetime_created: datetime = None,
     ) -> bool:
         """Transfer money between two wallets.
 

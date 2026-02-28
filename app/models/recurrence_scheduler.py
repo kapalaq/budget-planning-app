@@ -1,6 +1,7 @@
 """Recurrence scheduler that materializes recurring transactions."""
+
 from datetime import datetime
-from typing import Dict, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict, List, Optional
 
 from models.recurrence import RecurringTransaction
 
@@ -31,9 +32,7 @@ class RecurrenceScheduler:
         """Get all recurring transactions."""
         return list(self._recurring_transactions.values())
 
-    def get_recurring_for_wallet(
-        self, wallet_name: str
-    ) -> List[RecurringTransaction]:
+    def get_recurring_for_wallet(self, wallet_name: str) -> List[RecurringTransaction]:
         """Get all recurring transactions for a specific wallet."""
         return [
             r

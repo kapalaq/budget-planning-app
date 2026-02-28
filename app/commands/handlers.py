@@ -1,19 +1,20 @@
 """Command handlers for the budget planner using Command Pattern."""
+
 from abc import ABC, abstractmethod
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     from wallet.wallet_manager import WalletManager
-from wallet.wallet import Wallet, DepositWallet, WalletType
-from models.transaction import Transaction, Transfer, TransactionType
-from models.recurrence import RecurringTransaction
+
+from models.transaction import Transaction, TransactionType, Transfer
 from ui.display import Display
 from ui.input_handler import InputHandler
+from wallet.wallet import DepositWallet, Wallet, WalletType
 
 
 class Command(ABC):
     """Abstract base class for commands."""
-    
+
     @abstractmethod
     def execute(self) -> bool:
         """Execute the command. Returns True if app should continue."""
@@ -32,7 +33,9 @@ class AddTransactionCommand(Command):
     def execute(self) -> bool:
         wallet = self._wallet_manager.current_wallet
         if not wallet:
-            Display.show_error("No wallet selected. Create or switch to a wallet first.")
+            Display.show_error(
+                "No wallet selected. Create or switch to a wallet first."
+            )
             return True
 
         categories = wallet.category_manager.get_categories(self._transaction_type)
@@ -114,7 +117,9 @@ class EditTransactionCommand(Command):
                 Display.show_info("Edit cancelled")
         else:
             # Regular transaction edit
-            categories = wallet.category_manager.get_categories(transaction.transaction_type)
+            categories = wallet.category_manager.get_categories(
+                transaction.transaction_type
+            )
             updated = InputHandler.get_edit_input(transaction, categories)
 
             if updated:
@@ -176,7 +181,9 @@ class TransferCommand(Command):
     def execute(self) -> bool:
         wallet = self._wallet_manager.current_wallet
         if not wallet:
-            Display.show_error("No wallet selected. Create or switch to a wallet first.")
+            Display.show_error(
+                "No wallet selected. Create or switch to a wallet first."
+            )
             return True
 
         if self._wallet_manager.wallet_count() < 2:
@@ -266,7 +273,9 @@ class FilterCommand(Command):
             # Category filter
             all_categories = set()
             income_cats = wallet.category_manager.get_categories(TransactionType.INCOME)
-            expense_cats = wallet.category_manager.get_categories(TransactionType.EXPENSE)
+            expense_cats = wallet.category_manager.get_categories(
+                TransactionType.EXPENSE
+            )
             all_categories.update(income_cats)
             all_categories.update(expense_cats)
             all_categories.add("Transfer")
@@ -366,7 +375,7 @@ class ShowPercentagesCommand(Command):
 
 class HelpCommand(Command):
     """Command to show help."""
-    
+
     def execute(self) -> bool:
         Display.show_help()
         return True
@@ -374,7 +383,7 @@ class HelpCommand(Command):
 
 class QuitCommand(Command):
     """Command to quit the application."""
-    
+
     def execute(self) -> bool:
         Display.show_info("Thank you for using Budget Planner. Goodbye!")
         return False
@@ -456,7 +465,9 @@ class AddWalletCommand(Command):
                 )
 
             if self._wallet_manager.add_wallet(new_wallet):
-                Display.show_success(f"Wallet '{new_wallet.name}' created successfully!")
+                Display.show_success(
+                    f"Wallet '{new_wallet.name}' created successfully!"
+                )
             else:
                 Display.show_error(
                     f"Wallet with name '{wallet_data['name']}' already exists"
@@ -580,7 +591,9 @@ class AddRecurringCommand(Command):
     def execute(self) -> bool:
         wallet = self._wallet_manager.current_wallet
         if not wallet:
-            Display.show_error("No wallet selected. Create or switch to a wallet first.")
+            Display.show_error(
+                "No wallet selected. Create or switch to a wallet first."
+            )
             return True
 
         categories = wallet.category_manager.get_categories(self._transaction_type)
@@ -594,8 +607,7 @@ class AddRecurringCommand(Command):
             # Immediately materialize any due transactions
             count = scheduler.process_due_transactions()
             Display.show_success(
-                f"Recurring transaction created! "
-                f"({count} transaction(s) generated)"
+                f"Recurring transaction created! " f"({count} transaction(s) generated)"
             )
         else:
             Display.show_error("Recurring transaction cancelled")

@@ -1,9 +1,10 @@
 """Transaction model representing a single financial transaction."""
+
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Optional, TYPE_CHECKING
-import uuid
+from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     from wallet.wallet import Wallet
@@ -11,6 +12,7 @@ if TYPE_CHECKING:
 
 class TransactionType(Enum):
     """Enum representing transaction types."""
+
     INCOME = "+"
     EXPENSE = "-"
 
@@ -18,6 +20,7 @@ class TransactionType(Enum):
 @dataclass
 class Transaction:
     """Represents a single financial transaction."""
+
     amount: float
     transaction_type: TransactionType
     category: str
@@ -26,14 +29,14 @@ class Transaction:
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     recurrence_id: Optional[str] = None
     __is_transfer: bool = False
-    
+
     @property
     def signed_amount(self) -> float:
         """Return amount with sign based on transaction type."""
         if self.transaction_type == TransactionType.EXPENSE:
             return -abs(self.amount)
         return abs(self.amount)
-    
+
     def __str__(self) -> str:
         sign = "+" if self.transaction_type == TransactionType.INCOME else "-"
         return f"{self.category} - {sign}{abs(self.amount):.2f}"
@@ -57,7 +60,9 @@ class Transaction:
     def detailed_str(self) -> str:
         """Return detailed string representation."""
         sign = "+" if self.transaction_type == TransactionType.INCOME else "-"
-        type_label = 'Income' if self.transaction_type == TransactionType.INCOME else 'Expense'
+        type_label = (
+            "Income" if self.transaction_type == TransactionType.INCOME else "Expense"
+        )
         if self.recurrence_id:
             type_label += " (Recurring)"
         return (
@@ -73,13 +78,16 @@ class Transaction:
 @dataclass
 class Transfer(Transaction):
     """Represents a single transfer transaction between wallets."""
+
     source: "Wallet" = field(
         default=None,
-        metadata={"description": "Reference on wallet that this transfer transaction belongs to."}
+        metadata={
+            "description": "Reference on wallet that this transfer transaction belongs to."
+        },
     )
     connected: "Transfer" = field(
         default=None,
-        metadata={"description": "Reference on connected transaction entity."}
+        metadata={"description": "Reference on connected transaction entity."},
     )
     _is_transfer: bool = field(default=True, repr=False)
     _syncing: bool = field(default=False, repr=False)
@@ -113,13 +121,13 @@ class Transfer(Transaction):
         """Updates attributes of this transaction and syncs with connected."""
         try:
             # Update amount if provided
-            if hasattr(transaction, 'amount'):
+            if hasattr(transaction, "amount"):
                 self.amount = transaction.amount
             # Update description if provided
-            if hasattr(transaction, 'description'):
+            if hasattr(transaction, "description"):
                 self.description = transaction.description
             # Update datetime if provided
-            if hasattr(transaction, 'datetime_created'):
+            if hasattr(transaction, "datetime_created"):
                 self.datetime_created = transaction.datetime_created
             # Category stays as "Transfer" - ignore any category changes
             self.category = "Transfer"
@@ -136,9 +144,17 @@ class Transfer(Transaction):
         # Determine source and target wallet names
         if self.transaction_type == TransactionType.EXPENSE:
             from_wallet = self.source.name if self.source else "Unknown"
-            to_wallet = self.connected.source.name if self.connected and self.connected.source else "Unknown"
+            to_wallet = (
+                self.connected.source.name
+                if self.connected and self.connected.source
+                else "Unknown"
+            )
         else:
-            from_wallet = self.connected.source.name if self.connected and self.connected.source else "Unknown"
+            from_wallet = (
+                self.connected.source.name
+                if self.connected and self.connected.source
+                else "Unknown"
+            )
             to_wallet = self.source.name if self.source else "Unknown"
 
         return (
@@ -155,8 +171,16 @@ class Transfer(Transaction):
         """Return string representation."""
         sign = "+" if self.transaction_type == TransactionType.INCOME else "-"
         if self.transaction_type == TransactionType.EXPENSE:
-            target = self.connected.source.name if self.connected and self.connected.source else "?"
+            target = (
+                self.connected.source.name
+                if self.connected and self.connected.source
+                else "?"
+            )
             return f"Transfer to {target} - {sign}{abs(self.amount):.2f}"
         else:
-            source = self.connected.source.name if self.connected and self.connected.source else "?"
+            source = (
+                self.connected.source.name
+                if self.connected and self.connected.source
+                else "?"
+            )
             return f"Transfer from {source} - {sign}{abs(self.amount):.2f}"

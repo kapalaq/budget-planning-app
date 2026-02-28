@@ -1,9 +1,10 @@
 """Filtering strategies for transactions using Strategy Pattern."""
+
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
-from typing import List, Optional, Set, TYPE_CHECKING
+from typing import TYPE_CHECKING, List, Optional, Set
 
-from models.transaction import Transaction, Transfer, TransactionType
+from models.transaction import Transaction, TransactionType, Transfer
 
 if TYPE_CHECKING:
     pass
@@ -237,7 +238,9 @@ class CategoryFilter(FilterStrategy):
 class TransactionTypeFilter(FilterStrategy):
     """Filter transactions by type (income, expense, or transfer)."""
 
-    def __init__(self, transaction_type: TransactionType, include_transfers: bool = True):
+    def __init__(
+        self, transaction_type: TransactionType, include_transfers: bool = True
+    ):
         """
         Args:
             transaction_type: The type to filter for (INCOME or EXPENSE).

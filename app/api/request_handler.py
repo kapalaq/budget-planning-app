@@ -1,40 +1,39 @@
 """Request handler - middleground between Display (frontend) and business logic (backend)."""
+
 from collections import defaultdict
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List
 
-from models.transaction import Transaction, Transfer, TransactionType
 from models.recurrence import (
+    EndCondition,
+    Frequency,
     RecurrenceRule,
     RecurringTransaction,
-    Frequency,
     Weekday,
-    EndCondition,
 )
-from wallet.wallet import Wallet, DepositWallet, WalletType
+from models.transaction import Transaction, TransactionType, Transfer
 from strategies.filtering import (
-    FilteringContext,
-    TodayFilter,
-    LastWeekFilter,
-    LastMonthFilter,
-    ThisMonthFilter,
-    LastYearFilter,
-    ThisYearFilter,
+    AmountRangeFilter,
+    CategoryFilter,
     DateRangeFilter,
-    IncomeOnlyFilter,
+    DescriptionFilter,
     ExpenseOnlyFilter,
-    TransferOnlyFilter,
+    IncomeOnlyFilter,
+    LargeTransactionsFilter,
+    LastMonthFilter,
+    LastWeekFilter,
+    LastYearFilter,
+    NonRecurringFilter,
     NoTransfersFilter,
     RecurringOnlyFilter,
-    NonRecurringFilter,
-    CategoryFilter,
-    AmountRangeFilter,
-    LargeTransactionsFilter,
     SmallTransactionsFilter,
-    DescriptionFilter,
+    ThisMonthFilter,
+    ThisYearFilter,
+    TodayFilter,
+    TransferOnlyFilter,
 )
 from strategies.sorting import SortingContext, WalletSortingContext
-
+from wallet.wallet import DepositWallet, Wallet, WalletType
 from wallet.wallet_manager import WalletManager
 
 
@@ -260,9 +259,7 @@ class RequestHandler:
         income_pct = {}
         expense_pct = {}
         if total_income > 0:
-            income_pct = {
-                c: (a / total_income) * 100 for c, a in income_by_cat.items()
-            }
+            income_pct = {c: (a / total_income) * 100 for c, a in income_by_cat.items()}
         if total_expense > 0:
             expense_pct = {
                 c: (a / total_expense) * 100 for c, a in expense_by_cat.items()
@@ -282,9 +279,7 @@ class RequestHandler:
                 "filter_count": len(transactions),
                 "total_count": wallet.transaction_count(),
                 "sorting_strategy": wallet.sorting_context.current_strategy.name,
-                "transactions": [
-                    self._serialize_transaction(t) for t in transactions
-                ],
+                "transactions": [self._serialize_transaction(t) for t in transactions],
                 "income_by_category": dict(income_by_cat),
                 "expense_by_category": dict(expense_by_cat),
                 "income_percentages": income_pct,
@@ -323,7 +318,9 @@ class RequestHandler:
         ]
         return {
             "status": "success",
-            "data": {"commands": [{"command": c, "description": d} for c, d in commands]},
+            "data": {
+                "commands": [{"command": c, "description": d} for c, d in commands]
+            },
         }
 
     def _process_recurring(self, data: dict) -> dict:
@@ -549,9 +546,13 @@ class RequestHandler:
                 end = datetime.fromisoformat(end)
             return DateRangeFilter(start_date=start, end_date=end)
         elif ft == "income_only":
-            return IncomeOnlyFilter(include_transfers=data.get("include_transfers", True))
+            return IncomeOnlyFilter(
+                include_transfers=data.get("include_transfers", True)
+            )
         elif ft == "expense_only":
-            return ExpenseOnlyFilter(include_transfers=data.get("include_transfers", True))
+            return ExpenseOnlyFilter(
+                include_transfers=data.get("include_transfers", True)
+            )
         elif ft == "transfers_only":
             return TransferOnlyFilter()
         elif ft == "no_transfers":
@@ -628,8 +629,7 @@ class RequestHandler:
             "status": "success",
             "data": {
                 "filters": [
-                    {"name": f.name, "description": f.description}
-                    for f in filters
+                    {"name": f.name, "description": f.description} for f in filters
                 ]
             },
         }
@@ -814,9 +814,7 @@ class RequestHandler:
         if end == "on_date":
             rule.end_condition = EndCondition.ON_DATE
             ed = rule_data["end_date"]
-            rule.end_date = (
-                datetime.fromisoformat(ed) if isinstance(ed, str) else ed
-            )
+            rule.end_date = datetime.fromisoformat(ed) if isinstance(ed, str) else ed
         elif end == "after_count":
             rule.end_condition = EndCondition.AFTER_COUNT
             rule.max_occurrences = rule_data["max_occurrences"]

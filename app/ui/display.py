@@ -3,7 +3,8 @@
 Collects user input (via InputHandler), sends dict requests to the
 RequestHandler middleground, receives dict responses, and renders output.
 """
-from typing import Dict, List, Optional, TYPE_CHECKING
+
+from typing import TYPE_CHECKING
 
 from ui.input_handler import InputHandler
 
@@ -159,13 +160,34 @@ class Display:
         print("\n[*] Available Commands:")
         # Group headers
         groups = {
-            "Transaction": ["+", "-", "transfer", "show <N>", "edit <N>",
-                            "delete <N>", "sort", "filter", "percent"],
-            "Wallet": ["wallets", "add_wallet", "wallet <name>",
-                       "edit_wallet <name>", "delete_wallet <name>",
-                       "switch <name>", "sort_wallets"],
-            "Recurring": ["+r", "-r", "recurring", "show_rec <N>",
-                          "edit_rec <N>", "delete_rec <N>"],
+            "Transaction": [
+                "+",
+                "-",
+                "transfer",
+                "show <N>",
+                "edit <N>",
+                "delete <N>",
+                "sort",
+                "filter",
+                "percent",
+            ],
+            "Wallet": [
+                "wallets",
+                "add_wallet",
+                "wallet <name>",
+                "edit_wallet <name>",
+                "delete_wallet <name>",
+                "switch <name>",
+                "sort_wallets",
+            ],
+            "Recurring": [
+                "+r",
+                "-r",
+                "recurring",
+                "show_rec <N>",
+                "edit_rec <N>",
+                "delete_rec <N>",
+            ],
             "General": ["home", "help", "quit"],
         }
         cmd_map = {c["command"]: c["description"] for c in cmds}
@@ -502,15 +524,11 @@ class Display:
             self._show_info("Deletion cancelled")
             return
 
-        resp = self._handler.handle(
-            {"action": "delete_wallet", "data": {"name": name}}
-        )
+        resp = self._handler.handle({"action": "delete_wallet", "data": {"name": name}})
         self._render_message(resp)
 
     def _handle_switch_wallet(self, name: str):
-        resp = self._handler.handle(
-            {"action": "switch_wallet", "data": {"name": name}}
-        )
+        resp = self._handler.handle({"action": "switch_wallet", "data": {"name": name}})
         self._render_message(resp)
         if resp["status"] == "success":
             self._handle_dashboard()
@@ -567,7 +585,7 @@ class Display:
             return
 
         recurring_data = resp["data"]
-        wallet_name = recurring_data["wallet_name"]
+        # wallet_name = recurring_data["wallet_name"]
         tt = recurring_data["transaction_type"]
 
         cat_resp = self._handler.handle(
@@ -710,9 +728,7 @@ class Display:
         self._show_header("Transaction Details")
         sign = data["sign"]
         if data["is_transfer"]:
-            direction = (
-                "Outgoing" if data["transaction_type"] == "-" else "Incoming"
-            )
+            direction = "Outgoing" if data["transaction_type"] == "-" else "Incoming"
             print(f"ID: {data['id']}")
             print(f"Type: Transfer ({direction})")
             print(f"Amount: {sign}{abs(data['amount']):.2f}")
@@ -751,17 +767,13 @@ class Display:
             print("\n   --- Deposit Details ---")
             print(f"   Interest Rate:    {dep['interest_rate']:.2f}% per year")
             print(f"   Term:             {dep['term_months']} months")
-            print(
-                f"   Capitalization:   {'Yes' if dep['capitalization'] else 'No'}"
-            )
+            print(f"   Capitalization:   {'Yes' if dep['capitalization'] else 'No'}")
             print(f"   Maturity Date:    {dep['maturity_date']}")
             if dep["is_matured"]:
                 print("   Status:           MATURED")
             else:
                 print(f"   Days to Maturity: {dep['days_until_maturity']} days")
-            print(
-                f"\n   Principal:        {dep['principal']:.2f} {data['currency']}"
-            )
+            print(f"\n   Principal:        {dep['principal']:.2f} {data['currency']}")
             print(
                 f"   Accrued Interest: {dep['accrued_interest']:.2f} "
                 f"{data['currency']}"

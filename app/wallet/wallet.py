@@ -1,22 +1,24 @@
 """Wallet class that manages all transactions."""
-import uuid
+
 import logging
+import uuid
+from collections import defaultdict
 from datetime import datetime
 from enum import Enum
-from typing import List, Dict, Optional
 from functools import singledispatchmethod
-from collections import defaultdict
+from typing import Dict, List, Optional
 
-from models.transaction import Transaction, Transfer, TransactionType
 from models.category import CategoryManager
-from strategies.sorting import SortingContext
+from models.transaction import Transaction, TransactionType, Transfer
 from strategies.filtering import FilteringContext
+from strategies.sorting import SortingContext
 
 logger = logging.getLogger(__name__)
 
 
 class WalletType(Enum):
     """Enumeration for wallet types."""
+
     REGULAR = "regular"
     DEPOSIT = "deposit"
 
@@ -30,8 +32,8 @@ class Wallet:
         self,
         name: str,
         starting_value: float = None,
-        currency: str = 'KZT',
-        description: str = '',
+        currency: str = "KZT",
+        description: str = "",
     ):
         """
         Args:
@@ -60,13 +62,13 @@ class Wallet:
             self.__initial_transaction = Transaction(
                 amount=starting_value,
                 transaction_type=TransactionType.INCOME,
-                category='Перенос остатка'
+                category="Перенос остатка",
             )
 
     @property
     def category_manager(self) -> CategoryManager:
         return self.__category_manager
-    
+
     @property
     def sorting_context(self) -> SortingContext:
         return self.__sorting_context
@@ -102,8 +104,7 @@ class Wallet:
     def add_transaction(self, transaction: Transaction) -> None:
         """Add a transaction to the wallet."""
         self.__category_manager.add_category(
-            transaction.category, 
-            transaction.transaction_type
+            transaction.category, transaction.transaction_type
         )
 
         # Update 'total_' values on fly.
@@ -124,7 +125,9 @@ class Wallet:
         """Get a transaction by its ID."""
         return self.__transactions.get(index, None)
 
-    def update_transaction(self, index: Optional[int | str], updated: Transaction) -> bool:
+    def update_transaction(
+        self, index: Optional[int | str], updated: Transaction
+    ) -> bool:
         """Update a transaction by its display index or ID.
 
         For Transfer transactions, this will also synchronize the connected transaction.
@@ -155,7 +158,9 @@ class Wallet:
             return result
         return False
 
-    def delete_transaction(self, index: Optional[int | str], delete_connected: bool = True) -> bool:
+    def delete_transaction(
+        self, index: Optional[int | str], delete_connected: bool = True
+    ) -> bool:
         """Delete a transaction by its display index or ID.
 
         Args:
@@ -176,7 +181,9 @@ class Wallet:
                     transaction_to_delete.connected = None
                     connected.connected = None
                     # Delete the connected transaction from the other wallet
-                    connected.source.delete_transaction(connected.id, delete_connected=False)
+                    connected.source.delete_transaction(
+                        connected.id, delete_connected=False
+                    )
             del transaction_to_delete
             return True
         return False
@@ -190,7 +197,7 @@ class Wallet:
         transactions = list(self.__transactions.values())
         filtered = self.__filtering_context.filter(transactions)
         return self.__sorting_context.sort(filtered)
-    
+
     def get_category_totals(self) -> Dict[str, float]:
         """Get total amount per category (only non-zero)."""
         totals: Dict[str, float] = defaultdict(float)
@@ -300,9 +307,9 @@ class DepositWallet(Wallet):
         interest_rate: float,
         term_months: int,
         starting_value: float = None,
-        currency: str = 'KZT',
-        description: str = '',
-        capitalization: bool = False
+        currency: str = "KZT",
+        description: str = "",
+        capitalization: bool = False,
     ):
         """
         Args:
@@ -334,10 +341,12 @@ class DepositWallet(Wallet):
         day = min(self.datetime_created.day, self._days_in_month(year, month))
 
         return datetime(
-            year, month, day,
+            year,
+            month,
+            day,
             self.datetime_created.hour,
             self.datetime_created.minute,
-            self.datetime_created.second
+            self.datetime_created.second,
         )
 
     @staticmethod
@@ -411,7 +420,10 @@ class DepositWallet(Wallet):
         """Calculate the total interest at maturity."""
         if self.capitalization:
             # Compound interest
-            return self.principal * ((1 + self.monthly_rate) ** self.term_months) - self.principal
+            return (
+                self.principal * ((1 + self.monthly_rate) ** self.term_months)
+                - self.principal
+            )
         else:
             # Simple interest
             return self.principal * self.monthly_rate * self.term_months
@@ -423,14 +435,14 @@ class DepositWallet(Wallet):
     def get_deposit_summary(self) -> Dict:
         """Get a summary of the deposit details."""
         return {
-            'principal': self.principal,
-            'interest_rate': self.interest_rate,
-            'term_months': self.term_months,
-            'capitalization': self.capitalization,
-            'maturity_date': self.maturity_date,
-            'is_matured': self.is_matured,
-            'days_until_maturity': self.days_until_maturity,
-            'accrued_interest': self.calculate_accrued_interest(),
-            'total_interest': self.calculate_total_interest(),
-            'maturity_amount': self.calculate_maturity_amount(),
+            "principal": self.principal,
+            "interest_rate": self.interest_rate,
+            "term_months": self.term_months,
+            "capitalization": self.capitalization,
+            "maturity_date": self.maturity_date,
+            "is_matured": self.is_matured,
+            "days_until_maturity": self.days_until_maturity,
+            "accrued_interest": self.calculate_accrued_interest(),
+            "total_interest": self.calculate_total_interest(),
+            "maturity_amount": self.calculate_maturity_amount(),
         }

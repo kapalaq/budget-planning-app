@@ -1,4 +1,5 @@
 """Recurrence model for recurring transactions."""
+
 import calendar
 import uuid
 from dataclasses import dataclass, field
@@ -75,7 +76,6 @@ class RecurrenceRule:
 
         results = []
         # Find the start of the current interval week
-        current_weekday = Weekday(current.weekday())
         target_weekdays = sorted(self.weekdays, key=lambda w: w.value)
 
         # Check remaining days in current week
@@ -157,9 +157,7 @@ class RecurrenceRule:
         elif self.frequency == Frequency.WEEKLY:
             if self.weekdays:
                 # Generate week by week
-                current_week_start = rule_start - timedelta(
-                    days=rule_start.weekday()
-                )
+                current_week_start = rule_start - timedelta(days=rule_start.weekday())
                 target_weekdays = sorted(self.weekdays, key=lambda w: w.value)
 
                 week = 0
@@ -367,7 +365,9 @@ class RecurringTransaction:
         """Return a detailed string representation."""
         sign = "+" if self.transaction_type == TransactionType.INCOME else "-"
         status = "Active" if self.is_active else "Paused"
-        type_name = "Income" if self.transaction_type == TransactionType.INCOME else "Expense"
+        type_name = (
+            "Income" if self.transaction_type == TransactionType.INCOME else "Expense"
+        )
 
         lines = [
             f"ID: {self.id}",
@@ -383,9 +383,7 @@ class RecurringTransaction:
         ]
 
         if self.last_generated:
-            lines.append(
-                f"Last Generated: {self.last_generated.strftime('%Y-%m-%d')}"
-            )
+            lines.append(f"Last Generated: {self.last_generated.strftime('%Y-%m-%d')}")
 
         if self.exceptions:
             exc_dates = sorted(self.exceptions)
