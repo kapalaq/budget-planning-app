@@ -33,6 +33,17 @@ jobs:
       - name: Flake8
         run: flake8 --ignore=E203,E501,W291,W293,W391,F541,E402,W503 ./app
 
+  tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
       - name: Run tests
         run: |
           pip install pytest
