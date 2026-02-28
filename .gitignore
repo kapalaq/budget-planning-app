@@ -18,3 +18,6 @@
 
 # Logs
 **/*.log
+
+# Agent
+CLAUDE.md
