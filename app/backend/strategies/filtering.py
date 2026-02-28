@@ -104,11 +104,10 @@ class LastWeekFilter(DateRangeFilter):
     """Filter transactions from the last 7 days."""
 
     def __init__(self):
-        now = datetime.now()
-        week_ago = (now - timedelta(days=7)).replace(
+        week_ago = (datetime.now() - timedelta(days=7)).replace(
             hour=0, minute=0, second=0, microsecond=0
         )
-        super().__init__(start_date=week_ago, end_date=now)
+        super().__init__(start_date=week_ago)
 
     @property
     def name(self) -> str:
@@ -123,11 +122,10 @@ class LastMonthFilter(DateRangeFilter):
     """Filter transactions from the last 30 days."""
 
     def __init__(self):
-        now = datetime.now()
-        month_ago = (now - timedelta(days=30)).replace(
+        month_ago = (datetime.now() - timedelta(days=30)).replace(
             hour=0, minute=0, second=0, microsecond=0
         )
-        super().__init__(start_date=month_ago, end_date=now)
+        super().__init__(start_date=month_ago)
 
     @property
     def name(self) -> str:
@@ -142,11 +140,10 @@ class LastYearFilter(DateRangeFilter):
     """Filter transactions from the last 365 days."""
 
     def __init__(self):
-        now = datetime.now()
-        year_ago = (now - timedelta(days=365)).replace(
+        year_ago = (datetime.now() - timedelta(days=365)).replace(
             hour=0, minute=0, second=0, microsecond=0
         )
-        super().__init__(start_date=year_ago, end_date=now)
+        super().__init__(start_date=year_ago)
 
     @property
     def name(self) -> str:
@@ -161,9 +158,10 @@ class ThisMonthFilter(DateRangeFilter):
     """Filter transactions from the current calendar month."""
 
     def __init__(self):
-        now = datetime.now()
-        first_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        super().__init__(start_date=first_of_month, end_date=now)
+        first_of_month = datetime.now().replace(
+            day=1, hour=0, minute=0, second=0, microsecond=0
+        )
+        super().__init__(start_date=first_of_month)
 
     @property
     def name(self) -> str:
@@ -178,11 +176,10 @@ class ThisYearFilter(DateRangeFilter):
     """Filter transactions from the current calendar year."""
 
     def __init__(self):
-        now = datetime.now()
-        first_of_year = now.replace(
+        first_of_year = datetime.now().replace(
             month=1, day=1, hour=0, minute=0, second=0, microsecond=0
         )
-        super().__init__(start_date=first_of_year, end_date=now)
+        super().__init__(start_date=first_of_year)
 
     @property
     def name(self) -> str:
@@ -479,7 +476,7 @@ class CompositeFilter(FilterStrategy):
     def description(self) -> str:
         if not self._filters:
             return "No filters applied"
-        return " + ".join(f.name for f in self._filters)
+        return " + ".join(set(f.name for f in self._filters))
 
     @property
     def filters(self) -> List[FilterStrategy]:
