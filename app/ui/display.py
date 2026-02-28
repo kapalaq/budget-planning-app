@@ -20,10 +20,7 @@ class Display:
     def __init__(self, handler: "RequestHandler"):
         self._handler = handler
 
-    # ================================================================== #
-    #  Main loop                                                          #
-    # ================================================================== #
-
+    #  Main loop
     def run(self):
         """Main application loop."""
         self._show_welcome()
@@ -50,10 +47,7 @@ class Display:
         command_str = InputHandler.get_command()
         return self._route_command(command_str)
 
-    # ================================================================== #
-    #  Command routing                                                    #
-    # ================================================================== #
-
+    #  Command routing
     def _route_command(self, command_str: str) -> bool:
         """Parse a command string and dispatch to the appropriate handler."""
         cmd = command_str.strip()
@@ -136,10 +130,7 @@ class Display:
             f"Unknown command: '{cmd}'. Type 'help' for available commands."
         )
 
-    # ================================================================== #
-    #  Welcome / dashboard                                                #
-    # ================================================================== #
-
+    #  Welcome / dashboard
     def _show_welcome(self):
         print(f"\n{self.SEPARATOR}")
         print("   Welcome to Budget Planner!")
@@ -197,10 +188,7 @@ class Display:
                 desc = cmd_map.get(k, "")
                 print(f"   {k:<20s} - {desc}")
 
-    # ================================================================== #
-    #  Transaction handlers                                               #
-    # ================================================================== #
-
+    #  Transaction handlers
     def _handle_add_transaction(self, tt_name: str):
         tt_label = "Income" if tt_name == "income" else "Expense"
         resp = self._handler.handle(
@@ -305,10 +293,7 @@ class Display:
         resp = self._handler.handle({"action": "transfer", "data": form})
         self._render_message(resp)
 
-    # ================================================================== #
-    #  Sorting handlers                                                   #
-    # ================================================================== #
-
+    #  Sorting handlers
     def _handle_sort(self):
         resp = self._handler.handle({"action": "get_sorting_options", "data": {}})
         options = resp["data"]["options"]
@@ -335,10 +320,7 @@ class Display:
         )
         self._render_message(resp)
 
-    # ================================================================== #
-    #  Filter handler                                                     #
-    # ================================================================== #
-
+    #  Filter handler
     def _handle_filter(self):
         print("\n[?] Filter Options:")
         print("   1. Filter by Date")
@@ -413,10 +395,7 @@ class Display:
             resp = self._handler.handle({"action": "add_filter", "data": filter_data})
             self._render_message(resp)
 
-    # ================================================================== #
-    #  Percentages handler                                                #
-    # ================================================================== #
-
+    #  Percentages handler
     def _handle_percentages(self):
         resp = self._handler.handle({"action": "get_percentages", "data": {}})
         if resp["status"] == "error":
@@ -449,10 +428,7 @@ class Display:
             ):
                 print(f"   {cat}: {pct:.1f}%")
 
-    # ================================================================== #
-    #  Wallet handlers                                                    #
-    # ================================================================== #
-
+    #  Wallet handlers
     def _handle_wallets(self):
         resp = self._handler.handle({"action": "get_wallets", "data": {}})
         data = resp["data"]
@@ -533,10 +509,7 @@ class Display:
         if resp["status"] == "success":
             self._handle_dashboard()
 
-    # ================================================================== #
-    #  Recurring handlers                                                 #
-    # ================================================================== #
-
+    #  Recurring handlers
     def _handle_add_recurring(self, tt_name: str):
         tt_label = "Income" if tt_name == "income" else "Expense"
         resp = self._handler.handle(
@@ -626,10 +599,7 @@ class Display:
         )
         self._render_message(resp)
 
-    # ================================================================== #
-    #  Rendering helpers                                                  #
-    # ================================================================== #
-
+    #  Rendering helpers
     def _show_header(self, text: str):
         print(f"\n{self.SEPARATOR}")
         print(f"  {text}")

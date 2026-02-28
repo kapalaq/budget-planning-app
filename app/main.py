@@ -1,23 +1,28 @@
 """
-Budget Planner - A modular budget planning system.
+Budget Planner - CLI frontend.
 
-This is the main entry point for the application.
-Run with: python main.py
+Connects to the FastAPI backend and runs the terminal UI.
+
+Start the backend first:
+    uvicorn app:app --host 0.0.0.0 --port 8000
+
+Then run the CLI:
+    python main.py
 """
 
 import os
 import sys
 
-# Add the project root to the path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from app import BudgetPlannerApp
+from api.http_handler import HttpRequestHandler
+from ui.display import Display
 
 
 def main():
-    """Main entry point."""
-    app = BudgetPlannerApp()
-    app.run()
+    handler = HttpRequestHandler()
+    display = Display(handler)
+    display.run()
 
 
 if __name__ == "__main__":
