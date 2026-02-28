@@ -1,52 +1,16 @@
-"""Input handling utilities for the budget planner."""
+"""Input handling utilities for the budget planner (frontend side)."""
 from datetime import datetime
-from typing import Optional, Tuple, Set, Dict, List, TYPE_CHECKING
-from models.transaction import Transaction, TransactionType
-from models.recurrence import (
-    RecurrenceRule,
-    RecurringTransaction,
-    Frequency,
-    Weekday,
-    EndCondition,
-    WEEKDAY_NAMES,
-)
-from ui.display import Display
-from wallet.wallet import Wallet, WalletType
-from strategies.filtering import (
-    FilterStrategy,
-    FilteringContext,
-    TodayFilter,
-    LastWeekFilter,
-    LastMonthFilter,
-    ThisMonthFilter,
-    LastYearFilter,
-    ThisYearFilter,
-    DateRangeFilter,
-    IncomeOnlyFilter,
-    ExpenseOnlyFilter,
-    TransferOnlyFilter,
-    NoTransfersFilter,
-    RecurringOnlyFilter,
-    NonRecurringFilter,
-    CategoryFilter,
-    AmountRangeFilter,
-    LargeTransactionsFilter,
-    SmallTransactionsFilter,
-    DescriptionFilter,
-)
-
-if TYPE_CHECKING:
-    from wallet.wallet_manager import WalletManager
+from typing import Optional, Tuple, Set, Dict, List
 
 
 class InputHandler:
-    """Handles all user input operations."""
-    
+    """Handles all user input operations. Part of the frontend layer."""
+
     @staticmethod
     def get_command() -> str:
         """Get a command from user."""
-        return input("\n> ").strip().lower()
-    
+        return input("\n> ").strip()
+
     @staticmethod
     def get_amount() -> Optional[float]:
         """Get a valid amount from user."""
@@ -54,166 +18,244 @@ class InputHandler:
             amount_str = input("Enter amount: ").strip()
             amount = float(amount_str)
             if amount <= 0:
-                Display.show_error("Amount must be positive")
+                print("\n[!]Amount must be positive")
                 return None
             return amount
         except ValueError:
-            Display.show_error("Invalid amount. Please enter a number.")
+            print("\n[!]Invalid amount. Please enter a number.")
             return None
-    
+
     @staticmethod
-    def get_category(categories: Set[str], transaction_type: TransactionType) -> Optional[str]:
-        """Get a category from user, with option to add new."""
-        type_name = "Income" if transaction_type == TransactionType.INCOME else "Expense"
-        Display.show_categories(categories, type_name)
-        
-        sorted_categories = sorted(categories)
+    def get_category(categories: List[str], transaction_type_name: str) -> Optional[str]:
+        """Get a category from user, with option to add new.
+
+        Args:
+            categories: Sorted list of category names.
+            transaction_type_name: 'Income' or 'Expense' for display.
+        """
+        print(f"\n[*] Available {transaction_type_name} Categories:")
+        for i, cat in enumerate(categories, 1):
+            print(f"   {i}. {cat}")
+        print(f"   {len(categories) + 1}. [Add new category]")
+
         choice = input("Select category (number or name): ").strip()
-        
-        # Check if it's a number
+
         try:
             choice_num = int(choice)
-            if 1 <= choice_num <= len(sorted_categories):
-                return sorted_categories[choice_num - 1]
-            elif choice_num == len(sorted_categories) + 1:
-                # Add new category
+            if 1 <= choice_num <= len(categories):
+                return categories[choice_num - 1]
+            elif choice_num == len(categories) + 1:
                 new_category = input("Enter new category name: ").strip()
                 if new_category:
                     return new_category
-                Display.show_error("Category name cannot be empty")
+                print("\n[!]Category name cannot be empty")
                 return None
             else:
-                Display.show_error("Invalid selection")
+                print("\n[!]Invalid selection")
                 return None
         except ValueError:
-            # It's a name - check if it exists or add it
             if choice in categories:
                 return choice
-            # Ask if they want to add it
-            confirm = input(f"Category '{choice}' doesn't exist. Add it? (y/n): ").strip().lower()
-            if confirm == 'y':
+            confirm = (
+                input(f"Category '{choice}' doesn't exist. Add it? (y/n): ")
+                .strip()
+                .lower()
+            )
+            if confirm == "y":
                 return choice
             return None
-    
+
     @staticmethod
     def get_description() -> str:
         """Get an optional description from user."""
         return input("Enter description (optional): ").strip()
-    
+
     @staticmethod
-    def get_datetime() -> datetime:
-        """Get datetime from user, defaulting to now."""
-        date_str = input("Enter date (YYYY-MM-DD) or press Enter for today: ").strip()
-        
+    def get_datetime() -> Optional[str]:
+        """Get datetime from user, defaulting to now. Returns ISO string or None for now."""
+        date_str = input(
+            "Enter date (YYYY-MM-DD) or press Enter for today: "
+        ).strip()
+
         if not date_str:
-            return datetime.now()
-        
+            return None  # caller will use current time
+
         try:
-            return datetime.strptime(date_str, "%Y-%m-%d")
+            dt = datetime.strptime(date_str, "%Y-%m-%d")
+            return dt.isoformat()
         except ValueError:
-            Display.show_info("Invalid date format. Using current date.")
-            return datetime.now()
-    
+            print("\n[i]Invalid date format. Using current date.")
+            return None
+
     @staticmethod
     def get_transaction_input(
-        transaction_type: TransactionType,
-        categories: Set[str]
-    ) -> Optional[Transaction]:
-        """Get all inputs for a new transaction step by step."""
-        type_name = "Income" if transaction_type == TransactionType.INCOME else "Expense"
-        Display.show_header(f"New {type_name} Transaction")
-        
-        # Step 1: Amount
+        transaction_type_name: str,
+        categories: List[str],
+    ) -> Optional[Dict]:
+        """Get all inputs for a new transaction step by step.
+
+        Returns dict with keys: amount, category, description, date (ISO str or None).
+        """
+        print(f"\n{'=' * 50}")
+        print(f"  New {transaction_type_name} Transaction")
+        print("=" * 50)
+
         amount = InputHandler.get_amount()
         if amount is None:
             return None
-        
-        # Step 2: Category
-        category = InputHandler.get_category(categories, transaction_type)
+
+        category = InputHandler.get_category(categories, transaction_type_name)
         if category is None:
             return None
-        
-        # Step 3: Description
+
         description = InputHandler.get_description()
-        
-        # Step 4: Date
         date = InputHandler.get_datetime()
-        
-        return Transaction(
-            amount=amount,
-            transaction_type=transaction_type,
-            category=category,
-            description=description,
-            datetime_created=date
-        )
-    
+
+        return {
+            "amount": amount,
+            "category": category,
+            "description": description,
+            "date": date,
+        }
+
     @staticmethod
-    def get_edit_input(
-        transaction: Transaction,
-        categories: Set[str]
-    ) -> Optional[Transaction]:
-        """Get inputs for editing a transaction."""
-        Display.show_header("Edit Transaction")
-        Display.show_info("Press Enter to keep current value")
-        
+    def get_edit_input(current: Dict, categories: List[str]) -> Optional[Dict]:
+        """Get inputs for editing a transaction.
+
+        Args:
+            current: Dict with current transaction data (from serialisation).
+            categories: Available categories.
+
+        Returns dict with updated values.
+        """
+        print(f"\n{'=' * 50}")
+        print("  Edit Transaction")
+        print("=" * 50)
+        print("\n[i]Press Enter to keep current value")
+
         print(f"\nCurrent values:")
-        print(transaction.detailed_str())
+        print(f"   Amount: {current['sign']}{abs(current['amount']):.2f}")
+        print(f"   Category: {current['category']}")
+        print(f"   Description: {current['description'] or 'N/A'}")
+        print(f"   Date: {current['date']}")
         print()
-        
+
         # Amount
-        amount_str = input(f"Amount [{transaction.amount}]: ").strip()
+        amount_str = input(f"Amount [{current['amount']}]: ").strip()
         if amount_str:
             try:
                 amount = float(amount_str)
                 if amount <= 0:
-                    Display.show_error("Amount must be positive")
+                    print("\n[!]Amount must be positive")
                     return None
             except ValueError:
-                Display.show_error("Invalid amount")
+                print("\n[!]Invalid amount")
                 return None
         else:
-            amount = transaction.amount
-        
+            amount = current["amount"]
+
         # Category
-        print(f"\nCurrent category: {transaction.category}")
-        change_cat = input("Change category? (y/n): ").strip().lower()
-        if change_cat == 'y':
-            category = InputHandler.get_category(categories, transaction.transaction_type)
-            if category is None:
-                return None
+        if current.get("is_transfer"):
+            category = current["category"]
         else:
-            category = transaction.category
-        
+            print(f"\nCurrent category: {current['category']}")
+            change_cat = input("Change category? (y/n): ").strip().lower()
+            if change_cat == "y":
+                type_name = (
+                    "Income" if current["transaction_type"] == "+" else "Expense"
+                )
+                category = InputHandler.get_category(categories, type_name)
+                if category is None:
+                    return None
+            else:
+                category = current["category"]
+
         # Description
-        desc_input = input(f"Description [{transaction.description or 'N/A'}]: ").strip()
-        description = desc_input if desc_input else transaction.description
-        
+        desc_input = input(
+            f"Description [{current['description'] or 'N/A'}]: "
+        ).strip()
+        description = desc_input if desc_input else current["description"]
+
         # Date
-        current_date = transaction.datetime_created.strftime("%Y-%m-%d")
-        date_str = input(f"Date [{current_date}]: ").strip()
+        date_str = input(f"Date [{current['date']}]: ").strip()
         if date_str:
             try:
-                date = datetime.strptime(date_str, "%Y-%m-%d")
+                dt = datetime.strptime(date_str, "%Y-%m-%d")
+                date = dt.isoformat()
             except ValueError:
-                Display.show_info("Invalid date format. Keeping current date.")
-                date = transaction.datetime_created
+                print("\n[i]Invalid date format. Keeping current date.")
+                date = current["date"]
         else:
-            date = transaction.datetime_created
-        
-        return Transaction(
-            amount=amount,
-            transaction_type=transaction.transaction_type,
-            category=category,
-            description=description,
-            datetime_created=date
-        )
-    
+            date = current["date"]
+
+        return {
+            "amount": amount,
+            "category": category,
+            "description": description,
+            "date": date,
+        }
+
+    @staticmethod
+    def get_transfer_edit_input(current: Dict) -> Optional[Dict]:
+        """Get inputs for editing a transfer transaction."""
+        print(f"\n{'=' * 50}")
+        print("  Edit Transfer")
+        print("=" * 50)
+        print("\n[i]Press Enter to keep current value")
+        print("\n[i]Note: Transfer category and wallets cannot be changed")
+
+        print(f"\nCurrent values:")
+        print(f"   Amount: {current['sign']}{abs(current['amount']):.2f}")
+        print(f"   From: {current.get('from_wallet', '?')}")
+        print(f"   To: {current.get('to_wallet', '?')}")
+        print(f"   Description: {current['description'] or 'N/A'}")
+        print(f"   Date: {current['date']}")
+        print()
+
+        # Amount
+        amount_str = input(f"Amount [{current['amount']}]: ").strip()
+        if amount_str:
+            try:
+                amount = float(amount_str)
+                if amount <= 0:
+                    print("\n[!]Amount must be positive")
+                    return None
+            except ValueError:
+                print("\n[!]Invalid amount")
+                return None
+        else:
+            amount = current["amount"]
+
+        # Description
+        desc_input = input(
+            f"Description [{current['description'] or 'N/A'}]: "
+        ).strip()
+        description = desc_input if desc_input else current["description"]
+
+        # Date
+        date_str = input(f"Date [{current['date']}]: ").strip()
+        if date_str:
+            try:
+                dt = datetime.strptime(date_str, "%Y-%m-%d")
+                date = dt.isoformat()
+            except ValueError:
+                print("\n[i]Invalid date format. Keeping current date.")
+                date = current["date"]
+        else:
+            date = current["date"]
+
+        return {
+            "amount": amount,
+            "description": description,
+            "date": date,
+        }
+
     @staticmethod
     def confirm(message: str) -> bool:
         """Get a yes/no confirmation from user."""
         response = input(f"{message} (y/n): ").strip().lower()
-        return response == 'y'
-    
+        return response == "y"
+
     @staticmethod
     def parse_indexed_command(command: str) -> Tuple[Optional[str], Optional[int]]:
         """Parse commands like 'show 1', 'edit 2', 'delete 3'."""
@@ -236,54 +278,53 @@ class InputHandler:
             return None, None
         return parts[0], parts[1]
 
+    # ============= Wallet Input Methods =============
+
     @staticmethod
-    def get_wallet_type() -> Optional[WalletType]:
-        """Get wallet type from user."""
-        print("\n📁 Wallet Types:")
+    def get_wallet_type() -> Optional[str]:
+        """Get wallet type from user. Returns 'regular' or 'deposit'."""
+        print("\n[*] Wallet Types:")
         print("   1. Regular - Standard wallet for daily transactions")
         print("   2. Deposit - Savings with interest rate and maturity date")
 
         choice = input("Select wallet type (1/2): ").strip()
 
         if choice == "1":
-            return WalletType.REGULAR
+            return "regular"
         elif choice == "2":
-            return WalletType.DEPOSIT
+            return "deposit"
         else:
-            Display.show_error("Invalid selection")
+            print("\n[!]Invalid selection")
             return None
 
     @staticmethod
     def get_wallet_input() -> Optional[Dict]:
         """Get all inputs for a new wallet step by step."""
-        Display.show_header("New Wallet")
+        print(f"\n{'=' * 50}")
+        print("  New Wallet")
+        print("=" * 50)
 
-        # Step 1: Wallet type
         wallet_type = InputHandler.get_wallet_type()
         if wallet_type is None:
             return None
 
-        # Step 2: Name (required)
         name = input("Enter wallet name: ").strip()
         if not name:
-            Display.show_error("Wallet name cannot be empty")
+            print("\n[!]Wallet name cannot be empty")
             return None
 
-        # Step 3: Currency
         currency = input("Enter currency (default: KZT): ").strip()
         if not currency:
             currency = "KZT"
 
-        # Step 4: Starting balance
         starting_str = input("Enter starting balance (default: 0): ").strip()
         starting_value = None
         if starting_str:
             try:
                 starting_value = float(starting_str)
             except ValueError:
-                Display.show_info("Invalid amount. Starting with 0.")
+                print("\n[i]Invalid amount. Starting with 0.")
 
-        # Step 5: Description
         description = input("Enter description (optional): ").strip()
 
         result = {
@@ -294,8 +335,7 @@ class InputHandler:
             "wallet_type": wallet_type,
         }
 
-        # Step 6: Deposit-specific inputs
-        if wallet_type == WalletType.DEPOSIT:
+        if wallet_type == "deposit":
             deposit_data = InputHandler.get_deposit_input()
             if deposit_data is None:
                 return None
@@ -308,31 +348,34 @@ class InputHandler:
         """Get deposit-specific inputs."""
         print("\n--- Deposit Settings ---")
 
-        # Interest rate
-        rate_str = input("Enter annual interest rate (e.g., 12.5 for 12.5%): ").strip()
+        rate_str = input(
+            "Enter annual interest rate (e.g., 12.5 for 12.5%): "
+        ).strip()
         try:
             interest_rate = float(rate_str)
             if interest_rate <= 0:
-                Display.show_error("Interest rate must be positive")
+                print("\n[!]Interest rate must be positive")
                 return None
         except ValueError:
-            Display.show_error("Invalid interest rate")
+            print("\n[!]Invalid interest rate")
             return None
 
-        # Term in months
         term_str = input("Enter term in months: ").strip()
         try:
             term_months = int(term_str)
             if term_months <= 0:
-                Display.show_error("Term must be positive")
+                print("\n[!]Term must be positive")
                 return None
         except ValueError:
-            Display.show_error("Invalid term")
+            print("\n[!]Invalid term")
             return None
 
-        # Capitalization
-        cap_choice = input("Enable interest capitalization? (y/n, default: n): ").strip().lower()
-        capitalization = cap_choice == 'y'
+        cap_choice = (
+            input("Enable interest capitalization? (y/n, default: n): ")
+            .strip()
+            .lower()
+        )
+        capitalization = cap_choice == "y"
 
         return {
             "interest_rate": interest_rate,
@@ -341,180 +384,138 @@ class InputHandler:
         }
 
     @staticmethod
-    def get_wallet_edit_input(wallet: Wallet) -> Optional[Dict]:
-        """Get inputs for editing a wallet."""
-        Display.show_header("Edit Wallet")
-        Display.show_info("Press Enter to keep current value")
+    def get_wallet_edit_input(wallet_data: Dict) -> Optional[Dict]:
+        """Get inputs for editing a wallet.
+
+        Args:
+            wallet_data: Dict with current wallet data (from serialisation).
+        """
+        print(f"\n{'=' * 50}")
+        print("  Edit Wallet")
+        print("=" * 50)
+        print("\n[i]Press Enter to keep current value")
 
         print(f"\nCurrent values:")
-        print(f"   Name:        {wallet.name}")
-        print(f"   Currency:    {wallet.currency}")
-        print(f"   Description: {wallet.description or 'N/A'}")
+        print(f"   Name:        {wallet_data['name']}")
+        print(f"   Currency:    {wallet_data['currency']}")
+        print(f"   Description: {wallet_data['description'] or 'N/A'}")
         print()
 
-        # Name
-        new_name = input(f"Name [{wallet.name}]: ").strip()
+        new_name = input(f"Name [{wallet_data['name']}]: ").strip()
         if not new_name:
-            new_name = wallet.name
+            new_name = wallet_data["name"]
 
-        # Currency
-        new_currency = input(f"Currency [{wallet.currency}]: ").strip()
+        new_currency = input(f"Currency [{wallet_data['currency']}]: ").strip()
         if not new_currency:
-            new_currency = wallet.currency
+            new_currency = wallet_data["currency"]
 
-        # Description
-        new_desc = input(f"Description [{wallet.description or 'N/A'}]: ").strip()
+        new_desc = input(
+            f"Description [{wallet_data['description'] or 'N/A'}]: "
+        ).strip()
         if not new_desc:
-            new_desc = wallet.description
+            new_desc = wallet_data["description"]
 
         return {
-            "new_name": new_name if new_name != wallet.name else None,
-            "currency": new_currency if new_currency != wallet.currency else None,
+            "new_name": new_name if new_name != wallet_data["name"] else None,
+            "currency": (
+                new_currency if new_currency != wallet_data["currency"] else None
+            ),
             "description": new_desc,
         }
 
     @staticmethod
     def get_transfer_input(
-        current_wallet: Wallet,
-        available_wallets: List[Wallet]
+        from_wallet: Dict, target_wallets: List[Dict]
     ) -> Optional[Dict]:
         """Get all inputs for a new transfer.
 
         Args:
-            current_wallet: The wallet from which money is being transferred.
-            available_wallets: List of all available wallets (excluding current).
-
-        Returns:
-            Dictionary with transfer details or None if cancelled.
+            from_wallet: Dict with current wallet data.
+            target_wallets: List of dicts with available target wallets.
         """
-        Display.show_header("New Transfer")
-
-        # Filter out current wallet from available options
-        target_wallets = [w for w in available_wallets if w.name != current_wallet.name]
+        print(f"\n{'=' * 50}")
+        print("  New Transfer")
+        print("=" * 50)
 
         if not target_wallets:
-            Display.show_error("No other wallets available for transfer. Create another wallet first.")
+            print(
+                "\n[!]No other wallets available for transfer. "
+                "Create another wallet first."
+            )
             return None
 
-        # Step 1: Select target wallet
-        print(f"\nTransferring FROM: {current_wallet.name} ({current_wallet.currency})")
-        print(f"Available balance: {current_wallet.balance:.2f}")
+        print(f"\nTransferring FROM: {from_wallet['name']} ({from_wallet['currency']})")
+        print(f"Available balance: {from_wallet['balance']:.2f}")
         print("\nSelect target wallet:")
-        for i, wallet in enumerate(target_wallets, 1):
-            print(f"   {i}. {wallet.name} ({wallet.currency}) - Balance: {wallet.balance:.2f}")
+        for i, w in enumerate(target_wallets, 1):
+            print(
+                f"   {i}. {w['name']} ({w['currency']}) "
+                f"- Balance: {w['balance']:.2f}"
+            )
 
         choice = input("\nSelect wallet (number): ").strip()
         try:
             choice_num = int(choice)
             if 1 <= choice_num <= len(target_wallets):
-                target_wallet = target_wallets[choice_num - 1]
+                target = target_wallets[choice_num - 1]
             else:
-                Display.show_error("Invalid selection")
+                print("\n[!]Invalid selection")
                 return None
         except ValueError:
-            Display.show_error("Invalid selection")
+            print("\n[!]Invalid selection")
             return None
 
-        # Step 2: Amount
         amount = InputHandler.get_amount()
         if amount is None:
             return None
 
-        # Step 3: Description
         description = InputHandler.get_description()
-
-        # Step 4: Date
         date = InputHandler.get_datetime()
 
         return {
-            "target_wallet_name": target_wallet.name,
+            "target_wallet_name": target["name"],
             "amount": amount,
             "description": description,
-            "datetime_created": date,
-        }
-
-    @staticmethod
-    def get_transfer_edit_input(transfer: "Transaction") -> Optional[Dict]:
-        """Get inputs for editing a transfer transaction.
-
-        Note: For transfers, only amount, description, and date can be edited.
-        The category remains 'Transfer' and wallets cannot be changed.
-        """
-        Display.show_header("Edit Transfer")
-        Display.show_info("Press Enter to keep current value")
-        Display.show_info("Note: Transfer category and wallets cannot be changed")
-
-        print(f"\nCurrent values:")
-        print(transfer.detailed_str())
-        print()
-
-        # Amount
-        amount_str = input(f"Amount [{transfer.amount}]: ").strip()
-        if amount_str:
-            try:
-                amount = float(amount_str)
-                if amount <= 0:
-                    Display.show_error("Amount must be positive")
-                    return None
-            except ValueError:
-                Display.show_error("Invalid amount")
-                return None
-        else:
-            amount = transfer.amount
-
-        # Description
-        desc_input = input(f"Description [{transfer.description or 'N/A'}]: ").strip()
-        description = desc_input if desc_input else transfer.description
-
-        # Date
-        current_date = transfer.datetime_created.strftime("%Y-%m-%d")
-        date_str = input(f"Date [{current_date}]: ").strip()
-        if date_str:
-            try:
-                date = datetime.strptime(date_str, "%Y-%m-%d")
-            except ValueError:
-                Display.show_info("Invalid date format. Keeping current date.")
-                date = transfer.datetime_created
-        else:
-            date = transfer.datetime_created
-
-        return {
-            "amount": amount,
-            "description": description,
-            "datetime_created": date,
+            "date": date,
         }
 
     # ============= Filter Input Methods =============
 
     @staticmethod
-    def get_date_filter() -> Optional[FilterStrategy]:
-        """Get a date filter from user selection."""
-        Display.show_date_filter_options()
+    def get_date_filter() -> Optional[Dict]:
+        """Get a date filter from user selection. Returns filter dict."""
+        print("\n[*] Date Filter Options:")
+        print("   1. Today")
+        print("   2. Last Week")
+        print("   3. Last Month")
+        print("   4. This Month")
+        print("   5. Last Year")
+        print("   6. This Year")
+        print("   7. Custom Date Range")
+        print("   0. Cancel")
         choice = input("Select option: ").strip()
+
+        filter_map = {
+            "1": "today",
+            "2": "last_week",
+            "3": "last_month",
+            "4": "this_month",
+            "5": "last_year",
+            "6": "this_year",
+        }
 
         if choice == "0":
             return None
-        elif choice == "1":
-            return TodayFilter()
-        elif choice == "2":
-            return LastWeekFilter()
-        elif choice == "3":
-            return LastMonthFilter()
-        elif choice == "4":
-            return ThisMonthFilter()
-        elif choice == "5":
-            return LastYearFilter()
-        elif choice == "6":
-            return ThisYearFilter()
+        elif choice in filter_map:
+            return {"filter_type": filter_map[choice]}
         elif choice == "7":
-            # Custom date range
             return InputHandler.get_custom_date_range()
         else:
-            Display.show_error("Invalid option")
+            print("\n[!]Invalid option")
             return None
 
     @staticmethod
-    def get_custom_date_range() -> Optional[FilterStrategy]:
+    def get_custom_date_range() -> Optional[Dict]:
         """Get a custom date range from user."""
         print("\nEnter date range (YYYY-MM-DD format):")
         print("Press Enter to leave a bound open")
@@ -527,60 +528,73 @@ class InputHandler:
 
         if start_str:
             try:
-                start_date = datetime.strptime(start_str, "%Y-%m-%d")
+                start_date = datetime.strptime(start_str, "%Y-%m-%d").isoformat()
             except ValueError:
-                Display.show_error("Invalid start date format")
+                print("\n[!]Invalid start date format")
                 return None
 
         if end_str:
             try:
-                end_date = datetime.strptime(end_str, "%Y-%m-%d").replace(
-                    hour=23, minute=59, second=59
+                end_date = (
+                    datetime.strptime(end_str, "%Y-%m-%d")
+                    .replace(hour=23, minute=59, second=59)
+                    .isoformat()
                 )
             except ValueError:
-                Display.show_error("Invalid end date format")
+                print("\n[!]Invalid end date format")
                 return None
 
         if not start_date and not end_date:
-            Display.show_info("No date range specified")
+            print("\n[i]No date range specified")
             return None
 
-        return DateRangeFilter(start_date=start_date, end_date=end_date)
+        return {
+            "filter_type": "date_range",
+            "start_date": start_date,
+            "end_date": end_date,
+        }
 
     @staticmethod
-    def get_type_filter() -> Optional[FilterStrategy]:
+    def get_type_filter() -> Optional[Dict]:
         """Get a transaction type filter from user selection."""
-        Display.show_type_filter_options()
+        print("\n[*] Transaction Type Filter Options:")
+        print("   1. Income Only")
+        print("   2. Expense Only")
+        print("   3. Transfers Only")
+        print("   4. No Transfers")
+        print("   5. Recurring Only")
+        print("   6. Non-Recurring Only")
+        print("   0. Cancel")
         choice = input("Select option: ").strip()
 
         if choice == "0":
             return None
         elif choice == "1":
-            include_transfers = InputHandler.confirm("Include incoming transfers?")
-            return IncomeOnlyFilter(include_transfers=include_transfers)
+            inc = InputHandler.confirm("Include incoming transfers?")
+            return {"filter_type": "income_only", "include_transfers": inc}
         elif choice == "2":
-            include_transfers = InputHandler.confirm("Include outgoing transfers?")
-            return ExpenseOnlyFilter(include_transfers=include_transfers)
+            inc = InputHandler.confirm("Include outgoing transfers?")
+            return {"filter_type": "expense_only", "include_transfers": inc}
         elif choice == "3":
-            return TransferOnlyFilter()
+            return {"filter_type": "transfers_only"}
         elif choice == "4":
-            return NoTransfersFilter()
+            return {"filter_type": "no_transfers"}
         elif choice == "5":
-            return RecurringOnlyFilter()
+            return {"filter_type": "recurring_only"}
         elif choice == "6":
-            return NonRecurringFilter()
+            return {"filter_type": "non_recurring"}
         else:
-            Display.show_error("Invalid option")
+            print("\n[!]Invalid option")
             return None
 
     @staticmethod
-    def get_category_filter(available_categories: Set[str]) -> Optional[FilterStrategy]:
+    def get_category_filter(available_categories: List[str]) -> Optional[Dict]:
         """Get a category filter from user."""
         if not available_categories:
-            Display.show_error("No categories available")
+            print("\n[!]No categories available")
             return None
 
-        print("\n📁 Filter Mode:")
+        print("\n[*] Filter Mode:")
         print("   1. Include only selected categories")
         print("   2. Exclude selected categories")
         print("   0. Cancel")
@@ -593,45 +607,48 @@ class InputHandler:
         elif mode_choice == "2":
             mode = "exclude"
         else:
-            Display.show_error("Invalid option")
+            print("\n[!]Invalid option")
             return None
 
-        # Show available categories
-        sorted_categories = sorted(available_categories)
-        print("\n📁 Available Categories:")
-        for i, cat in enumerate(sorted_categories, 1):
+        sorted_cats = sorted(available_categories)
+        print("\n[*] Available Categories:")
+        for i, cat in enumerate(sorted_cats, 1):
             print(f"   {i}. {cat}")
 
         print("\nEnter category numbers separated by commas (e.g., 1,3,5):")
         selection = input("Selection: ").strip()
 
         if not selection:
-            Display.show_info("No categories selected")
+            print("\n[i]No categories selected")
             return None
 
-        selected_categories = set()
+        selected = []
         try:
             indices = [int(x.strip()) for x in selection.split(",")]
             for idx in indices:
-                if 1 <= idx <= len(sorted_categories):
-                    selected_categories.add(sorted_categories[idx - 1])
+                if 1 <= idx <= len(sorted_cats):
+                    selected.append(sorted_cats[idx - 1])
                 else:
-                    Display.show_error(f"Invalid index: {idx}")
+                    print(f"\n[!]Invalid index: {idx}")
                     return None
         except ValueError:
-            Display.show_error("Invalid input. Use numbers separated by commas.")
+            print("\n[!]Invalid input. Use numbers separated by commas.")
             return None
 
-        if not selected_categories:
-            Display.show_info("No valid categories selected")
+        if not selected:
+            print("\n[i]No valid categories selected")
             return None
 
-        return CategoryFilter(categories=selected_categories, mode=mode)
+        return {"filter_type": "category", "categories": selected, "mode": mode}
 
     @staticmethod
-    def get_amount_filter() -> Optional[FilterStrategy]:
+    def get_amount_filter() -> Optional[Dict]:
         """Get an amount filter from user selection."""
-        Display.show_amount_filter_options()
+        print("\n[*] Amount Filter Options:")
+        print("   1. Large Transactions")
+        print("   2. Small Transactions")
+        print("   3. Custom Amount Range")
+        print("   0. Cancel")
         choice = input("Select option: ").strip()
 
         if choice == "0":
@@ -640,26 +657,26 @@ class InputHandler:
             threshold = input("Enter minimum amount (default 10000): ").strip()
             try:
                 threshold = float(threshold) if threshold else 10000
-                return LargeTransactionsFilter(threshold=threshold)
+                return {"filter_type": "large", "threshold": threshold}
             except ValueError:
-                Display.show_error("Invalid amount")
+                print("\n[!]Invalid amount")
                 return None
         elif choice == "2":
             threshold = input("Enter maximum amount (default 100): ").strip()
             try:
                 threshold = float(threshold) if threshold else 100
-                return SmallTransactionsFilter(threshold=threshold)
+                return {"filter_type": "small", "threshold": threshold}
             except ValueError:
-                Display.show_error("Invalid amount")
+                print("\n[!]Invalid amount")
                 return None
         elif choice == "3":
             return InputHandler.get_custom_amount_range()
         else:
-            Display.show_error("Invalid option")
+            print("\n[!]Invalid option")
             return None
 
     @staticmethod
-    def get_custom_amount_range() -> Optional[FilterStrategy]:
+    def get_custom_amount_range() -> Optional[Dict]:
         """Get a custom amount range from user."""
         print("\nEnter amount range:")
         print("Press Enter to leave a bound open")
@@ -674,53 +691,66 @@ class InputHandler:
             try:
                 min_amount = float(min_str)
                 if min_amount < 0:
-                    Display.show_error("Amount cannot be negative")
+                    print("\n[!]Amount cannot be negative")
                     return None
             except ValueError:
-                Display.show_error("Invalid minimum amount")
+                print("\n[!]Invalid minimum amount")
                 return None
 
         if max_str:
             try:
                 max_amount = float(max_str)
                 if max_amount < 0:
-                    Display.show_error("Amount cannot be negative")
+                    print("\n[!]Amount cannot be negative")
                     return None
             except ValueError:
-                Display.show_error("Invalid maximum amount")
+                print("\n[!]Invalid maximum amount")
                 return None
 
         if min_amount and max_amount and min_amount > max_amount:
-            Display.show_error("Minimum cannot be greater than maximum")
+            print("\n[!]Minimum cannot be greater than maximum")
             return None
 
         if min_amount is None and max_amount is None:
-            Display.show_info("No amount range specified")
+            print("\n[i]No amount range specified")
             return None
 
-        return AmountRangeFilter(min_amount=min_amount, max_amount=max_amount)
+        return {
+            "filter_type": "amount_range",
+            "min_amount": min_amount,
+            "max_amount": max_amount,
+        }
 
     @staticmethod
-    def get_description_filter() -> Optional[FilterStrategy]:
+    def get_description_filter() -> Optional[Dict]:
         """Get a description search filter from user."""
         search_term = input("Enter search term: ").strip()
-
         if not search_term:
-            Display.show_info("No search term provided")
+            print("\n[i]No search term provided")
             return None
 
         case_sensitive = InputHandler.confirm("Case sensitive search?")
-        return DescriptionFilter(search_term=search_term, case_sensitive=case_sensitive)
+        return {
+            "filter_type": "description",
+            "search_term": search_term,
+            "case_sensitive": case_sensitive,
+        }
 
     @staticmethod
-    def get_filter_to_remove(wallet: Wallet) -> Optional[int]:
-        """Get the index of a filter to remove."""
-        filters = wallet.filtering_context.active_filters
+    def get_filter_to_remove(filters: List[Dict]) -> Optional[int]:
+        """Get the index of a filter to remove.
+
+        Args:
+            filters: List of filter dicts with 'name' and 'description' keys.
+        """
         if not filters:
-            Display.show_info("No active filters to remove")
+            print("\n[i]No active filters to remove")
             return None
 
-        Display.show_active_filters(wallet)
+        print("\n[?] Active Filters:")
+        for i, f in enumerate(filters, 1):
+            print(f"   {i}. {f['name']}: {f['description']}")
+
         choice = input("Enter filter number to remove (0 to cancel): ").strip()
 
         try:
@@ -728,11 +758,11 @@ class InputHandler:
             if idx == 0:
                 return None
             if 1 <= idx <= len(filters):
-                return idx - 1  # Convert to 0-based index
-            Display.show_error("Invalid filter number")
+                return idx - 1
+            print("\n[!]Invalid filter number")
             return None
         except ValueError:
-            Display.show_error("Invalid input")
+            print("\n[!]Invalid input")
             return None
 
     # ============= Recurrence Input Methods =============
@@ -746,47 +776,49 @@ class InputHandler:
         try:
             interval = int(interval_str)
             if interval < 1:
-                Display.show_error("Interval must be at least 1. Using 1.")
+                print("\n[!]Interval must be at least 1. Using 1.")
                 return 1
             return interval
         except ValueError:
-            Display.show_info("Invalid input. Using 1.")
+            print("\n[i]Invalid input. Using 1.")
             return 1
 
     @staticmethod
-    def _get_weekdays() -> Set[Weekday]:
-        """Get weekday selection from user."""
+    def _get_weekdays() -> List[int]:
+        """Get weekday selection from user. Returns list of weekday ints (0=Mon)."""
         print("\nSelect days (comma-separated numbers):")
         print("   1. Monday    2. Tuesday   3. Wednesday  4. Thursday")
         print("   5. Friday    6. Saturday  7. Sunday")
         selection = input("Days: ").strip()
         if not selection:
-            return set()
+            return []
 
-        weekdays = set()
+        weekdays = []
         try:
             nums = [int(x.strip()) for x in selection.split(",")]
             for n in nums:
                 if 1 <= n <= 7:
-                    weekdays.add(Weekday(n - 1))
+                    weekdays.append(n - 1)  # Convert to 0-based (Mon=0)
                 else:
-                    Display.show_error(f"Invalid day number: {n}")
+                    print(f"\n[!]Invalid day number: {n}")
         except ValueError:
-            Display.show_error("Invalid input. Use numbers separated by commas.")
+            print("\n[!]Invalid input. Use numbers separated by commas.")
         return weekdays
 
     @staticmethod
-    def _get_month_weekday() -> Tuple[Optional[int], Optional[Weekday]]:
-        """Get 'Nth weekday of month' from user."""
+    def _get_month_weekday() -> Tuple[Optional[int], Optional[int]]:
+        """Get 'Nth weekday of month' from user.
+        Returns (week_number, weekday_int) or (None, None).
+        """
         print("\nWhich occurrence? (e.g., 1st Monday)")
         week_str = input("Week number (1-5): ").strip()
         try:
             week = int(week_str)
             if not 1 <= week <= 5:
-                Display.show_error("Must be between 1 and 5")
+                print("\n[!]Must be between 1 and 5")
                 return None, None
         except ValueError:
-            Display.show_error("Invalid input")
+            print("\n[!]Invalid input")
             return None, None
 
         print("Which day?")
@@ -796,16 +828,16 @@ class InputHandler:
         try:
             day = int(day_str)
             if 1 <= day <= 7:
-                return week, Weekday(day - 1)
-            Display.show_error("Invalid day number")
+                return week, day - 1  # 0-based weekday
+            print("\n[!]Invalid day number")
             return None, None
         except ValueError:
-            Display.show_error("Invalid input")
+            print("\n[!]Invalid input")
             return None, None
 
     @staticmethod
-    def _get_end_condition(rule: RecurrenceRule) -> RecurrenceRule:
-        """Get end condition from user and update the rule."""
+    def _get_end_condition() -> Dict:
+        """Get end condition from user. Returns dict for recurrence rule."""
         print("\nEnd Condition:")
         print("   1. Never")
         print("   2. On a specific date")
@@ -816,26 +848,28 @@ class InputHandler:
             date_str = input("End date (YYYY-MM-DD): ").strip()
             try:
                 end_date = datetime.strptime(date_str, "%Y-%m-%d")
-                rule.end_condition = EndCondition.ON_DATE
-                rule.end_date = end_date
+                return {"end_condition": "on_date", "end_date": end_date.isoformat()}
             except ValueError:
-                Display.show_info("Invalid date. Setting to 'Never'.")
+                print("\n[i]Invalid date. Setting to 'Never'.")
+                return {"end_condition": "never"}
         elif choice == "3":
             count_str = input("Number of occurrences: ").strip()
             try:
                 count = int(count_str)
                 if count > 0:
-                    rule.end_condition = EndCondition.AFTER_COUNT
-                    rule.max_occurrences = count
+                    return {
+                        "end_condition": "after_count",
+                        "max_occurrences": count,
+                    }
                 else:
-                    Display.show_info("Must be positive. Setting to 'Never'.")
+                    print("\n[i]Must be positive. Setting to 'Never'.")
             except ValueError:
-                Display.show_info("Invalid input. Setting to 'Never'.")
+                print("\n[i]Invalid input. Setting to 'Never'.")
 
-        return rule
+        return {"end_condition": "never"}
 
     @staticmethod
-    def _get_custom_recurrence() -> Optional[RecurrenceRule]:
+    def _get_custom_recurrence() -> Optional[Dict]:
         """Get a fully custom recurrence rule from user."""
         print("\nCustom Recurrence:")
         print("   1. Daily")
@@ -844,15 +878,19 @@ class InputHandler:
         print("   4. Yearly")
         freq_choice = input("Select frequency: ").strip()
 
+        rule = {}
+
         if freq_choice == "1":
             interval = InputHandler._get_interval("days")
-            rule = RecurrenceRule(frequency=Frequency.DAILY, interval=interval)
+            rule = {"frequency": "daily", "interval": interval}
         elif freq_choice == "2":
             interval = InputHandler._get_interval("weeks")
             weekdays = InputHandler._get_weekdays()
-            rule = RecurrenceRule(
-                frequency=Frequency.WEEKLY, interval=interval, weekdays=weekdays
-            )
+            rule = {
+                "frequency": "weekly",
+                "interval": interval,
+                "weekdays": weekdays,
+            }
         elif freq_choice == "3":
             interval = InputHandler._get_interval("months")
             print("\nMonthly pattern:")
@@ -863,28 +901,30 @@ class InputHandler:
                 week, weekday = InputHandler._get_month_weekday()
                 if week is None:
                     return None
-                rule = RecurrenceRule(
-                    frequency=Frequency.MONTHLY,
-                    interval=interval,
-                    month_week=week,
-                    month_weekday=weekday,
-                )
+                rule = {
+                    "frequency": "monthly",
+                    "interval": interval,
+                    "month_week": week,
+                    "month_weekday": weekday,
+                }
             else:
-                rule = RecurrenceRule(
-                    frequency=Frequency.MONTHLY, interval=interval
-                )
+                rule = {"frequency": "monthly", "interval": interval}
         elif freq_choice == "4":
             interval = InputHandler._get_interval("years")
-            rule = RecurrenceRule(frequency=Frequency.YEARLY, interval=interval)
+            rule = {"frequency": "yearly", "interval": interval}
         else:
-            Display.show_error("Invalid selection")
+            print("\n[!]Invalid selection")
             return None
 
-        return InputHandler._get_end_condition(rule)
+        end_data = InputHandler._get_end_condition()
+        rule.update(end_data)
+        return rule
 
     @staticmethod
-    def get_recurrence_rule_input() -> Optional[RecurrenceRule]:
-        """Get a recurrence rule from user via menu selection."""
+    def get_recurrence_rule_input() -> Optional[Dict]:
+        """Get a recurrence rule from user via menu selection.
+        Returns dict describing the rule.
+        """
         print("\nRecurrence Pattern:")
         print("   1. Daily")
         print("   2. Weekly")
@@ -897,11 +937,13 @@ class InputHandler:
 
         if choice == "0":
             return None
-        elif choice == "1":
-            rule = RecurrenceRule(frequency=Frequency.DAILY)
+
+        rule = {}
+        if choice == "1":
+            rule = {"frequency": "daily", "interval": 1}
         elif choice == "2":
             weekdays = InputHandler._get_weekdays()
-            rule = RecurrenceRule(frequency=Frequency.WEEKLY, weekdays=weekdays)
+            rule = {"frequency": "weekly", "interval": 1, "weekdays": weekdays}
         elif choice == "3":
             print("\nMonthly pattern:")
             print("   1. Same day of month")
@@ -911,148 +953,148 @@ class InputHandler:
                 week, weekday = InputHandler._get_month_weekday()
                 if week is None:
                     return None
-                rule = RecurrenceRule(
-                    frequency=Frequency.MONTHLY,
-                    month_week=week,
-                    month_weekday=weekday,
-                )
+                rule = {
+                    "frequency": "monthly",
+                    "interval": 1,
+                    "month_week": week,
+                    "month_weekday": weekday,
+                }
             else:
-                rule = RecurrenceRule(frequency=Frequency.MONTHLY)
+                rule = {"frequency": "monthly", "interval": 1}
         elif choice == "4":
-            rule = RecurrenceRule(frequency=Frequency.YEARLY)
+            rule = {"frequency": "yearly", "interval": 1}
         elif choice == "5":
-            rule = RecurrenceRule(
-                frequency=Frequency.WEEKLY,
-                weekdays={
-                    Weekday.MONDAY,
-                    Weekday.TUESDAY,
-                    Weekday.WEDNESDAY,
-                    Weekday.THURSDAY,
-                    Weekday.FRIDAY,
-                },
-            )
+            rule = {
+                "frequency": "weekly",
+                "interval": 1,
+                "weekdays": [0, 1, 2, 3, 4],  # Mon-Fri
+            }
         elif choice == "6":
             return InputHandler._get_custom_recurrence()
         else:
-            Display.show_error("Invalid selection")
+            print("\n[!]Invalid selection")
             return None
 
-        return InputHandler._get_end_condition(rule)
+        end_data = InputHandler._get_end_condition()
+        rule.update(end_data)
+        return rule
 
     @staticmethod
     def get_recurring_transaction_input(
-        transaction_type: TransactionType,
-        categories: Set[str],
-        wallet_name: str,
-    ) -> Optional[RecurringTransaction]:
-        """Get all inputs for a new recurring transaction."""
-        type_name = "Income" if transaction_type == TransactionType.INCOME else "Expense"
-        Display.show_header(f"New Recurring {type_name}")
+        transaction_type_name: str,
+        categories: List[str],
+    ) -> Optional[Dict]:
+        """Get all inputs for a new recurring transaction.
+        Returns dict with transaction data + recurrence_rule dict.
+        """
+        print(f"\n{'=' * 50}")
+        print(f"  New Recurring {transaction_type_name}")
+        print("=" * 50)
 
-        # Step 1: Amount
         amount = InputHandler.get_amount()
         if amount is None:
             return None
 
-        # Step 2: Category
-        category = InputHandler.get_category(categories, transaction_type)
+        category = InputHandler.get_category(categories, transaction_type_name)
         if category is None:
             return None
 
-        # Step 3: Description
         description = InputHandler.get_description()
 
-        # Step 4: Start date
         print("\nStart date for recurrence:")
         start_date = InputHandler.get_datetime()
 
-        # Step 5: Recurrence rule
         rule = InputHandler.get_recurrence_rule_input()
         if rule is None:
             return None
 
-        return RecurringTransaction(
-            amount=amount,
-            transaction_type=transaction_type,
-            category=category,
-            description=description,
-            recurrence_rule=rule,
-            start_date=start_date,
-            wallet_name=wallet_name,
-        )
+        return {
+            "amount": amount,
+            "category": category,
+            "description": description,
+            "start_date": start_date,
+            "recurrence_rule": rule,
+        }
 
     @staticmethod
     def get_recurring_edit_input(
-        recurring: RecurringTransaction, categories: Set[str]
+        recurring_data: Dict, categories: List[str]
     ) -> Optional[Dict]:
         """Get edit inputs for a recurring transaction.
 
-        Returns a dict describing the edit action, or None if cancelled.
+        Args:
+            recurring_data: Dict with current recurring data (from serialisation).
+            categories: Available categories.
         """
-        Display.show_header("Edit Recurring Transaction")
+        print(f"\n{'=' * 50}")
+        print("  Edit Recurring Transaction")
+        print("=" * 50)
         print(f"\nCurrent details:")
-        print(recurring.detailed_str())
+        print(recurring_data["detail"])
 
         print("\nEdit Options:")
+        active_label = "Pause" if recurring_data["is_active"] else "Resume"
         print("   1. Edit template (affects future occurrences)")
         print("   2. Skip a specific future date")
-        print("   3. Pause" if recurring.is_active else "   3. Resume")
+        print(f"   3. {active_label}")
         print("   0. Cancel")
         choice = input("Select option: ").strip()
 
         if choice == "0":
             return None
         elif choice == "1":
-            return InputHandler._get_recurring_template_edit(recurring, categories)
+            return InputHandler._get_recurring_template_edit(
+                recurring_data, categories
+            )
         elif choice == "2":
             return InputHandler._get_recurring_skip_date()
         elif choice == "3":
-            return {"action": "toggle_active"}
+            return {"edit_action": "toggle_active"}
         else:
-            Display.show_error("Invalid option")
+            print("\n[!]Invalid option")
             return None
 
     @staticmethod
     def _get_recurring_template_edit(
-        recurring: RecurringTransaction, categories: Set[str]
+        recurring_data: Dict, categories: List[str]
     ) -> Optional[Dict]:
         """Get template field edits for a recurring transaction."""
-        Display.show_info("Press Enter to keep current value")
+        print("\n[i]Press Enter to keep current value")
 
-        # Amount
-        amount_str = input(f"Amount [{recurring.amount}]: ").strip()
+        amount_str = input(f"Amount [{recurring_data['amount']}]: ").strip()
         if amount_str:
             try:
                 amount = float(amount_str)
                 if amount <= 0:
-                    Display.show_error("Amount must be positive")
+                    print("\n[!]Amount must be positive")
                     return None
             except ValueError:
-                Display.show_error("Invalid amount")
+                print("\n[!]Invalid amount")
                 return None
         else:
-            amount = recurring.amount
+            amount = recurring_data["amount"]
 
-        # Category
-        print(f"\nCurrent category: {recurring.category}")
+        print(f"\nCurrent category: {recurring_data['category']}")
         change_cat = input("Change category? (y/n): ").strip().lower()
         if change_cat == "y":
-            category = InputHandler.get_category(
-                categories, recurring.transaction_type
+            type_name = (
+                "Income"
+                if recurring_data["transaction_type"] == "+"
+                else "Expense"
             )
+            category = InputHandler.get_category(categories, type_name)
             if category is None:
                 return None
         else:
-            category = recurring.category
+            category = recurring_data["category"]
 
-        # Description
         desc_input = input(
-            f"Description [{recurring.description or 'N/A'}]: "
+            f"Description [{recurring_data['description'] or 'N/A'}]: "
         ).strip()
-        description = desc_input if desc_input else recurring.description
+        description = desc_input if desc_input else recurring_data["description"]
 
         return {
-            "action": "edit_template",
+            "edit_action": "edit_template",
             "amount": amount,
             "category": category,
             "description": description,
@@ -1064,9 +1106,9 @@ class InputHandler:
         date_str = input("Enter date to skip (YYYY-MM-DD): ").strip()
         try:
             skip_date = datetime.strptime(date_str, "%Y-%m-%d")
-            return {"action": "skip_date", "date": skip_date}
+            return {"edit_action": "skip_date", "date": skip_date.isoformat()}
         except ValueError:
-            Display.show_error("Invalid date format")
+            print("\n[!]Invalid date format")
             return None
 
     @staticmethod
@@ -1081,5 +1123,5 @@ class InputHandler:
 
         if choice in ("0", "1", "2", "3"):
             return int(choice)
-        Display.show_error("Invalid option")
+        print("\n[!]Invalid option")
         return None

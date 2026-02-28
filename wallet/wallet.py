@@ -1,5 +1,6 @@
 """Wallet class that manages all transactions."""
 import uuid
+import logging
 from datetime import datetime
 from enum import Enum
 from typing import List, Dict, Optional
@@ -10,6 +11,8 @@ from models.transaction import Transaction, Transfer, TransactionType
 from models.category import CategoryManager
 from strategies.sorting import SortingContext
 from strategies.filtering import FilteringContext
+
+logger = logging.getLogger(__name__)
 
 
 class WalletType(Enum):
@@ -77,8 +80,8 @@ class Wallet:
         self.__category_manager = category_manager
         try:
             self.add_transaction(self.__initial_transaction)
-        except:
-            pass
+        except Exception as e:
+            logger.error("Category assignment failed due to {}".format(e))
 
     def __add_total(self, transaction: Transaction) -> None:
         """Add transactions to the total values."""
