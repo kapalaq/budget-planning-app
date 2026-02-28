@@ -1,0 +1,28 @@
+name: Code Quality
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    branches:
+      - '**'
+
+jobs:
+  readability:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - run: pip install black flake8 isort
+
+      - name: Black
+        run: black --check .
+
+      - name: Isort
+        run: isort --check-only .
+
+      - name: Flake8
+        run: flake8 --ignore=E203,E501,W291,W293,W391 .
