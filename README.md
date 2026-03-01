@@ -54,10 +54,11 @@ Business Logic (api/, wallet/, models/, strategies/)
 ```
 
 **Data flow:**
-- `Display` collects user input → calls `HttpRequestHandler.handle({"action": "...", ...})`
-- `HttpRequestHandler` maps each action to an HTTP request against the FastAPI backend
+- **CLI:** `Display` collects user input → calls `HttpRequestHandler.handle({"action": "...", ...})` (sync HTTP)
+- **Telegram:** aiogram handlers collect input via inline keyboards and FSM states → call `Backend.handle({"action": "...", ...})` (async HTTP via aiohttp)
+- Both frontends send HTTP requests to the same FastAPI backend
 - FastAPI routes the request → delegates to `RequestHandler` → business logic
-- Response `{"status": "success|error", "message": "...", "data": {...}}` travels back to `Display`
+- Response `{"status": "success|error", "message": "...", "data": {...}}` travels back to the frontend
 
 ---
 
@@ -100,6 +101,39 @@ The backend exposes a full REST API. Interactive docs are available at `http://l
 
 ---
 
+## Telegram Frontend
+
+The Telegram bot is an alternative frontend built with **aiogram 3.x**. It connects to the same FastAPI backend as the CLI.
+
+### Setup
+
+Create a `.env` file in the project root:
+```
+TELEGRAM_BOT_TOKEN=<your-bot-token-from-@BotFather>
+BACKEND_URL=http://localhost:8000
+```
+
+### Running
+
+```bash
+python -m app.telegram.bot
+```
+
+### Key Features
+
+- Inline keyboard-driven UI (no typed commands required, though slash commands are supported)
+- Multi-step conversation flows powered by aiogram FSM (`MemoryStorage`)
+- Full feature parity with the CLI: transactions, transfers, wallets (regular + deposit), recurring transactions, sorting, filters, percentages
+- MarkdownV2 formatted output with safe escaping of user data
+- Text shortcuts: `show N`, `wallet NAME`, `switch NAME`
+
+### Limitations
+
+- FSM state is in-memory and not persisted across bot restarts
+- No multi-user isolation — all Telegram users share the same backend data
+
+---
+
 ## Project Structure
 
 ```
@@ -120,9 +154,27 @@ app/
 ├── strategies/
 │   ├── filtering.py         # Pluggable filter strategies
 │   └── sorting.py           # Pluggable sort strategies
-└── ui/
-    ├── display.py           # Main loop, command routing, rendering
-    └── input_handler.py     # User input collection
+├── ui/
+│   ├── display.py           # Main loop, command routing, rendering
+│   └── input_handler.py     # User input collection
+└── telegram/
+    ├── bot.py               # Telegram bot entry point (aiogram 3.x)
+    ├── config.py            # BOT_TOKEN and BACKEND_URL from .env
+    ├── backend.py           # Async HTTP client (same interface as http_handler)
+    ├── states.py            # FSM state groups for conversation flows
+    ├── keyboards.py         # Inline keyboard builders
+    ├── utils.py             # MarkdownV2 response formatters
+    └── handlers/
+        ├── dashboard.py     # /start, /dashboard
+        ├── transactions.py  # Add/edit/delete/show transactions
+        ├── transfers.py     # Inter-wallet transfers
+        ├── wallets.py       # Wallet CRUD + switch
+        ├── recurring.py     # Recurring transaction management
+        ├── sorting.py       # Transaction and wallet sorting
+        ├── filters.py       # Filter management
+        ├── percentages.py   # Category breakdown
+        ├── help.py          # Static help text
+        └── common.py        # Cancel + text shortcuts (catch-all)
 ```
 
 ---
@@ -148,5 +200,7 @@ black .
 
 1. Add a handler method in `app/api/request_handler.py` and register it in `_routes`.
 2. Add the corresponding endpoint in `app/app.py`.
-3. Add the routing branch in `app/api/http_handler.py` (`_dispatch`).
-4. Wire up any UI in `app/ui/display.py`.
+3. Add the routing branch in `app/api/http_handler.py` (`_dispatch`) for the CLI.
+4. Add the routing branch in `app/telegram/backend.py` (`_dispatch`) for the Telegram bot.
+5. Wire up CLI UI in `app/ui/display.py`.
+6. Wire up Telegram UI: add handler in `app/telegram/handlers/`, states in `states.py`, keyboards in `keyboards.py`, formatters in `utils.py`, and register the router in `bot.py`.
