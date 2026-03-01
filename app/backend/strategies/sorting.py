@@ -43,7 +43,7 @@ class HighToLowSorting(SortingStrategy):
         return "High to Low"
 
     def sort(self, transactions: List[Transaction]) -> List[Transaction]:
-        return sorted(transactions, key=lambda t: abs(t.amount), reverse=True)
+        return sorted(transactions, key=lambda t: t.amount, reverse=True)
 
 
 class CategoryAlphabeticalSorting(SortingStrategy):

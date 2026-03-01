@@ -83,10 +83,7 @@ class RequestHandler:
             "delete_recurring": self._delete_recurring,
         }
 
-    # ------------------------------------------------------------------ #
-    #  Public entry point                                                 #
-    # ------------------------------------------------------------------ #
-
+    #  Public entry point
     def handle(self, request: dict) -> dict:
         """Route a request dict to the appropriate handler and return a response dict."""
         action = request.get("action")
@@ -191,10 +188,7 @@ class RequestHandler:
         }
         return result
 
-    # ------------------------------------------------------------------ #
-    #  Helpers                                                            #
-    # ------------------------------------------------------------------ #
-
+    #  Helpers
     def _current_wallet_or_error(self) -> tuple:
         """Return (wallet, None) or (None, error_response)."""
         wallet = self._wm.current_wallet
@@ -220,10 +214,7 @@ class RequestHandler:
             return TransactionType.INCOME
         return TransactionType.EXPENSE
 
-    # ------------------------------------------------------------------ #
-    #  Dashboard / general                                                #
-    # ------------------------------------------------------------------ #
-
+    #  Dashboard / general
     def _get_dashboard(self, data: dict) -> dict:
         wallet, err = self._current_wallet_or_error()
         if err:
@@ -331,10 +322,7 @@ class RequestHandler:
             "data": {"generated_count": generated},
         }
 
-    # ------------------------------------------------------------------ #
-    #  Transaction CRUD                                                   #
-    # ------------------------------------------------------------------ #
-
+    #  Transaction CRUD
     def _get_categories(self, data: dict) -> dict:
         wallet, err = self._current_wallet_or_error()
         if err:
@@ -427,10 +415,7 @@ class RequestHandler:
             return {"status": "success", "message": "Transaction deleted successfully!"}
         return {"status": "error", "message": "Failed to delete transaction"}
 
-    # ------------------------------------------------------------------ #
-    #  Transfer                                                           #
-    # ------------------------------------------------------------------ #
-
+    #  Transfer
     def _get_transfer_context(self, data: dict) -> dict:
         wallet, err = self._current_wallet_or_error()
         if err:
@@ -475,10 +460,7 @@ class RequestHandler:
             }
         return {"status": "error", "message": "Failed to complete transfer"}
 
-    # ------------------------------------------------------------------ #
-    #  Sorting                                                            #
-    # ------------------------------------------------------------------ #
-
+    #  Sorting
     def _get_sorting_options(self, data: dict) -> dict:
         strategies = SortingContext.get_available_strategies()
         return {
@@ -634,10 +616,7 @@ class RequestHandler:
             },
         }
 
-    # ------------------------------------------------------------------ #
-    #  Percentages                                                        #
-    # ------------------------------------------------------------------ #
-
+    #  Percentages
     def _get_percentages(self, data: dict) -> dict:
         wallet, err = self._current_wallet_or_error()
         if err:
@@ -689,10 +668,7 @@ class RequestHandler:
             },
         }
 
-    # ------------------------------------------------------------------ #
-    #  Wallet CRUD                                                        #
-    # ------------------------------------------------------------------ #
-
+    #  Wallet CRUD
     def _get_wallets(self, data: dict) -> dict:
         wallets = self._wm.get_sorted_wallets()
         current = self._wm.current_wallet
@@ -786,10 +762,7 @@ class RequestHandler:
             }
         return {"status": "error", "message": f"Wallet '{name}' not found"}
 
-    # ------------------------------------------------------------------ #
-    #  Recurring CRUD                                                     #
-    # ------------------------------------------------------------------ #
-
+    #  Recurring CRUD
     @staticmethod
     def _build_recurrence_rule(rule_data: dict) -> RecurrenceRule:
         """Build a RecurrenceRule from a dict."""

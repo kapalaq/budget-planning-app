@@ -44,6 +44,15 @@ jobs:
         with:
           python-version: '3.11'
           cache: 'pip'
+
+      - name: Check package consistency
+        run: |
+          cd app/backend && python -c "from app import app"
+          cd ..
+          python -c "from cli.main import main"
+          python -c "from telegram.bot import main"
+          cd ..
+
       - name: Run tests
         run: |
           pip install pytest

@@ -4,12 +4,7 @@ Collects user input (via InputHandler), sends dict requests to the
 RequestHandler middleground, receives dict responses, and renders output.
 """
 
-from typing import TYPE_CHECKING
-
 from ui.input_handler import InputHandler
-
-if TYPE_CHECKING:
-    from api.request_handler import RequestHandler
 
 
 class Display:
@@ -17,7 +12,7 @@ class Display:
 
     SEPARATOR = "=" * 50
 
-    def __init__(self, handler: "RequestHandler"):
+    def __init__(self, handler):
         self._handler = handler
 
     #  Main loop

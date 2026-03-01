@@ -2,9 +2,9 @@ name: Code Security
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev] 
   pull_request:
-    branches: [main]
+    branches: [main, dev]
   schedule:
     - cron: '0 3 * * 1'  # 03:00 on Monday
 
