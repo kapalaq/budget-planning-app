@@ -6,7 +6,7 @@ from collections import defaultdict
 from datetime import datetime
 from enum import Enum
 from functools import singledispatchmethod
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 
 from models.category import CategoryManager
 from models.transaction import Transaction, TransactionType, Transfer
@@ -14,6 +14,9 @@ from strategies.filtering import FilteringContext
 from strategies.sorting import SortingContext
 
 logger = logging.getLogger(__name__)
+
+
+DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 
 class WalletType(Enum):
@@ -77,11 +80,84 @@ class Wallet:
     def filtering_context(self) -> FilteringContext:
         return self.__filtering_context
 
+    @classmethod
+    def from_json(cls, data: Dict[str, Any]) -> "Wallet":
+        """Builds Wallet from persisted dict data.
+
+        Transfer connections (source/connected) are NOT resolved here — that
+        requires access to all wallets and is done in WalletManager.from_json.
+        """
+        if not data:
+            return cls(name="Unknown")
+
+        wallet = cls.__new__(cls)
+        wallet.id = data.get("id", str(uuid.uuid4())[:8])
+        wallet.name = data.get("name", "Unknown")
+        wallet.currency = data.get("currency", "KZT")
+        wallet.description = data.get("description", "")
+
+        try:
+            wallet.wallet_type = WalletType(data.get("wallet_type", "regular"))
+        except ValueError:
+            wallet.wallet_type = WalletType.REGULAR
+
+        wallet.total_income = float(data.get("total_income", 0.0))
+        wallet.total_expense = float(data.get("total_expense", 0.0))
+        wallet.balance = float(data.get("balance", 0.0))
+        wallet.datetime_created = datetime.strptime(
+            data.get("datetime_created", datetime.now().strftime(DATETIME_FORMAT)),
+            DATETIME_FORMAT,
+        )
+
+        wallet.__sorting_context = SortingContext().from_json(
+            data.get("sorting_context", {})
+        )
+        wallet.__filtering_context = FilteringContext().from_json(
+            data.get("filtering_context", {})
+        )
+        wallet.__category_manager = (
+            CategoryManager().from_json(data.get("category_manager"))
+            if data.get("category_manager")
+            else None
+        )
+
+        wallet.__transactions = {}
+        for t_data in data.get("transactions", []):
+            if t_data.get("type") == "transfer":
+                t = Transfer.from_json(t_data)
+            else:
+                t = Transaction.from_json(t_data)
+            wallet.__transactions[t.id] = t
+
+        return wallet
+
+    def to_json(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "name": self.name,
+            "wallet_type": self.wallet_type.value,
+            "currency": self.currency,
+            "description": self.description,
+            "total_income": self.total_income,
+            "total_expense": self.total_expense,
+            "balance": self.balance,
+            "datetime_created": self.datetime_created.strftime(DATETIME_FORMAT),
+            "sorting_context": self.sorting_context.to_json(),
+            "filtering_context": self.filtering_context.to_json(),
+            "category_manager": (
+                self.__category_manager.to_json() if self.__category_manager else None
+            ),
+            "transactions": [t.to_json() for t in self.__transactions.values()],
+        }
+
     def assign_category_manager(self, category_manager: CategoryManager):
         """Function to assign category manager."""
         self.__category_manager = category_manager
         try:
-            self.add_transaction(self.__initial_transaction)
+            # Check to avoid adding starting value if restoring from JSON
+            if hasattr(self, "_Wallet__initial_transaction"):
+                self.add_transaction(self.__initial_transaction)
+                del self.__initial_transaction
         except Exception as e:
             logger.error("Category assignment failed due to {}".format(e))
 
@@ -128,10 +204,7 @@ class Wallet:
     def update_transaction(
         self, index: Optional[int | str], updated: Transaction
     ) -> bool:
-        """Update a transaction by its display index or ID.
-
-        For Transfer transactions, this will also synchronize the connected transaction.
-        """
+        """Update a transaction by its display index or ID."""
         old_transaction = self.get_transaction(index)
 
         if old_transaction is not None:
@@ -161,13 +234,7 @@ class Wallet:
     def delete_transaction(
         self, index: Optional[int | str], delete_connected: bool = True
     ) -> bool:
-        """Delete a transaction by its display index or ID.
-
-        Args:
-            index: Transaction index (1-based) or ID string.
-            delete_connected: If True and transaction is a Transfer, also delete
-                              the connected transaction from the other wallet.
-        """
+        """Delete a transaction by its display index or ID."""
         transaction_to_delete = self.get_transaction(index)
         if transaction_to_delete is not None:
             self.__del_total(transaction_to_delete)
@@ -184,7 +251,6 @@ class Wallet:
                     connected.source.delete_transaction(
                         connected.id, delete_connected=False
                     )
-            del transaction_to_delete
             return True
         return False
 
@@ -264,13 +330,8 @@ class Wallet:
         ]
 
     def delete_future_by_recurrence(self, recurrence_id: str) -> int:
-        """Delete future transactions generated by a recurring transaction.
-
-        Returns the number of deleted transactions.
-        """
-        from datetime import datetime as dt
-
-        now = dt.now()
+        """Delete future transactions generated by a recurring transaction."""
+        now = datetime.now()
         to_delete = [
             t
             for t in self.__transactions.values()
@@ -311,21 +372,48 @@ class DepositWallet(Wallet):
         description: str = "",
         capitalization: bool = False,
     ):
-        """
-        Args:
-            :param name: Name of the deposit wallet.
-            :param interest_rate: Annual interest rate in percentage (e.g., 12.5 for 12.5%).
-            :param term_months: Term of the deposit in months.
-            :param starting_value: Initial deposit amount.
-            :param currency: Currency of the wallet.
-            :param description: Description of the wallet.
-            :param capitalization: Whether interest is capitalized (added to principal).
-        """
         super().__init__(name, starting_value, currency, description)
         self.interest_rate = interest_rate
         self.term_months = term_months
         self.capitalization = capitalization
         self.maturity_date = self._calculate_maturity_date()
+
+    @classmethod
+    def from_json(cls, data: Dict[str, Any]) -> "DepositWallet":
+        """Builds DepositWallet from persisted dict data."""
+        if not data:
+            return cls(name="Unknown", interest_rate=0.0, term_months=0)
+
+        # Use Wallet.from_json but change the class tag so __del__ doesn't
+        # destroy shared state when the temporary goes out of scope.
+        # We override wallet_type on the data so Wallet.from_json uses our cls.
+        deposit = Wallet.from_json.__func__(cls, data)
+        deposit.wallet_type = WalletType.DEPOSIT
+
+        deposit.interest_rate = float(data.get("interest_rate", 0.0))
+        deposit.term_months = int(data.get("term_months", 0))
+        deposit.capitalization = bool(data.get("capitalization", False))
+
+        m_date = data.get("maturity_date")
+        if m_date:
+            deposit.maturity_date = datetime.strptime(m_date, DATETIME_FORMAT)
+        else:
+            deposit.maturity_date = deposit._calculate_maturity_date()
+
+        return deposit
+
+    def to_json(self) -> Dict[str, Any]:
+        """Turns DepositWallet data into dict, including base Wallet attributes."""
+        data = super().to_json()
+        data.update(
+            {
+                "interest_rate": self.interest_rate,
+                "term_months": self.term_months,
+                "capitalization": self.capitalization,
+                "maturity_date": self.maturity_date.strftime(DATETIME_FORMAT),
+            }
+        )
+        return data
 
     def _calculate_maturity_date(self) -> datetime:
         """Calculate the maturity date based on term."""

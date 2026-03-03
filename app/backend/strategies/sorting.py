@@ -1,7 +1,7 @@
 """Sorting strategies for transactions and wallets using Strategy Pattern."""
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, List, Optional, ValuesView
+from typing import TYPE_CHECKING, List, Optional, ValuesView, Dict, Any
 
 if TYPE_CHECKING:
     from wallet.wallet import Wallet
@@ -72,6 +72,24 @@ class SortingContext:
     @property
     def current_strategy(self) -> SortingStrategy:
         return self._strategy
+
+    def from_json(self, data: Dict[str, Any]) -> "SortingContext":
+        """Builds SortingContext class from persisted dict data."""
+        if not data:
+            return self
+
+        self.set_strategy(data.get("strategy", "1"))
+        return self
+
+    def to_json(self) -> Dict[str, Any]:
+        """Turns SortingContext data into dict for persistance."""
+        data = {}
+
+        for k, v in self.STRATEGIES.items():
+            if isinstance(self._strategy, v):
+                data["strategy"] = k
+
+        return data
 
     def set_strategy(self, strategy_key: str) -> bool:
         """Set sorting strategy by key."""
@@ -165,11 +183,28 @@ class WalletSortingContext:
     }
 
     def __init__(self):
-        self._strategy: WalletSortingStrategy = WalletOldestFirstSorting()
+        self._strategy = WalletOldestFirstSorting()
 
     @property
     def current_strategy(self) -> WalletSortingStrategy:
         return self._strategy
+
+    def from_json(self, data: Dict[str, Any]) -> "WalletSortingContext":
+        """Builds WalletSortingContext class from persisted dict data."""
+        if not data:
+            return self
+        self.set_strategy(data.get("strategy", "1"))
+        return self
+
+    def to_json(self) -> Dict[str, Any]:
+        """Turns WalletSortingContext data into dict for persistance."""
+        data = {}
+
+        for k, v in self.STRATEGIES.items():
+            if isinstance(self._strategy, v):
+                data["strategy"] = k
+
+        return data
 
     def set_strategy(self, strategy_key: str) -> bool:
         """Set sorting strategy by key."""

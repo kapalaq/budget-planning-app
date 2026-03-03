@@ -1,6 +1,6 @@
 """Category management for transactions."""
 
-from typing import Set
+from typing import Set, Dict, Any
 
 from models.transaction import TransactionType
 
@@ -28,6 +28,29 @@ class CategoryManager:
             "Health",
             "Other",
         }
+
+    def from_json(self, data: Dict[str, Any]) -> "CategoryManager":
+        """Builds CategoryManager class from persisted dict data."""
+        if not data:
+            return self
+
+        self._income_categories = set(
+            data.get("income_categories") or self._income_categories
+        )
+        self._expense_categories = set(
+            data.get("expense_categories") or self._expense_categories
+        )
+
+        return self
+
+    def to_json(self) -> Dict[str, Any]:
+        """Turns CategoryManager data into dict for persistance."""
+        data = {}
+
+        data["income_categories"] = list(self._income_categories)
+        data["expense_categories"] = list(self._expense_categories)
+
+        return data
 
     def get_categories(self, transaction_type: TransactionType) -> Set[str]:
         """Get categories for a specific transaction type (excludes Transfer)."""

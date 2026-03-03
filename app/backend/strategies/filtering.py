@@ -1,8 +1,6 @@
-"""Filtering strategies for transactions using Strategy Pattern."""
-
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, List, Optional, Set
+from typing import TYPE_CHECKING, List, Optional, Set, Dict, Any
 
 from models.transaction import Transaction, TransactionType, Transfer
 
@@ -33,6 +31,16 @@ class FilterStrategy(ABC):
     def filter(self, transactions: List[Transaction]) -> List[Transaction]:
         """Filter transactions according to the strategy."""
         return [t for t in transactions if self.matches(t)]
+
+    @abstractmethod
+    def to_json(self) -> Dict[str, Any]:
+        """Serialize the filter configuration into a dictionary."""
+        pass
+
+    @abstractmethod
+    def from_json(self, data: Dict[str, Any]) -> "FilterStrategy":
+        """Load the filter configuration from a dictionary."""
+        pass
 
 
 # ============= Date Range Filters =============
@@ -82,10 +90,22 @@ class DateRangeFilter(FilterStrategy):
             return False
         return True
 
+    def to_json(self) -> Dict[str, Any]:
+        return {
+            "type": self.__class__.__name__,
+            "start_date": self._start_date.isoformat() if self._start_date else None,
+            "end_date": self._end_date.isoformat() if self._end_date else None,
+        }
+
+    def from_json(self, data: Dict[str, Any]) -> "DateRangeFilter":
+        s_date = data.get("start_date")
+        e_date = data.get("end_date")
+        self._start_date = datetime.fromisoformat(s_date) if s_date else None
+        self._end_date = datetime.fromisoformat(e_date) if e_date else None
+        return self
+
 
 class TodayFilter(DateRangeFilter):
-    """Filter transactions from today only."""
-
     def __init__(self):
         today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
         tomorrow = today + timedelta(days=1)
@@ -101,8 +121,6 @@ class TodayFilter(DateRangeFilter):
 
 
 class LastWeekFilter(DateRangeFilter):
-    """Filter transactions from the last 7 days."""
-
     def __init__(self):
         week_ago = (datetime.now() - timedelta(days=7)).replace(
             hour=0, minute=0, second=0, microsecond=0
@@ -119,8 +137,6 @@ class LastWeekFilter(DateRangeFilter):
 
 
 class LastMonthFilter(DateRangeFilter):
-    """Filter transactions from the last 30 days."""
-
     def __init__(self):
         month_ago = (datetime.now() - timedelta(days=30)).replace(
             hour=0, minute=0, second=0, microsecond=0
@@ -137,8 +153,6 @@ class LastMonthFilter(DateRangeFilter):
 
 
 class LastYearFilter(DateRangeFilter):
-    """Filter transactions from the last 365 days."""
-
     def __init__(self):
         year_ago = (datetime.now() - timedelta(days=365)).replace(
             hour=0, minute=0, second=0, microsecond=0
@@ -155,8 +169,6 @@ class LastYearFilter(DateRangeFilter):
 
 
 class ThisMonthFilter(DateRangeFilter):
-    """Filter transactions from the current calendar month."""
-
     def __init__(self):
         first_of_month = datetime.now().replace(
             day=1, hour=0, minute=0, second=0, microsecond=0
@@ -173,8 +185,6 @@ class ThisMonthFilter(DateRangeFilter):
 
 
 class ThisYearFilter(DateRangeFilter):
-    """Filter transactions from the current calendar year."""
-
     def __init__(self):
         first_of_year = datetime.now().replace(
             month=1, day=1, hour=0, minute=0, second=0, microsecond=0
@@ -194,19 +204,11 @@ class ThisYearFilter(DateRangeFilter):
 
 
 class CategoryFilter(FilterStrategy):
-    """Filter transactions by category (include or exclude mode)."""
-
     def __init__(
         self,
         categories: Set[str],
         mode: str = "include",
     ):
-        """
-        Args:
-            categories: Set of category names to filter by.
-            mode: 'include' to show only these categories,
-                  'exclude' to hide these categories.
-        """
         self._categories = {c.lower() for c in categories}
         self._original_categories = categories
         self._mode = mode.lower()
@@ -228,21 +230,27 @@ class CategoryFilter(FilterStrategy):
             return cat_lower in self._categories
         return cat_lower not in self._categories
 
+    def to_json(self) -> Dict[str, Any]:
+        return {
+            "type": self.__class__.__name__,
+            "categories": list(self._original_categories),
+            "mode": self._mode,
+        }
+
+    def from_json(self, data: Dict[str, Any]) -> "CategoryFilter":
+        self._original_categories = set(data.get("categories", []))
+        self._categories = {c.lower() for c in self._original_categories}
+        self._mode = data.get("mode", "include").lower()
+        return self
+
 
 # ============= Transaction Type Filters =============
 
 
 class TransactionTypeFilter(FilterStrategy):
-    """Filter transactions by type (income, expense, or transfer)."""
-
     def __init__(
         self, transaction_type: TransactionType, include_transfers: bool = True
     ):
-        """
-        Args:
-            transaction_type: The type to filter for (INCOME or EXPENSE).
-            include_transfers: Whether to include transfer transactions of this type.
-        """
         self._type = transaction_type
         self._include_transfers = include_transfers
 
@@ -262,10 +270,24 @@ class TransactionTypeFilter(FilterStrategy):
             return False
         return transaction.transaction_type == self._type
 
+    def to_json(self) -> Dict[str, Any]:
+        return {
+            "type": self.__class__.__name__,
+            "transaction_type": self._type.value,
+            "include_transfers": self._include_transfers,
+        }
+
+    def from_json(self, data: Dict[str, Any]) -> "TransactionTypeFilter":
+        type_str = data.get("transaction_type")
+        try:
+            self._type = TransactionType(type_str)
+        except (KeyError, TypeError):
+            pass
+        self._include_transfers = data.get("include_transfers", True)
+        return self
+
 
 class IncomeOnlyFilter(TransactionTypeFilter):
-    """Filter to show only income transactions."""
-
     def __init__(self, include_transfers: bool = True):
         super().__init__(TransactionType.INCOME, include_transfers)
 
@@ -275,14 +297,14 @@ class IncomeOnlyFilter(TransactionTypeFilter):
 
     @property
     def description(self) -> str:
-        if self._include_transfers:
-            return "Income transactions"
-        return "Income (no transfers)"
+        return (
+            "Income transactions"
+            if self._include_transfers
+            else "Income (no transfers)"
+        )
 
 
 class ExpenseOnlyFilter(TransactionTypeFilter):
-    """Filter to show only expense transactions."""
-
     def __init__(self, include_transfers: bool = True):
         super().__init__(TransactionType.EXPENSE, include_transfers)
 
@@ -292,14 +314,14 @@ class ExpenseOnlyFilter(TransactionTypeFilter):
 
     @property
     def description(self) -> str:
-        if self._include_transfers:
-            return "Expense transactions"
-        return "Expense (no transfers)"
+        return (
+            "Expense transactions"
+            if self._include_transfers
+            else "Expense (no transfers)"
+        )
 
 
 class TransferOnlyFilter(FilterStrategy):
-    """Filter to show only transfer transactions."""
-
     @property
     def name(self) -> str:
         return "Transfers Only"
@@ -311,10 +333,14 @@ class TransferOnlyFilter(FilterStrategy):
     def matches(self, transaction: Transaction) -> bool:
         return isinstance(transaction, Transfer)
 
+    def to_json(self) -> Dict[str, Any]:
+        return {"type": self.__class__.__name__}
+
+    def from_json(self, data: Dict[str, Any]) -> "TransferOnlyFilter":
+        return self
+
 
 class NoTransfersFilter(FilterStrategy):
-    """Filter to exclude transfer transactions."""
-
     @property
     def name(self) -> str:
         return "No Transfers"
@@ -326,10 +352,14 @@ class NoTransfersFilter(FilterStrategy):
     def matches(self, transaction: Transaction) -> bool:
         return not isinstance(transaction, Transfer)
 
+    def to_json(self) -> Dict[str, Any]:
+        return {"type": self.__class__.__name__}
+
+    def from_json(self, data: Dict[str, Any]) -> "NoTransfersFilter":
+        return self
+
 
 class RecurringOnlyFilter(FilterStrategy):
-    """Filter to show only recurring transactions."""
-
     @property
     def name(self) -> str:
         return "Recurring Only"
@@ -341,10 +371,14 @@ class RecurringOnlyFilter(FilterStrategy):
     def matches(self, transaction: Transaction) -> bool:
         return getattr(transaction, "recurrence_id", None) is not None
 
+    def to_json(self) -> Dict[str, Any]:
+        return {"type": self.__class__.__name__}
+
+    def from_json(self, data: Dict[str, Any]) -> "RecurringOnlyFilter":
+        return self
+
 
 class NonRecurringFilter(FilterStrategy):
-    """Filter to show only non-recurring transactions."""
-
     @property
     def name(self) -> str:
         return "Non-Recurring Only"
@@ -356,23 +390,22 @@ class NonRecurringFilter(FilterStrategy):
     def matches(self, transaction: Transaction) -> bool:
         return getattr(transaction, "recurrence_id", None) is None
 
+    def to_json(self) -> Dict[str, Any]:
+        return {"type": self.__class__.__name__}
+
+    def from_json(self, data: Dict[str, Any]) -> "NonRecurringFilter":
+        return self
+
 
 # ============= Amount Range Filters =============
 
 
 class AmountRangeFilter(FilterStrategy):
-    """Filter transactions by amount range."""
-
     def __init__(
         self,
         min_amount: Optional[float] = None,
         max_amount: Optional[float] = None,
     ):
-        """
-        Args:
-            min_amount: Minimum amount (inclusive). Uses absolute value.
-            max_amount: Maximum amount (inclusive). Uses absolute value.
-        """
         self._min_amount = min_amount
         self._max_amount = max_amount
 
@@ -398,10 +431,20 @@ class AmountRangeFilter(FilterStrategy):
             return False
         return True
 
+    def to_json(self) -> Dict[str, Any]:
+        return {
+            "type": self.__class__.__name__,
+            "min_amount": self._min_amount,
+            "max_amount": self._max_amount,
+        }
+
+    def from_json(self, data: Dict[str, Any]) -> "AmountRangeFilter":
+        self._min_amount = data.get("min_amount")
+        self._max_amount = data.get("max_amount")
+        return self
+
 
 class LargeTransactionsFilter(AmountRangeFilter):
-    """Filter for transactions above a threshold (default 10000)."""
-
     def __init__(self, threshold: float = 10000):
         super().__init__(min_amount=threshold)
         self._threshold = threshold
@@ -414,10 +457,18 @@ class LargeTransactionsFilter(AmountRangeFilter):
     def description(self) -> str:
         return f"Amount >= {self._threshold:.2f}"
 
+    def to_json(self) -> Dict[str, Any]:
+        data = super().to_json()
+        data["threshold"] = self._threshold
+        return data
+
+    def from_json(self, data: Dict[str, Any]) -> "LargeTransactionsFilter":
+        super().from_json(data)
+        self._threshold = data.get("threshold", 10000)
+        return self
+
 
 class SmallTransactionsFilter(AmountRangeFilter):
-    """Filter for transactions below a threshold (default 100)."""
-
     def __init__(self, threshold: float = 100):
         super().__init__(max_amount=threshold)
         self._threshold = threshold
@@ -430,13 +481,21 @@ class SmallTransactionsFilter(AmountRangeFilter):
     def description(self) -> str:
         return f"Amount <= {self._threshold:.2f}"
 
+    def to_json(self) -> Dict[str, Any]:
+        data = super().to_json()
+        data["threshold"] = self._threshold
+        return data
+
+    def from_json(self, data: Dict[str, Any]) -> "SmallTransactionsFilter":
+        super().from_json(data)
+        self._threshold = data.get("threshold", 100)
+        return self
+
 
 # ============= Description Filter =============
 
 
 class DescriptionFilter(FilterStrategy):
-    """Filter transactions by description substring search."""
-
     def __init__(self, search_term: str, case_sensitive: bool = False):
         self._search_term = search_term
         self._case_sensitive = case_sensitive
@@ -458,13 +517,24 @@ class DescriptionFilter(FilterStrategy):
             return self._search_term in desc
         return self._search_lower in desc.lower()
 
+    def to_json(self) -> Dict[str, Any]:
+        return {
+            "type": self.__class__.__name__,
+            "search_term": self._search_term,
+            "case_sensitive": self._case_sensitive,
+        }
+
+    def from_json(self, data: Dict[str, Any]) -> "DescriptionFilter":
+        self._search_term = data.get("search_term", "")
+        self._case_sensitive = data.get("case_sensitive", False)
+        self._search_lower = self._search_term.lower()
+        return self
+
 
 # ============= Composite Filter =============
 
 
 class CompositeFilter(FilterStrategy):
-    """Combines multiple filters with AND logic."""
-
     def __init__(self, filters: Optional[List[FilterStrategy]] = None):
         self._filters: List[FilterStrategy] = filters or []
 
@@ -487,26 +557,21 @@ class CompositeFilter(FilterStrategy):
         return len(self._filters)
 
     def add_filter(self, filter_strategy: FilterStrategy) -> None:
-        """Add a filter to the composite."""
         self._filters.append(filter_strategy)
 
     def remove_filter(self, index: int) -> bool:
-        """Remove a filter by index."""
         if 0 <= index < len(self._filters):
             self._filters.pop(index)
             return True
         return False
 
     def clear_filters(self) -> None:
-        """Remove all filters."""
         self._filters.clear()
 
     def matches(self, transaction: Transaction) -> bool:
-        """Returns True only if all filters match (AND logic)."""
         return all(f.matches(transaction) for f in self._filters)
 
     def filter(self, transactions: List[Transaction]) -> List[Transaction]:
-        """Apply all filters sequentially."""
         if not self._filters:
             return transactions
         result = transactions
@@ -514,14 +579,30 @@ class CompositeFilter(FilterStrategy):
             result = f.filter(result)
         return result
 
+    def to_json(self) -> Dict[str, Any]:
+        return {
+            "type": self.__class__.__name__,
+            "filters": [f.to_json() for f in self._filters],
+        }
+
+    def from_json(self, data: Dict[str, Any]) -> "CompositeFilter":
+        self.clear_filters()
+        for f_data in data.get("filters", []):
+            cls_name = f_data.get("type")
+            # Using globals() to dynamically instantiate classes based on their name.
+            if cls_name in globals():
+                cls = globals()[cls_name]
+                # Bypassing __init__ using __new__ so we can hydrate the state securely via from_json
+                obj = cls.__new__(cls)
+                obj.from_json(f_data)
+                self.add_filter(obj)
+        return self
+
 
 # ============= Filtering Context =============
 
 
 class FilteringContext:
-    """Context class that manages filtering strategies."""
-
-    # Predefined filter presets
     DATE_PRESETS = {
         "1": ("Today", TodayFilter),
         "2": ("Last Week", LastWeekFilter),
@@ -552,49 +633,54 @@ class FilteringContext:
 
     @property
     def active_filters(self) -> List[FilterStrategy]:
-        """Return list of active filters."""
         return self._composite.filters
 
     @property
     def has_filters(self) -> bool:
-        """Return True if any filters are active."""
         return self._composite.filter_count > 0
 
     @property
     def filter_summary(self) -> str:
-        """Return a summary of active filters."""
         if not self.has_filters:
             return "None"
         descriptions = [f"{f.name}: {f.description}" for f in self._composite.filters]
         return ", ".join(descriptions)
 
     def add_filter(self, filter_strategy: FilterStrategy) -> None:
-        """Add a new filter."""
         self._composite.add_filter(filter_strategy)
 
     def remove_filter(self, index: int) -> bool:
-        """Remove a filter by index (0-based)."""
         return self._composite.remove_filter(index)
 
     def clear_filters(self) -> None:
-        """Remove all filters."""
         self._composite.clear_filters()
 
     def filter(self, transactions: List[Transaction]) -> List[Transaction]:
-        """Apply all active filters to transactions."""
         return self._composite.filter(transactions)
+
+    def to_json(self) -> Dict[str, Any]:
+        """Turns FilteringContext data into dict for persistance."""
+        return {"composite": self._composite.to_json()}
+
+    def from_json(self, data: Dict[str, Any]) -> "FilteringContext":
+        """Builds FilteringContext class from persisted dict data."""
+        if not data:
+            return self
+
+        comp_data = data.get("composite", {})
+        if comp_data:
+            self._composite.from_json(comp_data)
+
+        return self
 
     @classmethod
     def get_date_presets(cls) -> dict:
-        """Return available date filter presets."""
         return {key: name for key, (name, _) in cls.DATE_PRESETS.items()}
 
     @classmethod
     def get_type_presets(cls) -> dict:
-        """Return available type filter presets."""
         return {key: name for key, (name, _) in cls.TYPE_PRESETS.items()}
 
     @classmethod
     def get_amount_presets(cls) -> dict:
-        """Return available amount filter presets."""
         return {key: name for key, (name, _) in cls.AMOUNT_PRESETS.items()}

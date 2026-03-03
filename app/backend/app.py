@@ -3,26 +3,63 @@
 import logging
 import os
 import sys
+from dotenv import load_dotenv
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from typing import Any, Dict
-
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 import logger_setup
 from api.request_handler import RequestHandler
+from data.storage import JsonStorage
 from wallet.wallet import Wallet
 from wallet.wallet_manager import WalletManager
 
+# Some initial calls
+load_dotenv()
+
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Budget Planner API")
+# Initial variables
+_wallet_manager = None
+_handler = None
+_storage = None
 
-# Initialise backend state once at startup
-_wallet_manager = WalletManager()
-_wallet_manager.add_wallet(Wallet(name="Main Wallet", currency="KZT"))
-_handler = RequestHandler(_wallet_manager)
+USER_ID = 1
+
+
+# Entry point
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global _wallet_manager, _handler, _storage
+
+    data_dir = os.path.join(os.getcwd(), os.getenv("DATA_DIR", "data"))
+    _storage = JsonStorage(data_dir)
+
+    data = _storage.load(USER_ID)
+
+    # Initialise backend state once at startup
+    _wallet_manager = WalletManager().from_json(data.get("wallet_manager"))
+    if len(_wallet_manager.get_wallets()) == 0:
+        print("INITIALIZED MAIN WALLET")
+        _wallet_manager.add_wallet(Wallet(name="Main Wallet", currency="KZT"))
+    _handler = RequestHandler(_wallet_manager)
+
+    yield
+
+    logger.info("Shutting down... Saving current session data.")
+    _storage.save(USER_ID, {"wallet_manager": _wallet_manager.to_json()})
+
+
+app = FastAPI(title="Budget Planner API", lifespan=lifespan)
+
+
+# Health check
+@app.get("/health")
+def health_check():
+    return {"status": "success"}
 
 
 #  Dashboard / General

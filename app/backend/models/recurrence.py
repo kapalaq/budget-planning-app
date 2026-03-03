@@ -5,7 +5,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import List, Optional, Set
+from typing import List, Optional, Set, Dict, Any
 
 from models.transaction import Transaction, TransactionType
 
@@ -48,6 +48,9 @@ class EndCondition(Enum):
     NEVER = "never"
     ON_DATE = "on_date"
     AFTER_COUNT = "after_count"
+
+
+DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 
 @dataclass
@@ -323,6 +326,47 @@ class RecurrenceRule:
 
         return " ".join(parts)
 
+    @classmethod
+    def from_json(cls, data: Dict[str, Any]) -> "RecurrenceRule":
+        """Deserialize a RecurrenceRule from a JSON-compatible dict."""
+        return cls(
+            frequency=Frequency(data["frequency"]),
+            interval=data.get("interval", 1),
+            end_condition=EndCondition(
+                data.get("end_condition", EndCondition.NEVER.value)
+            ),
+            end_date=(
+                datetime.strptime(data["end_date"], DATETIME_FORMAT)
+                if data.get("end_date")
+                else None
+            ),
+            max_occurrences=data.get("max_occurrences"),
+            weekdays=set(Weekday(wd) for wd in data.get("weekdays", [])),
+            month_week=data.get("month_week"),
+            month_weekday=(
+                Weekday(data["month_weekday"])
+                if data.get("month_weekday") is not None
+                else None
+            ),
+        )
+
+    def to_json(self) -> Dict[str, Any]:
+        """Serialize the recurrence rule to a JSON-compatible dict."""
+        return {
+            "frequency": self.frequency.value,
+            "interval": self.interval,
+            "end_condition": self.end_condition.value,
+            "end_date": (
+                self.end_date.strftime(DATETIME_FORMAT) if self.end_date else None
+            ),
+            "max_occurrences": self.max_occurrences,
+            "weekdays": [wd.value for wd in self.weekdays],
+            "month_week": self.month_week,
+            "month_weekday": (
+                self.month_weekday.value if self.month_weekday is not None else None
+            ),
+        }
+
 
 @dataclass
 class RecurringTransaction:
@@ -340,6 +384,65 @@ class RecurringTransaction:
     generated_count: int = 0
     last_generated: Optional[datetime] = None
     exceptions: Set[datetime] = field(default_factory=set)
+
+    @classmethod
+    def from_json(cls, data: Dict[str, Any]) -> Optional["RecurringTransaction"]:
+        """Deserialize a RecurringTransaction from a JSON-compatible dict."""
+        required = {
+            "amount",
+            "transaction_type",
+            "category",
+            "recurrence_rule",
+            "start_date",
+            "wallet_name",
+        }
+        if not required.issubset(data.keys()):
+            return None
+
+        return cls(
+            amount=float(data["amount"]),
+            transaction_type=TransactionType(data["transaction_type"]),
+            category=data["category"],
+            description=data["description"],
+            recurrence_rule=RecurrenceRule.from_json(data["recurrence_rule"]),
+            start_date=datetime.strptime(data["start_date"], DATETIME_FORMAT),
+            wallet_name=data["wallet_name"],
+            id=data["id"],
+            is_active=bool(data["is_active"]),
+            generated_count=int(data["generated_count"]),
+            last_generated=(
+                datetime.strptime(data["last_generated"], DATETIME_FORMAT)
+                if data["last_generated"]
+                else None
+            ),
+            exceptions=set(
+                datetime.strptime(dt, DATETIME_FORMAT)
+                for dt in data.get("exceptions", [])
+            ),
+        )
+
+    def to_json(self) -> Dict[str, Any]:
+        """Serialize this RecurringTransaction to a JSON-compatible dict."""
+        return {
+            "amount": self.amount,
+            "transaction_type": self.transaction_type.value,
+            "category": self.category,
+            "description": self.description,
+            "recurrence_rule": self.recurrence_rule.to_json(),
+            "start_date": self.start_date.strftime(DATETIME_FORMAT),
+            "wallet_name": self.wallet_name,
+            "id": self.id,
+            "is_active": self.is_active,
+            "generated_count": self.generated_count,
+            "last_generated": (
+                self.last_generated.strftime(DATETIME_FORMAT)
+                if self.last_generated
+                else None
+            ),
+            "exceptions": [
+                dt.strftime(DATETIME_FORMAT) for dt in sorted(self.exceptions)
+            ],
+        }
 
     def create_transaction(self, date: datetime) -> Transaction:
         """Create a concrete Transaction from this template for a given date."""

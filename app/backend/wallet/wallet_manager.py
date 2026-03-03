@@ -1,13 +1,13 @@
 """Wallet Manager module to work with different wallets."""
 
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
 from models.category import CategoryManager
 from models.recurrence_scheduler import RecurrenceScheduler
 from models.transaction import TransactionType, Transfer
 from strategies.sorting import WalletSortingContext
-from wallet.wallet import Wallet
+from wallet.wallet import DepositWallet, Wallet, WalletType
 
 
 class WalletManager:
@@ -31,6 +31,67 @@ class WalletManager:
     @property
     def recurrence_scheduler(self) -> RecurrenceScheduler:
         return self._recurrence_scheduler
+
+    def from_json(self, data: Dict[str, Any]) -> "WalletManager":
+        """Builds WalletManager class from persisted dict data."""
+        if data is None:
+            return self
+
+        self._category_manager = CategoryManager().from_json(
+            data.get("category_manager")
+        )
+        self._sorting_context = WalletSortingContext().from_json(
+            data.get("sorting_context")
+        )
+        self._recurrence_scheduler = RecurrenceScheduler(self).from_json(
+            data.get("recurrent_scheduler")
+        )
+
+        for wallet_data in data.get("wallets", []):
+            w_type = wallet_data.get("wallet_type", "regular")
+            if w_type == WalletType.DEPOSIT.value:
+                wallet = DepositWallet.from_json(wallet_data)
+            else:
+                wallet = Wallet.from_json(wallet_data)
+
+            if wallet.name == data.get("current_wallet"):
+                self._current_wallet = wallet
+            self.add_wallet(wallet)
+
+        # Resolve Transfer connections across wallets
+        self._resolve_transfer_links()
+
+        return self
+
+    def _resolve_transfer_links(self) -> None:
+        """Wire up Transfer.source and Transfer.connected across all wallets."""
+        # Build a global index: transaction id -> (Transfer, Wallet)
+        index: Dict[str, tuple] = {}
+        for wallet in self._wallets.values():
+            for t in wallet._Wallet__transactions.values():
+                if isinstance(t, Transfer):
+                    t.source = wallet
+                    index[t.id] = (t, wallet)
+
+        # Resolve connected references
+        for transfer, _ in index.values():
+            pending_id = getattr(transfer, "_pending_connected_id", None)
+            if pending_id and pending_id in index:
+                transfer.connected = index[pending_id][0]
+            if hasattr(transfer, "_pending_connected_id"):
+                del transfer._pending_connected_id
+
+    def to_json(self) -> Dict[str, Any]:
+        """Turns WalletManager data into dict for persistance."""
+        data = {}
+
+        data["category_manager"] = self._category_manager.to_json()
+        data["sorting_context"] = self._sorting_context.to_json()
+        data["recurrent_scheduler"] = self._recurrence_scheduler.to_json()
+        data["current_wallet"] = self._current_wallet.name
+        data["wallets"] = [wallet.to_json() for wallet in self._wallets.values()]
+
+        return data
 
     def switch_wallet(self, name: str) -> bool:
         """Switch to a wallet by its name."""

@@ -4,7 +4,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Dict, Any
 
 if TYPE_CHECKING:
     from wallet.wallet import Wallet
@@ -21,9 +21,9 @@ class TransactionType(Enum):
 class Transaction:
     """Represents a single financial transaction."""
 
-    amount: float
-    transaction_type: TransactionType
-    category: str
+    amount: float = 0.0
+    transaction_type: TransactionType = TransactionType.INCOME
+    category: str = ""
     description: str = ""
     datetime_created: datetime = field(default_factory=datetime.now)
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
@@ -72,6 +72,36 @@ class Transaction:
             f"Category: {self.category}\n"
             f"Description: {self.description or 'N/A'}\n"
             f"Date: {self.datetime_created.strftime('%Y-%m-%d %H:%M:%S')}"
+        )
+
+    def to_json(self) -> Dict[str, Any]:
+        """Turns Transaction data into dict for persistence."""
+        return {
+            "id": self.id,
+            "type": "transaction",
+            "amount": self.amount,
+            "transaction_type": self.transaction_type.value,
+            "category": self.category,
+            "description": self.description,
+            "datetime_created": self.datetime_created.isoformat(),
+            "recurrence_id": self.recurrence_id,
+        }
+
+    @classmethod
+    def from_json(cls, data: Dict[str, Any]) -> "Transaction":
+        """Builds Transaction object from persisted dict data."""
+        return cls(
+            id=data.get("id", str(uuid.uuid4())[:8]),
+            amount=float(data.get("amount", 0.0)),
+            transaction_type=TransactionType(data.get("transaction_type", "+")),
+            category=data.get("category", ""),
+            description=data.get("description", ""),
+            datetime_created=(
+                datetime.fromisoformat(data["datetime_created"])
+                if data.get("datetime_created")
+                else datetime.now()
+            ),
+            recurrence_id=data.get("recurrence_id"),
         )
 
 
@@ -184,3 +214,34 @@ class Transfer(Transaction):
                 else "?"
             )
             return f"Transfer from {source} - {sign}{abs(self.amount):.2f}"
+
+    def to_json(self) -> Dict[str, Any]:
+        """Turns Transfer data into dict for persistence, storing connected ID only."""
+        data = super().to_json()
+        data["type"] = "transfer"
+        data["connected_id"] = self.connected.id if self.connected else None
+        data["source_wallet"] = self.source.name if self.source else None
+        return data
+
+    @classmethod
+    def from_json(cls, data: Dict[str, Any]) -> "Transfer":
+        """Builds Transfer object from persisted dict data.
+
+        The `source` and `connected` references are left as None and must be
+        resolved later by WalletManager after all wallets have been loaded.
+        The raw connected_id is stored in `_pending_connected_id` for that pass.
+        """
+        transfer = cls(
+            id=data.get("id", str(uuid.uuid4())[:8]),
+            amount=float(data.get("amount", 0.0)),
+            transaction_type=TransactionType(data.get("transaction_type", "+")),
+            description=data.get("description", ""),
+            datetime_created=(
+                datetime.fromisoformat(data["datetime_created"])
+                if data.get("datetime_created")
+                else datetime.now()
+            ),
+            recurrence_id=data.get("recurrence_id"),
+        )
+        transfer._pending_connected_id = data.get("connected_id")
+        return transfer

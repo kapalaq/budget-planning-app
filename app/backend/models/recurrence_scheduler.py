@@ -1,7 +1,7 @@
 """Recurrence scheduler that materializes recurring transactions."""
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional, Any
 
 from models.recurrence import RecurringTransaction
 
@@ -15,6 +15,29 @@ class RecurrenceScheduler:
     def __init__(self, wallet_manager: "WalletManager"):
         self._recurring_transactions: Dict[str, RecurringTransaction] = {}
         self._wallet_manager = wallet_manager
+
+    def from_json(self, data: Dict[str, Any]) -> "RecurrenceScheduler":
+        """Builds RecurrenceScheduler class from persisted dict data."""
+        if not data:
+            return self
+
+        for info in data.get("transactions", []):
+            transaction = RecurringTransaction.from_json(info)
+            if transaction:
+                self._recurring_transactions[transaction.id] = transaction
+
+        return self
+
+    def to_json(self) -> Dict[str, Any]:
+        """Turns RecurrenceScheduler data into dict for persistance."""
+        data = {}
+
+        data["transactions"] = [
+            transaction.to_json()
+            for transaction in self._recurring_transactions.values()
+        ]
+
+        return data
 
     def add_recurring(self, recurring: RecurringTransaction) -> None:
         """Add a recurring transaction template."""
