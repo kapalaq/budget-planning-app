@@ -19,8 +19,9 @@
 # Logs
 **/*.log
 
-# Databse files
+# Database files
 **/*.json
+**/*.csv
 
 # Agent
 CLAUDE.md

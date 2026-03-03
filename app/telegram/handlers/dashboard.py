@@ -5,7 +5,7 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 
 from telegram.backend import backend
-from telegram.keyboards import main_menu, back_to_menu
+from telegram.keyboards import auth_menu, main_menu, back_to_menu
 from telegram.utils import fmt_dashboard, _to_md2
 
 router = Router()
@@ -14,6 +14,16 @@ router = Router()
 @router.message(Command("start"))
 async def cmd_start(message: types.Message, state: FSMContext):
     await state.clear()
+    # Check if this Telegram user has a linked account
+    if message.from_user and message.from_user.id not in backend._tokens:
+        token = await backend.ensure_auth(message.from_user.id)
+        if not token:
+            await message.answer(
+                "Welcome to Budget Planner!\n\n"
+                "Please login with an existing account or register a new one.",
+                reply_markup=auth_menu(),
+            )
+            return
     await _send_dashboard(message)
 
 

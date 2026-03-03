@@ -2,13 +2,16 @@
 
 import asyncio
 import logging
+from typing import Any, Awaitable, Callable
 
-from aiogram import Bot, Dispatcher
+from aiogram import BaseMiddleware, Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.types import TelegramObject
 
 from telegram.config import BOT_TOKEN
-from telegram.backend import backend
+from telegram.backend import _current_token, backend
 from telegram.handlers import (
+    auth,
     dashboard,
     help,
     transactions,
@@ -25,10 +28,31 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+class AuthMiddleware(BaseMiddleware):
+    """Authenticate Telegram users with the backend before each handler."""
+
+    async def __call__(
+        self,
+        handler: Callable[[TelegramObject, dict[str, Any]], Awaitable[Any]],
+        event: TelegramObject,
+        data: dict[str, Any],
+    ) -> Any:
+        user = data.get("event_from_user")
+        if user:
+            token = await backend.ensure_auth(user.id)
+            if token:
+                _current_token.set(token)
+        return await handler(event, data)
+
+
 def create_dispatcher() -> Dispatcher:
     dp = Dispatcher(storage=MemoryStorage())
 
-    # Register routers (order matters — common/cancel should be last)
+    # Auth middleware runs before every handler
+    dp.update.middleware(AuthMiddleware())
+
+    # Register routers (order matters — auth first, common/cancel last)
+    dp.include_router(auth.router)
     dp.include_router(dashboard.router)
     dp.include_router(help.router)
     dp.include_router(transactions.router)

@@ -1,5 +1,6 @@
 """Async HTTP client for communicating with the FastAPI backend."""
 
+import contextvars
 import logging
 
 import aiohttp
@@ -8,6 +9,12 @@ from telegram.config import BACKEND_URL
 
 logger = logging.getLogger(__name__)
 
+# Context variable holding the auth token for the current request.
+# Set by the auth middleware in bot.py before each handler runs.
+_current_token: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "_current_token", default=None
+)
+
 
 class Backend:
     """Async adapter matching the handle(dict) interface used by the CLI."""
@@ -15,15 +22,77 @@ class Backend:
     def __init__(self, base_url: str = BACKEND_URL):
         self._base = base_url.rstrip("/")
         self._session: aiohttp.ClientSession | None = None
+        # Cache: telegram_user_id -> backend auth token
+        self._tokens: dict[int, str] = {}
 
     async def _get_session(self) -> aiohttp.ClientSession:
         if self._session is None or self._session.closed:
             self._session = aiohttp.ClientSession()
         return self._session
 
+    def _auth_headers(self) -> dict[str, str]:
+        """Return Authorization header using the current request's token."""
+        token = _current_token.get()
+        if token:
+            return {"Authorization": f"Bearer {token}"}
+        return {}
+
     async def close(self):
         if self._session and not self._session.closed:
             await self._session.close()
+
+    async def ensure_auth(self, telegram_user_id: int) -> str | None:
+        """Authenticate the Telegram user, returning a cached token or None."""
+        if telegram_user_id in self._tokens:
+            return self._tokens[telegram_user_id]
+        session = await self._get_session()
+        async with session.post(
+            f"{self._base}/auth/telegram",
+            json={"telegram_id": str(telegram_user_id)},
+        ) as resp:
+            if resp.status == 404:
+                return None
+            resp.raise_for_status()
+            data = await resp.json()
+        token = data["token"]
+        self._tokens[telegram_user_id] = token
+        return token
+
+    async def login(self, login: str, password: str, telegram_user_id: int) -> dict:
+        """Authenticate with the backend and link telegram_id."""
+        session = await self._get_session()
+        async with session.post(
+            f"{self._base}/auth/login",
+            json={
+                "login": login,
+                "password": password,
+                "telegram_id": str(telegram_user_id),
+            },
+        ) as resp:
+            if resp.status == 401:
+                return {"status": "error", "message": "Invalid login or password"}
+            resp.raise_for_status()
+            data = await resp.json()
+        self._tokens[telegram_user_id] = data["token"]
+        return data
+
+    async def register(self, login: str, password: str, telegram_user_id: int) -> dict:
+        """Register a new user and link telegram_id."""
+        session = await self._get_session()
+        async with session.post(
+            f"{self._base}/auth/register",
+            json={
+                "login": login,
+                "password": password,
+                "telegram_id": str(telegram_user_id),
+            },
+        ) as resp:
+            if resp.status == 409:
+                return {"status": "error", "message": "Login already taken"}
+            resp.raise_for_status()
+            data = await resp.json()
+        self._tokens[telegram_user_id] = data["token"]
+        return data
 
     async def handle(self, request: dict) -> dict:
         action = request.get("action", "")
@@ -44,25 +113,33 @@ class Backend:
 
     async def _get(self, path: str, params: dict | None = None) -> dict:
         session = await self._get_session()
-        async with session.get(f"{self._base}{path}", params=params or {}) as resp:
+        async with session.get(
+            f"{self._base}{path}", params=params or {}, headers=self._auth_headers()
+        ) as resp:
             resp.raise_for_status()
             return await resp.json()
 
     async def _post(self, path: str, body: dict | None = None) -> dict:
         session = await self._get_session()
-        async with session.post(f"{self._base}{path}", json=body or {}) as resp:
+        async with session.post(
+            f"{self._base}{path}", json=body or {}, headers=self._auth_headers()
+        ) as resp:
             resp.raise_for_status()
             return await resp.json()
 
     async def _put(self, path: str, body: dict | None = None) -> dict:
         session = await self._get_session()
-        async with session.put(f"{self._base}{path}", json=body or {}) as resp:
+        async with session.put(
+            f"{self._base}{path}", json=body or {}, headers=self._auth_headers()
+        ) as resp:
             resp.raise_for_status()
             return await resp.json()
 
     async def _delete(self, path: str, params: dict | None = None) -> dict:
         session = await self._get_session()
-        async with session.delete(f"{self._base}{path}", params=params or {}) as resp:
+        async with session.delete(
+            f"{self._base}{path}", params=params or {}, headers=self._auth_headers()
+        ) as resp:
             resp.raise_for_status()
             return await resp.json()
 

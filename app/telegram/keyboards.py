@@ -3,6 +3,17 @@
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 
+def auth_menu() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="Login", callback_data="auth:login"),
+                InlineKeyboardButton(text="Register", callback_data="auth:register"),
+            ],
+        ]
+    )
+
+
 def main_menu() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[

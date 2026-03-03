@@ -23,6 +23,35 @@ class HttpRequestHandler:
     def __init__(self, base_url: str = _DEFAULT_BASE_URL):
         self._base = base_url.rstrip("/")
         self._session = requests.Session()
+        self._token: str | None = None
+
+    def _set_auth(self, token: str):
+        self._token = token
+        self._session.headers["Authorization"] = f"Bearer {token}"
+
+    def login(self, login: str, password: str) -> dict:
+        """Authenticate with the backend. Returns response dict with token."""
+        resp = self._session.post(
+            f"{self._base}/auth/login", json={"login": login, "password": password}
+        )
+        if resp.status_code == 401:
+            return {"status": "error", "message": "Invalid login or password"}
+        resp.raise_for_status()
+        data = resp.json()
+        self._set_auth(data["token"])
+        return data
+
+    def register(self, login: str, password: str) -> dict:
+        """Register a new user. Returns response dict with token."""
+        resp = self._session.post(
+            f"{self._base}/auth/register", json={"login": login, "password": password}
+        )
+        if resp.status_code == 409:
+            return {"status": "error", "message": "Login already taken"}
+        resp.raise_for_status()
+        data = resp.json()
+        self._set_auth(data["token"])
+        return data
 
     #  Public entry point (mirrors RequestHandler.handle)
     def handle(self, request: dict) -> dict:

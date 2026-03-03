@@ -95,7 +95,7 @@ class WalletManager:
 
     def switch_wallet(self, name: str) -> bool:
         """Switch to a wallet by its name."""
-        wallet = self._wallets.get(name)
+        wallet = self._wallets.get(name.lower())
         if wallet:
             self._current_wallet = wallet
             return True
