@@ -11,11 +11,17 @@ import re
 # Sentinel markers that won't appear in real data
 _B_OPEN = "\x00B\x00"  # bold open  -> *
 _B_CLOSE = "\x01B\x01"  # bold close -> *
+_I_OPEN = "\x00I\x00"  # italic open  -> _
+_I_CLOSE = "\x01I\x01"  # italic close -> _
 _C_OPEN = "\x00C\x00"  # code open  -> `
 _C_CLOSE = "\x01C\x01"  # code close -> `
 
 # MarkdownV2 special characters (everything that Telegram requires escaped)
 _MD2_SPECIAL = re.compile(r"([_*\[\]()~`>#+\-=|{}.!\\])")
+
+
+def _italic(text: str) -> str:
+    return f"{_I_OPEN}{text}{_I_CLOSE}"
 
 
 def _bold(text: str) -> str:
@@ -33,6 +39,8 @@ def _to_md2(text: str) -> str:
     # 2. Restore our markers to real MarkdownV2 syntax
     escaped = escaped.replace(_esc_sentinel(_B_OPEN), "*")
     escaped = escaped.replace(_esc_sentinel(_B_CLOSE), "*")
+    escaped = escaped.replace(_esc_sentinel(_I_OPEN), "_")
+    escaped = escaped.replace(_esc_sentinel(_I_CLOSE), "_")
     escaped = escaped.replace(_esc_sentinel(_C_OPEN), "`")
     escaped = escaped.replace(_esc_sentinel(_C_CLOSE), "`")
     return escaped
