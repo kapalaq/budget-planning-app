@@ -52,9 +52,11 @@ async def _show_recurring_list(message: types.Message):
                 )
             ]
         )
-    rows.append([InlineKeyboardButton(text="<< Menu", callback_data="dashboard")])
+    rows.append(
+        [InlineKeyboardButton(text="\u2b05\ufe0f Menu", callback_data="dashboard")]
+    )
     kb = InlineKeyboardMarkup(inline_keyboard=rows)
-    await message.answer(text, parse_mode="MarkdownV2", reply_markup=kb)
+    await message.edit_text(text, parse_mode="MarkdownV2", reply_markup=kb)
 
 
 # ── Show recurring detail ────────────────────────────────────────────
@@ -68,10 +70,10 @@ async def cb_show_recurring(callback: types.CallbackQuery):
         {"action": "get_recurring_detail", "data": {"index": index}}
     )
     if resp["status"] == "error":
-        await callback.message.answer(resp["message"], reply_markup=back_to_menu())
+        await callback.message.edit_text(resp["message"], reply_markup=back_to_menu())
         return
     detail = resp["data"].get("detail", str(resp["data"]))
-    await callback.message.answer(
+    await callback.message.edit_text(
         detail, reply_markup=recurring_actions_keyboard(index)
     )
 
@@ -102,9 +104,10 @@ async def _start_add_recurring(message: types.Message, state: FSMContext, tt: st
     categories = resp["data"]["categories"]
     await state.update_data(transaction_type=tt, categories=categories)
     await state.set_state(AddRecurring.amount)
-    label = "Income" if tt == "income" else "Expense"
-    await message.answer(
-        f"Adding recurring {label}.\nEnter amount:", reply_markup=cancel_keyboard()
+    label = "\U0001f4b5 Income" if tt == "income" else "\U0001f4b8 Expense"
+    await message.edit_text(
+        f"\U0001f504 Adding recurring {label}.\n\U0001f4b2 Enter amount:",
+        reply_markup=cancel_keyboard(),
     )
 
 
@@ -115,13 +118,14 @@ async def rec_amount(message: types.Message, state: FSMContext):
         if amount <= 0:
             raise ValueError
     except (ValueError, AttributeError):
-        await message.answer("Please enter a positive number.")
+        await message.answer("\u26a0\ufe0f Please enter a positive number.")
         return
     await state.update_data(amount=amount)
     data = await state.get_data()
     await state.set_state(AddRecurring.category)
     await message.answer(
-        "Select category:", reply_markup=category_keyboard(data["categories"])
+        "\U0001f3f7\ufe0f Select category:",
+        reply_markup=category_keyboard(data["categories"]),
     )
 
 
@@ -131,14 +135,14 @@ async def rec_category(callback: types.CallbackQuery, state: FSMContext):
     cat = callback.data.split(":", 1)[1]
     if cat == "__new__":
         await state.set_state(AddRecurring.new_category)
-        await callback.message.answer(
-            "Enter new category name:", reply_markup=cancel_keyboard()
+        await callback.message.edit_text(
+            "\u2795 Enter new category name:", reply_markup=cancel_keyboard()
         )
         return
     await state.update_data(category=cat)
     await state.set_state(AddRecurring.description)
-    await callback.message.answer(
-        "Enter description (or `-` to skip):", reply_markup=cancel_keyboard()
+    await callback.message.edit_text(
+        "\U0001f4dd Enter description (or `-` to skip):", reply_markup=cancel_keyboard()
     )
 
 
@@ -146,12 +150,12 @@ async def rec_category(callback: types.CallbackQuery, state: FSMContext):
 async def rec_new_cat(message: types.Message, state: FSMContext):
     cat = message.text.strip()
     if not cat:
-        await message.answer("Category name cannot be empty.")
+        await message.answer("\u26a0\ufe0f Category name cannot be empty.")
         return
     await state.update_data(category=cat)
     await state.set_state(AddRecurring.description)
     await message.answer(
-        "Enter description (or `-` to skip):", reply_markup=cancel_keyboard()
+        "\U0001f4dd Enter description (or `-` to skip):", reply_markup=cancel_keyboard()
     )
 
 
@@ -163,7 +167,7 @@ async def rec_description(message: types.Message, state: FSMContext):
     await state.update_data(description=desc)
     await state.set_state(AddRecurring.start_date)
     await message.answer(
-        "Enter start date (YYYY-MM-DD) or `-` for today:",
+        "\U0001f4c5 Enter start date (YYYY-MM-DD) or `-` for today:",
         reply_markup=cancel_keyboard(),
     )
 
@@ -174,7 +178,9 @@ async def rec_start_date(message: types.Message, state: FSMContext):
     date_val = None if text == "-" else text
     await state.update_data(start_date=date_val)
     await state.set_state(AddRecurring.frequency)
-    await message.answer("Select frequency:", reply_markup=frequency_keyboard())
+    await message.answer(
+        "\U0001f504 Select frequency:", reply_markup=frequency_keyboard()
+    )
 
 
 @router.callback_query(AddRecurring.frequency, F.data.startswith("freq:"))
@@ -183,7 +189,7 @@ async def rec_frequency(callback: types.CallbackQuery, state: FSMContext):
     freq = callback.data.split(":")[1]
     await state.update_data(frequency=freq)
     await state.set_state(AddRecurring.interval)
-    await callback.message.answer(
+    await callback.message.edit_text(
         f"Enter interval (every N {freq} periods, or `-` for 1):",
         reply_markup=cancel_keyboard(),
     )
@@ -200,11 +206,13 @@ async def rec_interval(message: types.Message, state: FSMContext):
             if interval <= 0:
                 raise ValueError
         except ValueError:
-            await message.answer("Please enter a positive integer.")
+            await message.answer("\u26a0\ufe0f Please enter a positive integer.")
             return
     await state.update_data(interval=interval)
     await state.set_state(AddRecurring.end_condition)
-    await message.answer("Select end condition:", reply_markup=end_condition_keyboard())
+    await message.answer(
+        "\U0001f3c1 Select end condition:", reply_markup=end_condition_keyboard()
+    )
 
 
 @router.callback_query(AddRecurring.end_condition, F.data.startswith("endc:"))
@@ -217,13 +225,13 @@ async def rec_end_condition(callback: types.CallbackQuery, state: FSMContext):
         await _finish_add_recurring(callback.message, state)
     elif endc == "on_date":
         await state.set_state(AddRecurring.end_date)
-        await callback.message.answer(
-            "Enter end date (YYYY-MM-DD):", reply_markup=cancel_keyboard()
+        await callback.message.edit_text(
+            "\U0001f4c5 Enter end date (YYYY-MM-DD):", reply_markup=cancel_keyboard()
         )
     elif endc == "after_count":
         await state.set_state(AddRecurring.end_count)
-        await callback.message.answer(
-            "Enter number of occurrences:", reply_markup=cancel_keyboard()
+        await callback.message.edit_text(
+            "\U0001f522 Enter number of occurrences:", reply_markup=cancel_keyboard()
         )
 
 
@@ -241,7 +249,7 @@ async def rec_end_count(message: types.Message, state: FSMContext):
         if count <= 0:
             raise ValueError
     except (ValueError, AttributeError):
-        await message.answer("Please enter a positive integer.")
+        await message.answer("\u26a0\ufe0f Please enter a positive integer.")
         return
     await state.update_data(max_occurrences=count)
     await _finish_add_recurring(message, state)
@@ -281,7 +289,8 @@ async def cb_edit_recurring(callback: types.CallbackQuery):
     await callback.answer()
     index = int(callback.data.split(":")[1])
     await callback.message.answer(
-        f"Edit recurring #{index}:", reply_markup=edit_recurring_keyboard(index)
+        f"\u270f\ufe0f Edit recurring #{index}:",
+        reply_markup=edit_recurring_keyboard(index),
     )
 
 
@@ -306,7 +315,8 @@ async def cb_edit_rec_action(callback: types.CallbackQuery, state: FSMContext):
         await state.update_data(rec_index=index)
         await state.set_state(DeleteRecurring.delete_option)
         await callback.message.answer(
-            "Enter date to skip (YYYY-MM-DD):", reply_markup=cancel_keyboard()
+            "\U0001f4c5 Enter date to skip (YYYY-MM-DD):",
+            reply_markup=cancel_keyboard(),
         )
     elif action == "template":
         # Simplified: send edit data for amount change
@@ -362,8 +372,8 @@ async def skip_date_entry(message: types.Message, state: FSMContext):
 async def cb_delete_recurring(callback: types.CallbackQuery):
     await callback.answer()
     index = int(callback.data.split(":")[1])
-    await callback.message.answer(
-        f"Delete recurring #{index}. Choose scope:",
+    await callback.message.edit_text(
+        f"\U0001f5d1\ufe0f Delete recurring #{index}. Choose scope:",
         reply_markup=delete_recurring_keyboard(index),
     )
 
@@ -381,4 +391,4 @@ async def cb_delete_rec_opt(callback: types.CallbackQuery):
         }
     )
     msg = resp.get("message", "Done")
-    await callback.message.answer(msg, reply_markup=back_to_menu())
+    await callback.message.edit_text(msg, reply_markup=back_to_menu())

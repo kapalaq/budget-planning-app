@@ -21,7 +21,6 @@ from telegram.handlers import (
     sorting,
     filters,
     percentages,
-    common,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -62,7 +61,6 @@ def create_dispatcher() -> Dispatcher:
     dp.include_router(sorting.router)
     dp.include_router(filters.router)
     dp.include_router(percentages.router)
-    dp.include_router(common.router)
 
     return dp
 

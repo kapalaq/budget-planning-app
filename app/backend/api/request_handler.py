@@ -548,9 +548,9 @@ class RequestHandler:
                 categories=set(data["categories"]),
                 mode=data.get("mode", "include"),
             )
-        elif ft == "large":
+        elif ft == "large_transactions":
             return LargeTransactionsFilter(threshold=data.get("threshold", 10000))
-        elif ft == "small":
+        elif ft == "small_transactions":
             return SmallTransactionsFilter(threshold=data.get("threshold", 100))
         elif ft == "amount_range":
             return AmountRangeFilter(

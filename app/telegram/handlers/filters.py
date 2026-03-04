@@ -2,6 +2,7 @@
 
 from aiogram import Router, F, types
 from aiogram.filters import Command
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from telegram.backend import backend
 from telegram.keyboards import (
@@ -18,7 +19,9 @@ router = Router()
 
 @router.message(Command("filters"))
 async def cmd_filters(message: types.Message):
-    await message.answer("Filter options:", reply_markup=filter_menu_keyboard())
+    await message.answer(
+        "\U0001f50d Filter options:", reply_markup=filter_menu_keyboard()
+    )
 
 
 @router.callback_query(F.data == "filters")
@@ -26,11 +29,11 @@ async def cb_filters(callback: types.CallbackQuery):
     await callback.answer()
     try:
         await callback.message.edit_text(
-            "Filter options:", reply_markup=filter_menu_keyboard()
+            "\U0001f50d Filter options:", reply_markup=filter_menu_keyboard()
         )
     except Exception:
         await callback.message.answer(
-            "Filter options:", reply_markup=filter_menu_keyboard()
+            "\U0001f50d Filter options:", reply_markup=filter_menu_keyboard()
         )
 
 
@@ -40,9 +43,14 @@ async def cb_filters(callback: types.CallbackQuery):
 @router.callback_query(F.data == "filter:date")
 async def cb_filter_date(callback: types.CallbackQuery):
     await callback.answer()
-    await callback.message.answer(
-        "Select date filter:", reply_markup=date_filter_keyboard()
-    )
+    try:
+        await callback.message.edit_text(
+            "\U0001f4c5 Select date filter:", reply_markup=date_filter_keyboard()
+        )
+    except Exception:
+        await callback.message.answer(
+            "\U0001f4c5 Select date filter:", reply_markup=date_filter_keyboard()
+        )
 
 
 @router.callback_query(F.data.startswith("df:"))
@@ -53,7 +61,10 @@ async def cb_date_filter_choice(callback: types.CallbackQuery):
         {"action": "add_filter", "data": {"filter_type": filter_type}}
     )
     msg = resp.get("message", "Done")
-    await callback.message.answer(msg, reply_markup=back_to_menu())
+    try:
+        await callback.message.edit_text(msg, reply_markup=filter_menu_keyboard())
+    except Exception:
+        await callback.message.answer(msg, reply_markup=filter_menu_keyboard())
 
 
 # ── Type filter ──────────────────────────────────────────────────────
@@ -62,9 +73,14 @@ async def cb_date_filter_choice(callback: types.CallbackQuery):
 @router.callback_query(F.data == "filter:type")
 async def cb_filter_type(callback: types.CallbackQuery):
     await callback.answer()
-    await callback.message.answer(
-        "Select type filter:", reply_markup=type_filter_keyboard()
-    )
+    try:
+        await callback.message.edit_text(
+            "\U0001f4cb Select type filter:", reply_markup=type_filter_keyboard()
+        )
+    except Exception:
+        await callback.message.answer(
+            "\U0001f4cb Select type filter:", reply_markup=type_filter_keyboard()
+        )
 
 
 @router.callback_query(F.data.startswith("tf:"))
@@ -75,7 +91,10 @@ async def cb_type_filter_choice(callback: types.CallbackQuery):
         {"action": "add_filter", "data": {"filter_type": filter_type}}
     )
     msg = resp.get("message", "Done")
-    await callback.message.answer(msg, reply_markup=back_to_menu())
+    try:
+        await callback.message.edit_text(msg, reply_markup=filter_menu_keyboard())
+    except Exception:
+        await callback.message.answer(msg, reply_markup=filter_menu_keyboard())
 
 
 # ── Amount filter ────────────────────────────────────────────────────
@@ -84,9 +103,14 @@ async def cb_type_filter_choice(callback: types.CallbackQuery):
 @router.callback_query(F.data == "filter:amount")
 async def cb_filter_amount(callback: types.CallbackQuery):
     await callback.answer()
-    await callback.message.answer(
-        "Select amount filter:", reply_markup=amount_filter_keyboard()
-    )
+    try:
+        await callback.message.edit_text(
+            "\U0001f4b0 Select amount filter:", reply_markup=amount_filter_keyboard()
+        )
+    except Exception:
+        await callback.message.answer(
+            "\U0001f4b0 Select amount filter:", reply_markup=amount_filter_keyboard()
+        )
 
 
 @router.callback_query(F.data.startswith("af:"))
@@ -97,7 +121,10 @@ async def cb_amount_filter_choice(callback: types.CallbackQuery):
         {"action": "add_filter", "data": {"filter_type": filter_type}}
     )
     msg = resp.get("message", "Done")
-    await callback.message.answer(msg, reply_markup=back_to_menu())
+    try:
+        await callback.message.edit_text(msg, reply_markup=filter_menu_keyboard())
+    except Exception:
+        await callback.message.answer(msg, reply_markup=filter_menu_keyboard())
 
 
 # ── Category filter (simplified: just lists categories as buttons) ───
@@ -117,8 +144,6 @@ async def cb_filter_category(callback: types.CallbackQuery):
     expense_cats = set(resp2["data"]["categories"])
     all_cats = sorted(income_cats | expense_cats | {"Transfer"})
 
-    from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
-
     rows = []
     for i in range(0, len(all_cats), 2):
         row = [
@@ -128,9 +153,16 @@ async def cb_filter_category(callback: types.CallbackQuery):
         rows.append(row)
     rows.append([InlineKeyboardButton(text="Cancel", callback_data="filters")])
     kb = InlineKeyboardMarkup(inline_keyboard=rows)
-    await callback.message.answer(
-        "Select category to filter by (include only):", reply_markup=kb
-    )
+    try:
+        await callback.message.edit_text(
+            "\U0001f3f7\ufe0f Select category to filter by (include only):",
+            reply_markup=kb,
+        )
+    except Exception:
+        await callback.message.answer(
+            "\U0001f3f7\ufe0f Select category to filter by (include only):",
+            reply_markup=kb,
+        )
 
 
 @router.callback_query(F.data.startswith("catf:"))
@@ -148,7 +180,10 @@ async def cb_cat_filter_choice(callback: types.CallbackQuery):
         }
     )
     msg = resp.get("message", "Done")
-    await callback.message.answer(msg, reply_markup=back_to_menu())
+    try:
+        await callback.message.edit_text(msg, reply_markup=filter_menu_keyboard())
+    except Exception:
+        await callback.message.answer(msg, reply_markup=filter_menu_keyboard())
 
 
 # ── Description filter ───────────────────────────────────────────────
@@ -157,10 +192,19 @@ async def cb_cat_filter_choice(callback: types.CallbackQuery):
 @router.callback_query(F.data == "filter:description")
 async def cb_filter_description(callback: types.CallbackQuery):
     await callback.answer()
-    await callback.message.answer(
-        "Send the search text to filter descriptions by:",
-        reply_markup=back_to_menu(),
+    cancel_kb = InlineKeyboardMarkup(
+        inline_keyboard=[[InlineKeyboardButton(text="Cancel", callback_data="filters")]]
     )
+    try:
+        await callback.message.edit_text(
+            "\U0001f4dd Send the search text to filter descriptions by:",
+            reply_markup=cancel_kb,
+        )
+    except Exception:
+        await callback.message.answer(
+            "\U0001f4dd Send the search text to filter descriptions by:",
+            reply_markup=cancel_kb,
+        )
     # We'll handle this via a special text handler in bot.py if needed
     # For simplicity, using a direct approach
 
@@ -176,7 +220,10 @@ async def cb_view_active_filters(callback: types.CallbackQuery):
         await callback.message.answer(resp["message"], reply_markup=back_to_menu())
         return
     text = fmt_filters(resp["data"]["filters"])
-    await callback.message.answer(text, reply_markup=filter_menu_keyboard())
+    try:
+        await callback.message.edit_text(text, reply_markup=filter_menu_keyboard())
+    except Exception:
+        await callback.message.answer(text, reply_markup=filter_menu_keyboard())
 
 
 @router.callback_query(F.data == "filter:clear_all")
@@ -184,4 +231,7 @@ async def cb_clear_all_filters(callback: types.CallbackQuery):
     await callback.answer()
     resp = await backend.handle({"action": "clear_filters", "data": {}})
     msg = resp.get("message", "Done")
-    await callback.message.answer(msg, reply_markup=back_to_menu())
+    try:
+        await callback.message.edit_text(msg, reply_markup=filter_menu_keyboard())
+    except Exception:
+        await callback.message.answer(msg, reply_markup=filter_menu_keyboard())

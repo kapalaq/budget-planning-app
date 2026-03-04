@@ -1,7 +1,6 @@
 """Transaction handlers: add, show, edit, delete."""
 
 from aiogram import Router, F, types
-from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 
 from telegram.backend import backend
@@ -12,6 +11,7 @@ from telegram.keyboards import (
     transaction_actions_keyboard,
     edit_transaction_fields_keyboard,
     confirm_keyboard,
+    transaction_list_keyboard,
 )
 from telegram.states import AddTransaction, EditTransaction
 from telegram.utils import fmt_transaction, _to_md2
@@ -20,16 +20,6 @@ router = Router()
 
 
 # ── Add transaction ──────────────────────────────────────────────────
-
-
-@router.message(Command("income"))
-async def cmd_income(message: types.Message, state: FSMContext):
-    await _start_add(message, state, "income")
-
-
-@router.message(Command("expense"))
-async def cmd_expense(message: types.Message, state: FSMContext):
-    await _start_add(message, state, "expense")
 
 
 @router.callback_query(F.data == "add_income")
@@ -50,14 +40,14 @@ async def _start_add(message: types.Message, state: FSMContext, tt: str):
         {"action": "get_categories", "data": {"transaction_type": tt}}
     )
     if resp["status"] == "error":
-        await message.answer(resp["message"])
+        await message.edit_text(resp["message"])
         return
     categories = resp["data"]["categories"]
     await state.update_data(transaction_type=tt, categories=categories)
     await state.set_state(AddTransaction.amount)
-    label = "Income" if tt == "income" else "Expense"
-    await message.answer(
-        f"Adding {label}. Enter amount:",
+    label = "\U0001f4b5 Income" if tt == "income" else "\U0001f4b8 Expense"
+    await message.edit_text(
+        f"Adding {label}.\n\U0001f4b2 Enter amount:",
         reply_markup=cancel_keyboard(),
     )
 
@@ -69,13 +59,14 @@ async def add_tx_amount(message: types.Message, state: FSMContext):
         if amount <= 0:
             raise ValueError
     except (ValueError, AttributeError):
-        await message.answer("Please enter a positive number.")
+        await message.answer("\u26a0\ufe0f Please enter a positive number.")
         return
     await state.update_data(amount=amount)
     data = await state.get_data()
     await state.set_state(AddTransaction.category)
     await message.answer(
-        "Select category:", reply_markup=category_keyboard(data["categories"])
+        "\U0001f3f7\ufe0f Select category:",
+        reply_markup=category_keyboard(data["categories"]),
     )
 
 
@@ -85,14 +76,15 @@ async def add_tx_category(callback: types.CallbackQuery, state: FSMContext):
     cat = callback.data.split(":", 1)[1]
     if cat == "__new__":
         await state.set_state(AddTransaction.new_category)
-        await callback.message.answer(
-            "Enter new category name:", reply_markup=cancel_keyboard()
+        await callback.message.edit_text(
+            "\u2795 Enter new category name:", reply_markup=cancel_keyboard()
         )
         return
     await state.update_data(category=cat)
     await state.set_state(AddTransaction.description)
-    await callback.message.answer(
-        "Enter description (or send `-` to skip):", reply_markup=cancel_keyboard()
+    await callback.message.edit_text(
+        "\U0001f4dd Enter description (or send `-` to skip):",
+        reply_markup=cancel_keyboard(),
     )
 
 
@@ -100,12 +92,13 @@ async def add_tx_category(callback: types.CallbackQuery, state: FSMContext):
 async def add_tx_new_cat(message: types.Message, state: FSMContext):
     cat = message.text.strip()
     if not cat:
-        await message.answer("Category name cannot be empty.")
+        await message.answer("\u26a0\ufe0f Category name cannot be empty.")
         return
     await state.update_data(category=cat)
     await state.set_state(AddTransaction.description)
     await message.answer(
-        "Enter description (or send `-` to skip):", reply_markup=cancel_keyboard()
+        "\U0001f4dd Enter description (or send `-` to skip):",
+        reply_markup=cancel_keyboard(),
     )
 
 
@@ -117,7 +110,7 @@ async def add_tx_description(message: types.Message, state: FSMContext):
     await state.update_data(description=desc)
     await state.set_state(AddTransaction.date)
     await message.answer(
-        "Enter date (YYYY-MM-DD) or send `-` for today:",
+        "\U0001f4c5 Enter date (YYYY-MM-DD) or send `-` for today:",
         reply_markup=cancel_keyboard(),
     )
 
@@ -138,28 +131,60 @@ async def add_tx_date(message: types.Message, state: FSMContext):
     await state.clear()
     if resp["status"] == "success":
         await message.answer(
-            f"Transaction added: {data['amount']:.2f} in {data['category']}",
+            f"\u2705 Transaction added: {data['amount']:.2f} in {data['category']}",
             reply_markup=back_to_menu(),
         )
     else:
         await message.answer(resp["message"], reply_markup=back_to_menu())
 
 
-# ── Show transaction ─────────────────────────────────────────────────
+# ── Transaction list pickers (from paginated menu) ───────────────────
 
 
-@router.message(Command("show"))
-async def cmd_show(message: types.Message):
-    parts = message.text.strip().split()
-    if len(parts) < 2:
-        await message.answer("Usage: /show <index>")
+async def _fetch_transactions():
+    resp = await backend.handle({"action": "get_dashboard", "data": {}})
+    if resp["status"] == "error":
+        return None, resp["message"]
+    return resp["data"].get("transactions", []), None
+
+
+@router.callback_query(F.data == "tx_list_show")
+async def cb_tx_list_show(callback: types.CallbackQuery):
+    await callback.answer()
+    transactions, err = await _fetch_transactions()
+    if err:
+        await callback.message.edit_text(err, reply_markup=back_to_menu())
+        return
+    if not transactions:
+        await callback.message.edit_text(
+            "\U0001f4ed No transactions.", reply_markup=back_to_menu()
+        )
+        return
+    await callback.message.edit_text(
+        "\U0001f4cb Select transaction to view:",
+        reply_markup=transaction_list_keyboard(transactions, "show_tx"),
+    )
+
+
+@router.callback_query(F.data.startswith("txpage:"))
+async def cb_tx_page(callback: types.CallbackQuery):
+    await callback.answer()
+    parts = callback.data.split(":")
+    action_prefix = parts[1]
+    page = int(parts[2])
+    transactions, err = await _fetch_transactions()
+    if err:
+        await callback.message.answer(err, reply_markup=back_to_menu())
         return
     try:
-        index = int(parts[1])
-    except ValueError:
-        await message.answer("Index must be a number.")
-        return
-    await _show_transaction(message, index)
+        await callback.message.edit_reply_markup(
+            reply_markup=transaction_list_keyboard(transactions, action_prefix, page),
+        )
+    except Exception:
+        pass
+
+
+# ── Show transaction ─────────────────────────────────────────────────
 
 
 @router.callback_query(F.data.startswith("show_tx:"))
@@ -172,10 +197,10 @@ async def cb_show_tx(callback: types.CallbackQuery):
 async def _show_transaction(message: types.Message, index: int):
     resp = await backend.handle({"action": "get_transaction", "data": {"index": index}})
     if resp["status"] == "error":
-        await message.answer(resp["message"], reply_markup=back_to_menu())
+        await message.edit_text(resp["message"], reply_markup=back_to_menu())
         return
     text = fmt_transaction(resp["data"])
-    await message.answer(
+    await message.edit_text(
         text,
         parse_mode="MarkdownV2",
         reply_markup=transaction_actions_keyboard(index),
@@ -191,7 +216,7 @@ async def cb_edit_tx(callback: types.CallbackQuery, state: FSMContext):
     index = int(callback.data.split(":")[1])
     resp = await backend.handle({"action": "get_transaction", "data": {"index": index}})
     if resp["status"] == "error":
-        await callback.message.answer(resp["message"], reply_markup=back_to_menu())
+        await callback.message.edit_text(resp["message"], reply_markup=back_to_menu())
         return
     current = resp["data"]
     await state.clear()
@@ -202,8 +227,8 @@ async def cb_edit_tx(callback: types.CallbackQuery, state: FSMContext):
     )
     await state.set_state(EditTransaction.field_select)
     is_transfer = current.get("is_transfer", False)
-    await callback.message.answer(
-        f"Editing transaction #{index}. Select field to edit:",
+    await callback.message.edit_text(
+        f"\u270f\ufe0f Editing transaction #{index}. Select field to edit:",
         reply_markup=edit_transaction_fields_keyboard(index, is_transfer),
     )
 
@@ -219,8 +244,8 @@ async def cb_edit_tx_field(callback: types.CallbackQuery, state: FSMContext):
     if field == "save":
         edit_data = data.get("edit_data", {})
         if not edit_data:
-            await callback.message.answer(
-                "No changes made.", reply_markup=back_to_menu()
+            await callback.message.edit_text(
+                "\u2139\ufe0f No changes made.", reply_markup=back_to_menu()
             )
             await state.clear()
             return
@@ -228,13 +253,13 @@ async def cb_edit_tx_field(callback: types.CallbackQuery, state: FSMContext):
         resp = await backend.handle({"action": "edit_transaction", "data": edit_data})
         await state.clear()
         msg = resp.get("message", "Done")
-        await callback.message.answer(msg, reply_markup=back_to_menu())
+        await callback.message.edit_text(msg, reply_markup=back_to_menu())
         return
 
     if field == "amount":
         await state.set_state(EditTransaction.amount)
-        await callback.message.answer(
-            "Enter new amount:", reply_markup=cancel_keyboard()
+        await callback.message.edit_text(
+            "\U0001f4b2 Enter new amount:", reply_markup=cancel_keyboard()
         )
     elif field == "category":
         current = data["current"]
@@ -246,18 +271,20 @@ async def cb_edit_tx_field(callback: types.CallbackQuery, state: FSMContext):
         cats = cat_resp["data"]["categories"]
         await state.update_data(categories=cats)
         await state.set_state(EditTransaction.category)
-        await callback.message.answer(
-            "Select new category:", reply_markup=category_keyboard(cats)
+        await callback.message.edit_text(
+            "\U0001f3f7\ufe0f Select new category:",
+            reply_markup=category_keyboard(cats),
         )
     elif field == "description":
         await state.set_state(EditTransaction.description)
-        await callback.message.answer(
-            "Enter new description (or `-` to clear):", reply_markup=cancel_keyboard()
+        await callback.message.edit_text(
+            "\U0001f4dd Enter new description (or `-` to clear):",
+            reply_markup=cancel_keyboard(),
         )
     elif field == "date":
         await state.set_state(EditTransaction.date)
-        await callback.message.answer(
-            "Enter new date (YYYY-MM-DD):", reply_markup=cancel_keyboard()
+        await callback.message.edit_text(
+            "\U0001f4c5 Enter new date (YYYY-MM-DD):", reply_markup=cancel_keyboard()
         )
 
 
@@ -268,7 +295,7 @@ async def edit_tx_amount(message: types.Message, state: FSMContext):
         if amount <= 0:
             raise ValueError
     except (ValueError, AttributeError):
-        await message.answer("Please enter a positive number.")
+        await message.answer("\u26a0\ufe0f Please enter a positive number.")
         return
     data = await state.get_data()
     edit_data = data.get("edit_data", {})
@@ -278,7 +305,7 @@ async def edit_tx_amount(message: types.Message, state: FSMContext):
     await state.update_data(edit_data=edit_data)
     await state.set_state(EditTransaction.field_select)
     await message.answer(
-        f"Amount updated to {amount:.2f}. Select another field or Save:",
+        f"\u2705 Amount updated to {amount:.2f}. Select another field or Save:",
         reply_markup=edit_transaction_fields_keyboard(
             index, current.get("is_transfer", False)
         ),
@@ -291,8 +318,8 @@ async def edit_tx_category(callback: types.CallbackQuery, state: FSMContext):
     cat = callback.data.split(":", 1)[1]
     if cat == "__new__":
         await state.set_state(EditTransaction.new_category)
-        await callback.message.answer(
-            "Enter new category name:", reply_markup=cancel_keyboard()
+        await callback.message.edit_text(
+            "\u2795 Enter new category name:", reply_markup=cancel_keyboard()
         )
         return
     data = await state.get_data()
@@ -302,8 +329,8 @@ async def edit_tx_category(callback: types.CallbackQuery, state: FSMContext):
     current = data["current"]
     await state.update_data(edit_data=edit_data)
     await state.set_state(EditTransaction.field_select)
-    await callback.message.answer(
-        f"Category updated to {cat}. Select another field or Save:",
+    await callback.message.edit_text(
+        f"\u2705 Category updated to {cat}. Select another field or Save:",
         reply_markup=edit_transaction_fields_keyboard(
             index, current.get("is_transfer", False)
         ),
@@ -314,7 +341,7 @@ async def edit_tx_category(callback: types.CallbackQuery, state: FSMContext):
 async def edit_tx_new_cat(message: types.Message, state: FSMContext):
     cat = message.text.strip()
     if not cat:
-        await message.answer("Category name cannot be empty.")
+        await message.answer("\u26a0\ufe0f Category name cannot be empty.")
         return
     data = await state.get_data()
     edit_data = data.get("edit_data", {})
@@ -324,7 +351,7 @@ async def edit_tx_new_cat(message: types.Message, state: FSMContext):
     await state.update_data(edit_data=edit_data)
     await state.set_state(EditTransaction.field_select)
     await message.answer(
-        f"Category set to {cat}. Select another field or Save:",
+        f"\u2705 Category set to {cat}. Select another field or Save:",
         reply_markup=edit_transaction_fields_keyboard(
             index, current.get("is_transfer", False)
         ),
@@ -344,7 +371,7 @@ async def edit_tx_description(message: types.Message, state: FSMContext):
     await state.update_data(edit_data=edit_data)
     await state.set_state(EditTransaction.field_select)
     await message.answer(
-        "Description updated. Select another field or Save:",
+        "\u2705 Description updated. Select another field or Save:",
         reply_markup=edit_transaction_fields_keyboard(
             index, current.get("is_transfer", False)
         ),
@@ -362,7 +389,7 @@ async def edit_tx_date(message: types.Message, state: FSMContext):
     await state.update_data(edit_data=edit_data)
     await state.set_state(EditTransaction.field_select)
     await message.answer(
-        f"Date updated to {date_val}. Select another field or Save:",
+        f"\u2705 Date updated to {date_val}. Select another field or Save:",
         reply_markup=edit_transaction_fields_keyboard(
             index, current.get("is_transfer", False)
         ),
@@ -378,16 +405,16 @@ async def cb_delete_tx(callback: types.CallbackQuery):
     index = int(callback.data.split(":")[1])
     resp = await backend.handle({"action": "get_transaction", "data": {"index": index}})
     if resp["status"] == "error":
-        await callback.message.answer(resp["message"], reply_markup=back_to_menu())
+        await callback.message.edit_text(resp["message"], reply_markup=back_to_menu())
         return
     text = fmt_transaction(resp["data"])
     warning = ""
     if resp["data"].get("is_transfer"):
         warning = _to_md2(
-            "\nThis is a transfer. Deleting will also remove the linked transaction."
+            "\n\u26a0\ufe0f This is a transfer. Deleting will also remove the linked transaction."
         )
-    suffix = _to_md2("\nDelete this transaction?")
-    await callback.message.answer(
+    suffix = _to_md2("\n\U0001f5d1\ufe0f Delete this transaction?")
+    await callback.message.edit_text(
         f"{text}\n{warning}{suffix}",
         parse_mode="MarkdownV2",
         reply_markup=confirm_keyboard("deltx", str(index)),
@@ -402,56 +429,4 @@ async def cb_confirm_delete_tx(callback: types.CallbackQuery):
         {"action": "delete_transaction", "data": {"index": index}}
     )
     msg = resp.get("message", "Done")
-    await callback.message.answer(msg, reply_markup=back_to_menu())
-
-
-# ── Text-based commands (show N, edit N, delete N) ───────────────────
-
-
-@router.message(Command("edit"))
-async def cmd_edit(message: types.Message, state: FSMContext):
-    parts = message.text.strip().split()
-    if len(parts) < 2:
-        await message.answer("Usage: /edit <index>")
-        return
-    try:
-        index = int(parts[1])
-    except ValueError:
-        await message.answer("Index must be a number.")
-        return
-
-    # Reuse callback logic
-    class FakeCallback:
-        data = f"edit_tx:{index}"
-
-        async def answer(self):
-            pass
-
-        message_obj = message
-
-    fc = FakeCallback()
-    fc.message = message
-    await cb_edit_tx(fc, state)
-
-
-@router.message(Command("delete"))
-async def cmd_delete(message: types.Message):
-    parts = message.text.strip().split()
-    if len(parts) < 2:
-        await message.answer("Usage: /delete <index>")
-        return
-    try:
-        index = int(parts[1])
-    except ValueError:
-        await message.answer("Index must be a number.")
-        return
-
-    class FakeCallback:
-        data = f"del_tx:{index}"
-
-        async def answer(self):
-            pass
-
-    fc = FakeCallback()
-    fc.message = message
-    await cb_delete_tx(fc)
+    await callback.message.edit_text(msg, reply_markup=back_to_menu())

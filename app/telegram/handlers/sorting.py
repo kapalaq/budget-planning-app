@@ -1,17 +1,11 @@
 """Sorting handlers."""
 
 from aiogram import Router, F, types
-from aiogram.filters import Command
 
 from telegram.backend import backend
 from telegram.keyboards import sorting_keyboard, back_to_menu
 
 router = Router()
-
-
-@router.message(Command("sorting"))
-async def cmd_sorting(message: types.Message):
-    await _show_sorting(message)
 
 
 @router.callback_query(F.data == "sorting")
@@ -23,8 +17,8 @@ async def cb_sorting(callback: types.CallbackQuery):
 async def _show_sorting(message: types.Message):
     resp = await backend.handle({"action": "get_sorting_options", "data": {}})
     options = resp["data"]["options"]
-    await message.answer(
-        "Select sorting method:", reply_markup=sorting_keyboard(options)
+    await message.edit_text(
+        "\U0001f522 Select sorting method:", reply_markup=sorting_keyboard(options)
     )
 
 
@@ -36,15 +30,10 @@ async def cb_set_sort(callback: types.CallbackQuery):
         {"action": "set_sorting", "data": {"strategy_key": key}}
     )
     msg = resp.get("message", "Done")
-    await callback.message.answer(msg, reply_markup=back_to_menu())
+    await callback.message.edit_text(msg, reply_markup=back_to_menu())
 
 
 # ── Wallet sorting ───────────────────────────────────────────────────
-
-
-@router.message(Command("sort_wallets"))
-async def cmd_wallet_sorting(message: types.Message):
-    await _show_wallet_sorting(message)
 
 
 @router.callback_query(F.data == "wallet_sorting")
@@ -64,7 +53,7 @@ async def _show_wallet_sorting(message: types.Message):
     ]
     rows.append([InlineKeyboardButton(text="<< Menu", callback_data="dashboard")])
     kb = InlineKeyboardMarkup(inline_keyboard=rows)
-    await message.answer("Select wallet sorting method:", reply_markup=kb)
+    await message.edit_text("\U0001f522 Select wallet sorting method:", reply_markup=kb)
 
 
 @router.callback_query(F.data.startswith("wsort:"))
@@ -75,4 +64,4 @@ async def cb_set_wallet_sort(callback: types.CallbackQuery):
         {"action": "set_wallet_sorting", "data": {"strategy_key": key}}
     )
     msg = resp.get("message", "Done")
-    await callback.message.answer(msg, reply_markup=back_to_menu())
+    await callback.message.edit_text(msg, reply_markup=back_to_menu())

@@ -58,6 +58,10 @@ class Backend:
         self._tokens[telegram_user_id] = token
         return token
 
+    async def logout(self, telegram_user_id: int) -> None:
+        """Logout with the backend and link telegram_id."""
+        del self._tokens[telegram_user_id]
+
     async def login(self, login: str, password: str, telegram_user_id: int) -> dict:
         """Authenticate with the backend and link telegram_id."""
         session = await self._get_session()

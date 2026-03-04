@@ -55,9 +55,9 @@ def fmt_dashboard(data: dict) -> str:
     wallet_name = data["wallet_name"]
     currency = data["currency"]
 
-    header = _bold(wallet_name)
+    header = "\U0001f45b " + _bold(wallet_name)
     if has_filters:
-        header += " [FILTERED]"
+        header += " \U0001f50d [FILTERED]"
 
     lines = [header, ""]
 
@@ -71,9 +71,9 @@ def fmt_dashboard(data: dict) -> str:
     balance = data["balance"]
     sign = "+" if balance >= 0 else ""
     label = "Period Balance" if has_filters else "Balance"
-    lines.append(f"{_bold(label + ':')} {sign}{balance:.2f} {currency}")
-    lines.append(f"  Income:  +{data['total_income']:.2f}")
-    lines.append(f"  Expense: -{data['total_expense']:.2f}")
+    lines.append(f"\U0001f4b0 {_bold(label + ':')} {sign}{balance:.2f} {currency}")
+    lines.append(f"  \U0001f4b5 Income:  +{data['total_income']:.2f}")
+    lines.append(f"  \U0001f4b8 Expense: -{data['total_expense']:.2f}")
     if has_filters:
         ob = data["overall_balance"]
         os_sign = "+" if ob >= 0 else ""
@@ -86,13 +86,13 @@ def fmt_dashboard(data: dict) -> str:
 
     if inc_cat:
         lines.append("")
-        lines.append(_bold("Income by Category:"))
+        lines.append(_bold("\U0001f4b5 Income by Category:"))
         for cat, amt in sorted(inc_cat.items(), key=lambda x: -x[1]):
             pct = inc_pct.get(cat, 0)
             lines.append(f"  {cat}: +{amt:.2f} ({pct:.1f}%)")
     if exp_cat:
         lines.append("")
-        lines.append(_bold("Expenses by Category:"))
+        lines.append(_bold("\U0001f4b8 Expenses by Category:"))
         for cat, amt in sorted(exp_cat.items(), key=lambda x: -x[1]):
             pct = exp_pct.get(cat, 0)
             lines.append(f"  {cat}: -{amt:.2f} ({pct:.1f}%)")
@@ -100,12 +100,12 @@ def fmt_dashboard(data: dict) -> str:
     transactions = data.get("transactions", [])
     strat = data.get("sorting_strategy", "")
     lines.append("")
-    lines.append(f"{_bold('Transactions')} (sorted by: {strat}):")
+    lines.append(f"\U0001f4cb {_bold('Transactions')} (sorted by: {strat}):")
     if not transactions:
-        lines.append("  No transactions")
+        lines.append("  \U0001f4ed No transactions")
     else:
         for i, t in enumerate(transactions, 1):
-            rec_marker = " (R)" if t.get("recurrence_id") else ""
+            rec_marker = " \U0001f504" if t.get("recurrence_id") else ""
             lines.append(f"  {_code(f'{i}.')} {t['display']}{rec_marker}")
 
     return _to_md2("\n".join(lines))
@@ -115,22 +115,29 @@ def fmt_transaction(data: dict) -> str:
     sign = data["sign"]
     lines = []
     if data["is_transfer"]:
-        direction = "Outgoing" if data["transaction_type"] == "-" else "Incoming"
-        lines.append(_bold(f"Transfer ({direction})"))
-        lines.append(f"Amount: {sign}{abs(data['amount']):.2f}")
-        lines.append(f"From: {data.get('from_wallet', '?')}")
-        lines.append(f"To: {data.get('to_wallet', '?')}")
-        lines.append(f"Description: {data.get('description') or 'N/A'}")
-        lines.append(f"Date: {data['date']}")
+        direction = (
+            "\u2b06\ufe0f Outgoing"
+            if data["transaction_type"] == "-"
+            else "\u2b07\ufe0f Incoming"
+        )
+        lines.append(_bold(f"\U0001f500 Transfer ({direction})"))
+        lines.append(f"\U0001f4b2 Amount: {sign}{abs(data['amount']):.2f}")
+        lines.append(f"\U0001f4e4 From: {data.get('from_wallet', '?')}")
+        lines.append(f"\U0001f4e5 To: {data.get('to_wallet', '?')}")
+        lines.append(f"\U0001f4dd Description: {data.get('description') or 'N/A'}")
+        lines.append(f"\U0001f4c5 Date: {data['date']}")
     else:
-        type_label = "Income" if data["transaction_type"] == "+" else "Expense"
+        if data["transaction_type"] == "+":
+            type_label = "\U0001f4b5 Income"
+        else:
+            type_label = "\U0001f4b8 Expense"
         if data.get("recurrence_id"):
-            type_label += " (Recurring)"
+            type_label += " \U0001f504"
         lines.append(_bold(type_label))
-        lines.append(f"Amount: {sign}{abs(data['amount']):.2f}")
-        lines.append(f"Category: {data['category']}")
-        lines.append(f"Description: {data.get('description') or 'N/A'}")
-        lines.append(f"Date: {data['date']}")
+        lines.append(f"\U0001f4b2 Amount: {sign}{abs(data['amount']):.2f}")
+        lines.append(f"\U0001f3f7\ufe0f Category: {data['category']}")
+        lines.append(f"\U0001f4dd Description: {data.get('description') or 'N/A'}")
+        lines.append(f"\U0001f4c5 Date: {data['date']}")
     return _to_md2("\n".join(lines))
 
 
@@ -138,22 +145,22 @@ def fmt_wallets(data: dict) -> str:
     wallets = data["wallets"]
     current = data.get("current_wallet_name", "")
     lines = [
-        f"{_bold('Wallets')} (sorted by: {data.get('sorting_strategy', '')}):",
+        f"\U0001f45b {_bold('Wallets')} (sorted by: {data.get('sorting_strategy', '')}):",
         "",
     ]
     if not wallets:
-        lines.append("No wallets")
+        lines.append("\U0001f4ed No wallets")
         return _to_md2("\n".join(lines))
     for i, w in enumerate(wallets, 1):
-        marker = " *" if current and w["name"] == current else ""
+        marker = " \u2b05\ufe0f" if current and w["name"] == current else ""
         sign = "+" if w["balance"] >= 0 else ""
-        tag = "D" if w["wallet_type"] == "deposit" else "R"
+        tag = "\U0001f3e6" if w["wallet_type"] == "deposit" else "\U0001f45b"
         lines.append(
-            f"  {_code(f'{i}.')} [{tag}] {w['name']} ({w['currency']}) "
+            f"  {_code(f'{i}.')} {tag} {w['name']} ({w['currency']}) "
             f"{sign}{w['balance']:.2f}{marker}"
         )
     if current:
-        lines.append(f"\n  * Current: {current}")
+        lines.append(f"\n  \u27a1\ufe0f Current: {current}")
     return _to_md2("\n".join(lines))
 
 
@@ -161,26 +168,27 @@ def fmt_wallet_detail(data: dict) -> str:
     wt = data["wallet_type"].capitalize()
     b = data["balance"]
     sign = "+" if b >= 0 else ""
+    wallet_icon = "\U0001f3e6" if data["wallet_type"] == "deposit" else "\U0001f45b"
     lines = [
-        _bold(f"{wt} Wallet: {data['name']}"),
-        f"Currency: {data['currency']}",
-        f"Description: {data.get('description') or 'N/A'}",
-        f"Balance: {sign}{b:.2f}",
-        f"Income: +{data['total_income']:.2f}",
-        f"Expense: -{data['total_expense']:.2f}",
-        f"Transactions: {data['transaction_count']}",
+        _bold(f"{wallet_icon} {wt} Wallet: {data['name']}"),
+        f"\U0001f4b1 Currency: {data['currency']}",
+        f"\U0001f4dd Description: {data.get('description') or 'N/A'}",
+        f"\U0001f4b0 Balance: {sign}{b:.2f}",
+        f"\U0001f4b5 Income: +{data['total_income']:.2f}",
+        f"\U0001f4b8 Expense: -{data['total_expense']:.2f}",
+        f"\U0001f4cb Transactions: {data['transaction_count']}",
     ]
     dep = data.get("deposit")
     if dep:
         lines.append("")
-        lines.append(_bold("Deposit Details:"))
+        lines.append(_bold("\U0001f3e6 Deposit Details:"))
         lines.append(f"  Interest Rate: {dep['interest_rate']:.2f}% / year")
         lines.append(f"  Term: {dep['term_months']} months")
         cap_str = "Yes" if dep["capitalization"] else "No"
         lines.append(f"  Capitalization: {cap_str}")
         lines.append(f"  Maturity: {dep['maturity_date']}")
         if dep["is_matured"]:
-            lines.append("  Status: MATURED")
+            lines.append("  \u2705 Status: MATURED")
         else:
             lines.append(f"  Days to Maturity: {dep['days_until_maturity']}")
         lines.append(f"  Principal: {dep['principal']:.2f}")
@@ -192,18 +200,18 @@ def fmt_wallet_detail(data: dict) -> str:
 def fmt_percentages(data: dict) -> str:
     if data.get("empty"):
         return _to_md2(data["message"])
-    lines = [_bold("Category Percentages")]
+    lines = [_bold("\U0001f4ca Category Percentages")]
     if data.get("has_filters"):
-        lines[0] += " [FILTERED]"
+        lines[0] += " \U0001f50d [FILTERED]"
         lines.append(f"Filters: {data.get('filter_summary', '')}")
     if data.get("income_percentages"):
         lines.append("")
-        lines.append(_bold("Income:"))
+        lines.append(_bold("\U0001f4b5 Income:"))
         for cat, pct in sorted(data["income_percentages"].items(), key=lambda x: -x[1]):
             lines.append(f"  {cat}: {pct:.1f}%")
     if data.get("expense_percentages"):
         lines.append("")
-        lines.append(_bold("Expenses:"))
+        lines.append(_bold("\U0001f4b8 Expenses:"))
         for cat, pct in sorted(
             data["expense_percentages"].items(), key=lambda x: -x[1]
         ):
@@ -213,15 +221,15 @@ def fmt_percentages(data: dict) -> str:
 
 def fmt_recurring_list(items: list[dict]) -> str:
     if not items:
-        return _to_md2("No recurring transactions")
-    lines = [_bold("Recurring Transactions:"), ""]
+        return _to_md2("\U0001f4ed No recurring transactions")
+    lines = [_bold("\U0001f504 Recurring Transactions:"), ""]
     for i, r in enumerate(items, 1):
         lines.append(f"  {_code(f'{i}.')} {r['summary']}")
     return _to_md2("\n".join(lines))
 
 
 def fmt_help(commands: list[dict]) -> str:
-    lines = [_bold("Available Commands:"), ""]
+    lines = [_bold("\u2753 Available Commands:"), ""]
     for c in commands:
         lines.append(f"  {_code('/' + c['command'])} - {c['description']}")
     return _to_md2("\n".join(lines))
@@ -229,8 +237,8 @@ def fmt_help(commands: list[dict]) -> str:
 
 def fmt_filters(filters: list[dict]) -> str:
     if not filters:
-        return _to_md2("No active filters")
-    lines = [_bold("Active Filters:"), ""]
+        return _to_md2("\U0001f50d No active filters")
+    lines = [_bold("\U0001f50d Active Filters:"), ""]
     for i, f in enumerate(filters, 1):
         lines.append(f"  {_code(f'{i}.')} {f['name']}: {f['description']}")
     return _to_md2("\n".join(lines))
