@@ -55,12 +55,33 @@ def _auth_prompt(handler: HttpRequestHandler) -> bool:
         return True
 
 
+def _offer_telegram_link(handler: HttpRequestHandler):
+    """Offer the user to generate a Telegram deep link."""
+    choice = input("\nLink Telegram account? (y/N): ").strip().lower()
+    if choice != "y":
+        return
+    result = handler.generate_link_code()
+    if result.get("status") == "error":
+        print(f"Error: {result['message']}")
+        return
+    deep_link = result.get("deep_link", "")
+    code = result.get("code", "")
+    if deep_link:
+        print(f"\nOpen this link in Telegram to connect your account:\n  https://t.me/{deep_link}")
+    else:
+        print(f"\nSend this to the bot via /start {code}")
+        print("(Set BOT_USERNAME in .env to get a clickable link)")
+    print("The link expires in 5 minutes.")
+
+
 def main():
     handler = HttpRequestHandler()
 
     if not _auth_prompt(handler):
         print("Goodbye!")
         return
+
+    _offer_telegram_link(handler)
 
     display = Display(handler)
     display.run()

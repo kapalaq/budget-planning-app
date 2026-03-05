@@ -50,7 +50,7 @@ def create_dispatcher() -> Dispatcher:
     # Auth middleware runs before every handler
     dp.update.middleware(AuthMiddleware())
 
-    # Register routers (order matters — auth first, common/cancel last)
+    # Register routers (order matters — auth/disconnect first, common/cancel last)
     dp.include_router(auth.router)
     dp.include_router(dashboard.router)
     dp.include_router(help.router)

@@ -25,14 +25,16 @@ async def _show_percentages(message: types.Message):
     resp = await backend.handle({"action": "get_percentages", "data": {}})
     if resp["status"] == "error":
         try:
-            await message.edit_text(resp["message"], reply_markup=back_to_menu())
+            await message.edit_text(resp["message"], reply_markup=back_to_menu(3))
         except Exception:
-            await message.answer(resp["message"], reply_markup=back_to_menu())
+            await message.answer(resp["message"], reply_markup=back_to_menu(3))
         return
     text = fmt_percentages(resp["data"])
     try:
         await message.edit_text(
-            text, parse_mode="MarkdownV2", reply_markup=back_to_menu()
+            text, parse_mode="MarkdownV2", reply_markup=back_to_menu(3)
         )
     except Exception:
-        await message.answer(text, parse_mode="MarkdownV2", reply_markup=back_to_menu())
+        await message.answer(
+            text, parse_mode="MarkdownV2", reply_markup=back_to_menu(3)
+        )

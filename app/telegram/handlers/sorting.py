@@ -33,7 +33,7 @@ async def cb_set_sort(callback: types.CallbackQuery):
     await callback.message.edit_text(msg, reply_markup=back_to_menu())
 
 
-# ── Wallet sorting ───────────────────────────────────────────────────
+# ── Wallet sorting (page 3) ───────────────────────────────────────────────────
 
 
 @router.callback_query(F.data == "wallet_sorting")
@@ -51,7 +51,7 @@ async def _show_wallet_sorting(message: types.Message):
         [InlineKeyboardButton(text=name, callback_data=f"wsort:{key}")]
         for key, name in options.items()
     ]
-    rows.append([InlineKeyboardButton(text="<< Menu", callback_data="dashboard")])
+    rows.append([InlineKeyboardButton(text="<< Menu", callback_data="menu_page:3")])
     kb = InlineKeyboardMarkup(inline_keyboard=rows)
     await message.edit_text("\U0001f522 Select wallet sorting method:", reply_markup=kb)
 
@@ -64,4 +64,4 @@ async def cb_set_wallet_sort(callback: types.CallbackQuery):
         {"action": "set_wallet_sorting", "data": {"strategy_key": key}}
     )
     msg = resp.get("message", "Done")
-    await callback.message.edit_text(msg, reply_markup=back_to_menu())
+    await callback.message.edit_text(msg, reply_markup=back_to_menu(3))

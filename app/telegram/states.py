@@ -3,14 +3,6 @@
 from aiogram.fsm.state import State, StatesGroup
 
 
-class Auth(StatesGroup):
-    login = State()
-    password = State()
-    register_login = State()
-    register_password = State()
-    register_confirm_password = State()
-
-
 class AddTransaction(StatesGroup):
     amount = State()
     category = State()
@@ -64,6 +56,11 @@ class AddRecurring(StatesGroup):
     end_condition = State()
     end_date = State()
     end_count = State()
+
+
+class FilterInput(StatesGroup):
+    amount_threshold = State()
+    description_search = State()
 
 
 class DeleteRecurring(StatesGroup):

@@ -53,13 +53,16 @@ async def lifespan(app: FastAPI):
     data_dir = os.path.join(os.getcwd(), os.getenv("DATA_DIR", "data"))
     _storage = JsonStorage(os.path.join(data_dir, "jsons"))
     _user_store = UserStore(os.path.join(data_dir, "user_auth", "users.csv"))
-    _session_manager = SessionManager()
+
+    session_data = _storage.load("sessions")
+    _session_manager = SessionManager.from_json(session_data.get("session_manager"))
 
     yield
 
     logger.info("Shutting down... Saving all user data.")
     for user_id, wm in _user_managers.items():
         _storage.save(user_id, {"wallet_manager": wm.to_json()})
+    _storage.save("sessions", {"session_manager": _session_manager.to_json()})
 
 
 app = FastAPI(title="Budget Planner API", lifespan=lifespan)
@@ -120,6 +123,40 @@ def auth_telegram(body: Dict[str, Any]):
         raise HTTPException(status_code=404, detail="Telegram account not linked")
     token = _session_manager.create_session(user_id)
     return {"status": "success", "token": token, "user_id": user_id}
+
+
+@app.post("/auth/link-code")
+def auth_link_code(user_id: int = Depends(get_current_user)):
+    """Generate a deep-link code for binding a Telegram account."""
+    code = _session_manager.create_link_code(user_id)
+    bot_username = os.getenv("TELEGRAM_BOT_USERNAME", "")
+    deep_link = f"https://t.me/{bot_username}?start={code}" if bot_username else ""
+    return {"status": "success", "code": code, "deep_link": deep_link}
+
+
+@app.post("/auth/telegram-link")
+def auth_telegram_link(body: Dict[str, Any]):
+    """Consume a link code and bind a Telegram account to the user."""
+    code = body.get("code", "")
+    telegram_id = str(body.get("telegram_id", ""))
+    if not code or not telegram_id:
+        raise HTTPException(status_code=400, detail="code and telegram_id are required")
+    user_id = _session_manager.consume_link_code(code)
+    if user_id is None:
+        raise HTTPException(status_code=400, detail="Invalid or expired link code")
+    _user_store.update_telegram_id(user_id, telegram_id)
+    token = _session_manager.create_session(user_id)
+    return {"status": "success", "token": token, "user_id": user_id}
+
+
+@app.post("/auth/unlink-telegram")
+def auth_unlink_telegram(body: Dict[str, Any]):
+    """Unlink a Telegram account from its user."""
+    telegram_id = str(body.get("telegram_id", ""))
+    if not telegram_id:
+        raise HTTPException(status_code=400, detail="telegram_id is required")
+    _user_store.clear_telegram_id(telegram_id)
+    return {"status": "success", "message": "Telegram account unlinked"}
 
 
 # Health check

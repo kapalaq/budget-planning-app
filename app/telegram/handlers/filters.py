@@ -2,6 +2,7 @@
 
 from aiogram import Router, F, types
 from aiogram.filters import Command
+from aiogram.fsm.context import FSMContext
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from telegram.backend import backend
@@ -12,21 +13,24 @@ from telegram.keyboards import (
     amount_filter_keyboard,
     back_to_menu,
 )
+from telegram.states import FilterInput
 from telegram.utils import fmt_filters
 
 router = Router()
 
 
 @router.message(Command("filters"))
-async def cmd_filters(message: types.Message):
+async def cmd_filters(message: types.Message, state: FSMContext):
+    await state.clear()
     await message.answer(
         "\U0001f50d Filter options:", reply_markup=filter_menu_keyboard()
     )
 
 
 @router.callback_query(F.data == "filters")
-async def cb_filters(callback: types.CallbackQuery):
+async def cb_filters(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
+    await state.clear()
     try:
         await callback.message.edit_text(
             "\U0001f50d Filter options:", reply_markup=filter_menu_keyboard()
@@ -114,9 +118,28 @@ async def cb_filter_amount(callback: types.CallbackQuery):
 
 
 @router.callback_query(F.data.startswith("af:"))
-async def cb_amount_filter_choice(callback: types.CallbackQuery):
+async def cb_amount_filter_choice(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
     filter_type = callback.data.split(":")[1]
+
+    if filter_type in ("custom_large", "custom_small"):
+        await state.update_data(amount_filter_kind=filter_type)
+        await state.set_state(FilterInput.amount_threshold)
+        cancel_kb = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text="Cancel", callback_data="filters")]
+            ]
+        )
+        try:
+            await callback.message.edit_text(
+                "\U0001f4b0 Enter the amount threshold:", reply_markup=cancel_kb
+            )
+        except Exception:
+            await callback.message.answer(
+                "\U0001f4b0 Enter the amount threshold:", reply_markup=cancel_kb
+            )
+        return
+
     resp = await backend.handle(
         {"action": "add_filter", "data": {"filter_type": filter_type}}
     )
@@ -125,6 +148,36 @@ async def cb_amount_filter_choice(callback: types.CallbackQuery):
         await callback.message.edit_text(msg, reply_markup=filter_menu_keyboard())
     except Exception:
         await callback.message.answer(msg, reply_markup=filter_menu_keyboard())
+
+
+@router.message(FilterInput.amount_threshold)
+async def on_amount_threshold(message: types.Message, state: FSMContext):
+    text = message.text.strip() if message.text else ""
+    try:
+        threshold = float(text)
+        if threshold < 0:
+            raise ValueError
+    except ValueError:
+        await message.answer("\u274c Please enter a valid positive number.")
+        return
+
+    data = await state.get_data()
+    kind = data.get("amount_filter_kind", "custom_large")
+    await state.clear()
+
+    if kind == "custom_large":
+        filter_type = "large_transactions"
+    else:
+        filter_type = "small_transactions"
+
+    resp = await backend.handle(
+        {
+            "action": "add_filter",
+            "data": {"filter_type": filter_type, "threshold": threshold},
+        }
+    )
+    msg = resp.get("message", "Done")
+    await message.answer(msg, reply_markup=filter_menu_keyboard())
 
 
 # ── Category filter (simplified: just lists categories as buttons) ───
@@ -190,8 +243,9 @@ async def cb_cat_filter_choice(callback: types.CallbackQuery):
 
 
 @router.callback_query(F.data == "filter:description")
-async def cb_filter_description(callback: types.CallbackQuery):
+async def cb_filter_description(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
+    await state.set_state(FilterInput.description_search)
     cancel_kb = InlineKeyboardMarkup(
         inline_keyboard=[[InlineKeyboardButton(text="Cancel", callback_data="filters")]]
     )
@@ -205,8 +259,24 @@ async def cb_filter_description(callback: types.CallbackQuery):
             "\U0001f4dd Send the search text to filter descriptions by:",
             reply_markup=cancel_kb,
         )
-    # We'll handle this via a special text handler in bot.py if needed
-    # For simplicity, using a direct approach
+
+
+@router.message(FilterInput.description_search)
+async def on_description_search(message: types.Message, state: FSMContext):
+    text = message.text.strip() if message.text else ""
+    if not text:
+        await message.answer("\u274c Please enter a non-empty search term.")
+        return
+
+    await state.clear()
+    resp = await backend.handle(
+        {
+            "action": "add_filter",
+            "data": {"filter_type": "description", "search_term": text},
+        }
+    )
+    msg = resp.get("message", "Done")
+    await message.answer(msg, reply_markup=filter_menu_keyboard())
 
 
 # ── View active / Clear all ──────────────────────────────────────────
@@ -221,9 +291,13 @@ async def cb_view_active_filters(callback: types.CallbackQuery):
         return
     text = fmt_filters(resp["data"]["filters"])
     try:
-        await callback.message.edit_text(text, reply_markup=filter_menu_keyboard())
+        await callback.message.edit_text(
+            text, parse_mode="MarkdownV2", reply_markup=filter_menu_keyboard()
+        )
     except Exception:
-        await callback.message.answer(text, reply_markup=filter_menu_keyboard())
+        await callback.message.answer(
+            text, parse_mode="MarkdownV2", reply_markup=filter_menu_keyboard()
+        )
 
 
 @router.callback_query(F.data == "filter:clear_all")
@@ -232,6 +306,10 @@ async def cb_clear_all_filters(callback: types.CallbackQuery):
     resp = await backend.handle({"action": "clear_filters", "data": {}})
     msg = resp.get("message", "Done")
     try:
-        await callback.message.edit_text(msg, reply_markup=filter_menu_keyboard())
+        await callback.message.edit_text(
+            msg, parse_mode="MarkdownV2", reply_markup=filter_menu_keyboard()
+        )
     except Exception:
-        await callback.message.answer(msg, reply_markup=filter_menu_keyboard())
+        await callback.message.answer(
+            msg, parse_mode="MarkdownV2", reply_markup=filter_menu_keyboard()
+        )

@@ -53,6 +53,13 @@ class HttpRequestHandler:
         self._set_auth(data["token"])
         return data
 
+    def generate_link_code(self) -> dict:
+        """Generate a Telegram deep-link code. Returns dict with code and deep_link."""
+        resp = self._session.post(f"{self._base}/auth/link-code")
+        if resp.status_code == 401:
+            return {"status": "error", "message": "Not authenticated"}
+        return resp.json()
+
     #  Public entry point (mirrors RequestHandler.handle)
     def handle(self, request: dict) -> dict:
         action = request.get("action", "")

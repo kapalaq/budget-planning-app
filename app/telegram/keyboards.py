@@ -3,17 +3,6 @@
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 
-def auth_menu() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(text="🔑 Login", callback_data="auth:login"),
-                InlineKeyboardButton(text="📝 Register", callback_data="auth:register"),
-            ],
-        ]
-    )
-
-
 def main_menu(page: int = 1) -> InlineKeyboardMarkup:
     if page == 1:
         rows = [
@@ -44,9 +33,9 @@ def main_menu(page: int = 1) -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(
-                    text="\U0001f504 Refresh", callback_data="dashboard"
+                    text="\U0001f504 Refresh", callback_data="menu_page:1"
                 ),
-                InlineKeyboardButton(text="Logout", callback_data="logout"),
+                InlineKeyboardButton(text="Disconnect", callback_data="disconnect"),
             ],
         ]
     elif page == 2:
@@ -78,9 +67,9 @@ def main_menu(page: int = 1) -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(
-                    text="\U0001f504 Refresh", callback_data="dashboard"
+                    text="\U0001f504 Refresh", callback_data="menu_page:2"
                 ),
-                InlineKeyboardButton(text="Logout", callback_data="logout"),
+                InlineKeyboardButton(text="Disconnect", callback_data="disconnect"),
             ],
         ]
     else:  # page == 3
@@ -112,9 +101,9 @@ def main_menu(page: int = 1) -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(
-                    text="\U0001f504 Refresh", callback_data="dashboard"
+                    text="\U0001f504 Refresh", callback_data="menu_page:3"
                 ),
-                InlineKeyboardButton(text="Logout", callback_data="logout"),
+                InlineKeyboardButton(text="Disconnect", callback_data="disconnect"),
             ],
         ]
     return InlineKeyboardMarkup(inline_keyboard=rows)
@@ -150,42 +139,54 @@ def transaction_list_keyboard(
     if nav:
         rows.append(nav)
     rows.append(
-        [InlineKeyboardButton(text="\u2b05\ufe0f Menu", callback_data="menu_page:2")]
+        [InlineKeyboardButton(text="\u2b05\ufe0f Menu", callback_data="menu_page:1")]
     )
     return rows_to_markup(rows)
 
 
-def back_to_menu() -> InlineKeyboardMarkup:
+def back_to_menu(page: int = 1) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="\u2b05\ufe0f Menu", callback_data="dashboard")]
+            [
+                InlineKeyboardButton(
+                    text="\u2b05\ufe0f Menu", callback_data=f"menu_page:{page}"
+                )
+            ]
         ]
     )
 
 
-def cancel_keyboard() -> InlineKeyboardMarkup:
+def cancel_keyboard(page: int = 1) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="\u274c Cancel", callback_data="dashboard")]
+            [
+                InlineKeyboardButton(
+                    text="\u274c Cancel", callback_data=f"menu_page:{page}"
+                )
+            ]
         ]
     )
 
 
-def confirm_keyboard(action: str, payload: str = "") -> InlineKeyboardMarkup:
+def confirm_keyboard(
+    action: str, payload: str = "", page: int = 1
+) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
                     text="\u2705 Yes", callback_data=f"confirm_{action}:{payload}"
                 ),
-                InlineKeyboardButton(text="\u274c No", callback_data="dashboard"),
+                InlineKeyboardButton(
+                    text="\u274c No", callback_data=f"menu_page:{page}"
+                ),
             ]
         ]
     )
 
 
 def category_keyboard(
-    categories: list[str], add_new: bool = True
+    categories: list[str], add_new: bool = True, page: int = 1
 ) -> InlineKeyboardMarkup:
     rows = []
     for i in range(0, len(categories), 2):
@@ -202,7 +203,9 @@ def category_keyboard(
                 )
             ]
         )
-    rows.append([InlineKeyboardButton(text="\u274c Cancel", callback_data="dashboard")])
+    rows.append(
+        [InlineKeyboardButton(text="\u274c Cancel", callback_data=f"menu_page:{page}")]
+    )
     return rows_to_markup(rows)
 
 
@@ -244,7 +247,7 @@ def sorting_keyboard(options: dict[str, str]) -> InlineKeyboardMarkup:
         for key, name in options.items()
     ]
     rows.append(
-        [InlineKeyboardButton(text="\u2b05\ufe0f Menu", callback_data="menu_page:2")]
+        [InlineKeyboardButton(text="\u2b05\ufe0f Menu", callback_data="menu_page:1")]
     )
     return rows_to_markup(rows)
 
@@ -284,7 +287,7 @@ def filter_menu_keyboard() -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(
-                    text="\u2b05\ufe0f Menu", callback_data="menu_page:2"
+                    text="\u2b05\ufe0f Menu", callback_data="menu_page:1"
                 )
             ],
         ]
@@ -354,6 +357,14 @@ def amount_filter_keyboard() -> InlineKeyboardMarkup:
                     text="Small (<100)", callback_data="af:small_transactions"
                 ),
             ],
+            [
+                InlineKeyboardButton(
+                    text="Custom Large (>=)", callback_data="af:custom_large"
+                ),
+                InlineKeyboardButton(
+                    text="Custom Small (<=)", callback_data="af:custom_small"
+                ),
+            ],
             [InlineKeyboardButton(text="\u274c Cancel", callback_data="filters")],
         ]
     )
@@ -372,7 +383,7 @@ def transaction_actions_keyboard(index: int) -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(
-                    text="\u2b05\ufe0f Menu", callback_data="menu_page:2"
+                    text="\u2b05\ufe0f Menu", callback_data="menu_page:1"
                 )
             ],
         ]
@@ -447,7 +458,7 @@ def delete_recurring_keyboard(index: int) -> InlineKeyboardMarkup:
     )
 
 
-def frequency_keyboard() -> InlineKeyboardMarkup:
+def frequency_keyboard(page: int = 1) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -458,12 +469,16 @@ def frequency_keyboard() -> InlineKeyboardMarkup:
                 InlineKeyboardButton(text="Monthly", callback_data="freq:monthly"),
                 InlineKeyboardButton(text="Yearly", callback_data="freq:yearly"),
             ],
-            [InlineKeyboardButton(text="\u274c Cancel", callback_data="filters")],
+            [
+                InlineKeyboardButton(
+                    text="\u274c Cancel", callback_data=f"menu_page:{page}"
+                )
+            ],
         ]
     )
 
 
-def end_condition_keyboard() -> InlineKeyboardMarkup:
+def end_condition_keyboard(page: int = 1) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="Never", callback_data="endc:never")],
@@ -477,7 +492,11 @@ def end_condition_keyboard() -> InlineKeyboardMarkup:
                     text="After N Occurrences", callback_data="endc:after_count"
                 )
             ],
-            [InlineKeyboardButton(text="\u274c Cancel", callback_data="dashboard")],
+            [
+                InlineKeyboardButton(
+                    text="\u274c Cancel", callback_data=f"menu_page:{page}"
+                )
+            ],
         ]
     )
 
@@ -519,7 +538,7 @@ def edit_transaction_fields_keyboard(
                 InlineKeyboardButton(
                     text="\U0001f4be Save", callback_data=f"etf:{index}:save"
                 ),
-                InlineKeyboardButton(text="\u274c Cancel", callback_data="manu_page:1"),
+                InlineKeyboardButton(text="\u274c Cancel", callback_data="menu_page:1"),
             ],
         ]
     )

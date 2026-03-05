@@ -48,7 +48,7 @@ async def _start_add(message: types.Message, state: FSMContext, tt: str):
     label = "\U0001f4b5 Income" if tt == "income" else "\U0001f4b8 Expense"
     await message.edit_text(
         f"Adding {label}.\n\U0001f4b2 Enter amount:",
-        reply_markup=cancel_keyboard(),
+        reply_markup=cancel_keyboard(2),
     )
 
 
@@ -66,7 +66,7 @@ async def add_tx_amount(message: types.Message, state: FSMContext):
     await state.set_state(AddTransaction.category)
     await message.answer(
         "\U0001f3f7\ufe0f Select category:",
-        reply_markup=category_keyboard(data["categories"]),
+        reply_markup=category_keyboard(data["categories"], page=2),
     )
 
 
@@ -77,14 +77,14 @@ async def add_tx_category(callback: types.CallbackQuery, state: FSMContext):
     if cat == "__new__":
         await state.set_state(AddTransaction.new_category)
         await callback.message.edit_text(
-            "\u2795 Enter new category name:", reply_markup=cancel_keyboard()
+            "\u2795 Enter new category name:", reply_markup=cancel_keyboard(2)
         )
         return
     await state.update_data(category=cat)
     await state.set_state(AddTransaction.description)
     await callback.message.edit_text(
         "\U0001f4dd Enter description (or send `-` to skip):",
-        reply_markup=cancel_keyboard(),
+        reply_markup=cancel_keyboard(2),
     )
 
 
@@ -98,27 +98,27 @@ async def add_tx_new_cat(message: types.Message, state: FSMContext):
     await state.set_state(AddTransaction.description)
     await message.answer(
         "\U0001f4dd Enter description (or send `-` to skip):",
-        reply_markup=cancel_keyboard(),
+        reply_markup=cancel_keyboard(2),
     )
 
 
 @router.message(AddTransaction.description)
 async def add_tx_description(message: types.Message, state: FSMContext):
     desc = message.text.strip()
-    if desc == "-":
+    if desc == "-" or desc.lower() == "skip":
         desc = ""
     await state.update_data(description=desc)
     await state.set_state(AddTransaction.date)
     await message.answer(
         "\U0001f4c5 Enter date (YYYY-MM-DD) or send `-` for today:",
-        reply_markup=cancel_keyboard(),
+        reply_markup=cancel_keyboard(2),
     )
 
 
 @router.message(AddTransaction.date)
 async def add_tx_date(message: types.Message, state: FSMContext):
     text = message.text.strip()
-    date_val = None if text == "-" else text
+    date_val = None if text == "-" or text.lower() == "skip" else text
     data = await state.get_data()
     form = {
         "transaction_type": data["transaction_type"],
@@ -132,10 +132,10 @@ async def add_tx_date(message: types.Message, state: FSMContext):
     if resp["status"] == "success":
         await message.answer(
             f"\u2705 Transaction added: {data['amount']:.2f} in {data['category']}",
-            reply_markup=back_to_menu(),
+            reply_markup=back_to_menu(2),
         )
     else:
-        await message.answer(resp["message"], reply_markup=back_to_menu())
+        await message.answer(resp["message"], reply_markup=back_to_menu(2))
 
 
 # ── Transaction list pickers (from paginated menu) ───────────────────
@@ -361,7 +361,7 @@ async def edit_tx_new_cat(message: types.Message, state: FSMContext):
 @router.message(EditTransaction.description)
 async def edit_tx_description(message: types.Message, state: FSMContext):
     desc = message.text.strip()
-    if desc == "-":
+    if desc == "-" or desc.lower() == "skip":
         desc = ""
     data = await state.get_data()
     edit_data = data.get("edit_data", {})

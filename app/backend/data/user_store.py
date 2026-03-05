@@ -84,10 +84,27 @@ class UserStore:
         return self.find_by_telegram_id(telegram_id)
 
     def update_telegram_id(self, user_id: int, telegram_id: str) -> bool:
-        """Link a telegram_id to an existing user. Returns True on success."""
+        """Link a telegram_id to an existing user. Returns True on success.
+
+        Enforces one-telegram-per-user: clears telegram_id from any other
+        user that currently has this telegram_id.
+        """
+        if telegram_id:
+            for user in self._users:
+                if user["telegram_id"] == telegram_id and user["user_id"] != user_id:
+                    user["telegram_id"] = ""
         for user in self._users:
             if user["user_id"] == user_id:
                 user["telegram_id"] = telegram_id
+                self._save()
+                return True
+        return False
+
+    def clear_telegram_id(self, telegram_id: str) -> bool:
+        """Unlink a telegram_id from whichever user has it. Returns True if found."""
+        for user in self._users:
+            if user["telegram_id"] == telegram_id:
+                user["telegram_id"] = ""
                 self._save()
                 return True
         return False

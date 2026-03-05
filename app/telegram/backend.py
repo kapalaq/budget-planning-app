@@ -58,51 +58,48 @@ class Backend:
         self._tokens[telegram_user_id] = token
         return token
 
-    async def logout(self, telegram_user_id: int) -> None:
-        """Logout with the backend and link telegram_id."""
-        del self._tokens[telegram_user_id]
-
-    async def login(self, login: str, password: str, telegram_user_id: int) -> dict:
-        """Authenticate with the backend and link telegram_id."""
+    async def link_telegram(self, code: str, telegram_user_id: int) -> dict:
+        """Consume a link code and bind this Telegram account."""
         session = await self._get_session()
         async with session.post(
-            f"{self._base}/auth/login",
-            json={
-                "login": login,
-                "password": password,
-                "telegram_id": str(telegram_user_id),
-            },
+            f"{self._base}/auth/telegram-link",
+            json={"code": code, "telegram_id": str(telegram_user_id)},
         ) as resp:
-            if resp.status == 401:
-                return {"status": "error", "message": "Invalid login or password"}
+            if resp.status == 400:
+                return {"status": "error", "message": "Invalid or expired link code"}
             resp.raise_for_status()
             data = await resp.json()
         self._tokens[telegram_user_id] = data["token"]
         return data
 
-    async def register(self, login: str, password: str, telegram_user_id: int) -> dict:
-        """Register a new user and link telegram_id."""
+    async def disconnect(self, telegram_user_id: int) -> None:
+        """Unlink Telegram account from the backend and clear cached token."""
         session = await self._get_session()
-        async with session.post(
-            f"{self._base}/auth/register",
-            json={
-                "login": login,
-                "password": password,
-                "telegram_id": str(telegram_user_id),
-            },
-        ) as resp:
-            if resp.status == 409:
-                return {"status": "error", "message": "Login already taken"}
-            resp.raise_for_status()
-            data = await resp.json()
-        self._tokens[telegram_user_id] = data["token"]
-        return data
+        try:
+            await (
+                await session.post(
+                    f"{self._base}/auth/unlink-telegram",
+                    json={"telegram_id": str(telegram_user_id)},
+                )
+            ).release()
+        except Exception:
+            pass  # best-effort
+        self._tokens.pop(telegram_user_id, None)
 
     async def handle(self, request: dict) -> dict:
         action = request.get("action", "")
         data = request.get("data", {})
         try:
             return await self._dispatch(action, data)
+        except aiohttp.ClientResponseError as exc:
+            if exc.status == 401:
+                self._clear_current_token()
+                return {
+                    "status": "error",
+                    "message": "Session expired. Please reconnect from the CLI app.",
+                }
+            logger.exception("Backend HTTP error for action=%s", action)
+            return {"status": "error", "message": str(exc)}
         except aiohttp.ClientError:
             return {
                 "status": "error",
@@ -114,6 +111,16 @@ class Backend:
         except Exception as exc:
             logger.exception("Backend error for action=%s", action)
             return {"status": "error", "message": str(exc)}
+
+    def _clear_current_token(self):
+        """Remove the cached token for the user whose request just failed."""
+        token = _current_token.get()
+        if token:
+            # Find and remove the token from the cache
+            for tg_id, cached in list(self._tokens.items()):
+                if cached == token:
+                    del self._tokens[tg_id]
+                    break
 
     async def _get(self, path: str, params: dict | None = None) -> dict:
         session = await self._get_session()

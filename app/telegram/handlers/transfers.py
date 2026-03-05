@@ -27,20 +27,22 @@ async def _start_transfer(message: types.Message, state: FSMContext):
     resp = await backend.handle({"action": "get_transfer_context", "data": {}})
     if resp["status"] == "error":
         try:
-            await message.edit_text(resp["message"], reply_markup=back_to_menu())
+            await message.edit_text(resp["message"], reply_markup=back_to_menu(3))
         except Exception:
-            await message.answer(resp["message"], reply_markup=back_to_menu())
+            await message.answer(resp["message"], reply_markup=back_to_menu(3))
         return
     from_wallet = resp["data"]["from_wallet"]
     targets = resp["data"]["target_wallets"]
     if not targets:
         try:
             await message.edit_text(
-                "\u26a0\ufe0f No target wallets available.", reply_markup=back_to_menu()
+                "\u26a0\ufe0f No target wallets available.",
+                reply_markup=back_to_menu(3),
             )
         except Exception:
             await message.answer(
-                "\u26a0\ufe0f No target wallets available.", reply_markup=back_to_menu()
+                "\u26a0\ufe0f No target wallets available.",
+                reply_markup=back_to_menu(3),
             )
         return
     await state.update_data(from_wallet=from_wallet, targets=targets)
@@ -70,12 +72,12 @@ async def transfer_target(callback: types.CallbackQuery, state: FSMContext):
     try:
         await callback.message.edit_text(
             f"\U0001f3af Target: {target_name}\n\U0001f4b2 Enter amount:",
-            reply_markup=cancel_keyboard(),
+            reply_markup=cancel_keyboard(3),
         )
     except Exception:
         await callback.message.answer(
             f"\U0001f3af Target: {target_name}\n\U0001f4b2 Enter amount:",
-            reply_markup=cancel_keyboard(),
+            reply_markup=cancel_keyboard(3),
         )
 
 
@@ -91,27 +93,28 @@ async def transfer_amount(message: types.Message, state: FSMContext):
     await state.update_data(amount=amount)
     await state.set_state(Transfer.description)
     await message.answer(
-        "\U0001f4dd Enter description (or `-` to skip):", reply_markup=cancel_keyboard()
+        "\U0001f4dd Enter description (or `-` to skip):",
+        reply_markup=cancel_keyboard(3),
     )
 
 
 @router.message(Transfer.description)
 async def transfer_description(message: types.Message, state: FSMContext):
     desc = message.text.strip()
-    if desc == "-":
+    if desc == "-" or desc.lower() == "skip":
         desc = ""
     await state.update_data(description=desc)
     await state.set_state(Transfer.date)
     await message.answer(
         "\U0001f4c5 Enter date (YYYY-MM-DD) or `-` for today:",
-        reply_markup=cancel_keyboard(),
+        reply_markup=cancel_keyboard(3),
     )
 
 
 @router.message(Transfer.date)
 async def transfer_date(message: types.Message, state: FSMContext):
     text = message.text.strip()
-    date_val = None if text == "-" else text
+    date_val = None if text == "-" or text.lower() == "skip" else text
     data = await state.get_data()
     form = {
         "target_wallet_name": data["target_wallet_name"],
@@ -123,6 +126,6 @@ async def transfer_date(message: types.Message, state: FSMContext):
     await state.clear()
     msg = resp.get("message", "Done")
     try:
-        await message.edit_text(msg, reply_markup=back_to_menu())
+        await message.edit_text(msg, reply_markup=back_to_menu(3))
     except Exception:
-        await message.answer(msg, reply_markup=back_to_menu())
+        await message.answer(msg, reply_markup=back_to_menu(3))

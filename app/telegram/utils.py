@@ -246,7 +246,7 @@ def fmt_help(commands: list[dict]) -> str:
 def fmt_filters(filters: list[dict]) -> str:
     if not filters:
         return _to_md2("\U0001f50d No active filters")
-    lines = [_bold("\U0001f50d Active Filters:"), ""]
+    lines = [f"\U0001f50d {_bold('Active Filters:')}", ""]
     for i, f in enumerate(filters, 1):
         lines.append(f"  {_code(f'{i}.')} {f['name']}: {f['description']}")
     return _to_md2("\n".join(lines))
