@@ -67,7 +67,9 @@ def _offer_telegram_link(handler: HttpRequestHandler):
     deep_link = result.get("deep_link", "")
     code = result.get("code", "")
     if deep_link:
-        print(f"\nOpen this link in Telegram to connect your account:\n  https://t.me/{deep_link}")
+        print(
+            f"\nOpen this link in Telegram to connect your account:\n  https://t.me/{deep_link}"
+        )
     else:
         print(f"\nSend this to the bot via /start {code}")
         print("(Set BOT_USERNAME in .env to get a clickable link)")

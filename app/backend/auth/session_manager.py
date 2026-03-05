@@ -28,7 +28,7 @@ class SessionManager:
         if entry is None:
             return None
         user_id, created_at = entry
-        #if time.time() - created_at > SESSION_TTL:
+        # if time.time() - created_at > SESSION_TTL:
         #    del self._sessions[token]
         #    return None
         return user_id
