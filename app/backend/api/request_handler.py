@@ -298,6 +298,23 @@ class RequestHandler:
                 c: (a / total_expense) * 100 for c, a in expense_by_cat.items()
             }
 
+        # Active goals summary
+        active_goals = self._wm.get_active_goals()
+        goals_data = []
+        for g in active_goals:
+            target = g.goal_target or 0
+            progress = (g.balance / target * 100) if target > 0 else 0
+            goals_data.append(
+                {
+                    "name": g.name,
+                    "currency": g.currency,
+                    "target": target,
+                    "saved": g.balance,
+                    "progress": min(progress, 100),
+                    "remaining": max(target - g.balance, 0),
+                }
+            )
+
         return {
             "status": "success",
             "data": {
@@ -317,6 +334,7 @@ class RequestHandler:
                 "expense_by_category": dict(expense_by_cat),
                 "income_percentages": income_pct,
                 "expense_percentages": expense_pct,
+                "active_goals": goals_data,
             },
         }
 

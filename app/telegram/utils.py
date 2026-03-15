@@ -110,6 +110,20 @@ def fmt_dashboard(data: dict) -> str:
             pct = exp_pct.get(cat, 0)
             lines.append(f"  {cat}: -{amt:.2f} ({pct:.1f}%)")
 
+    active_goals = data.get("active_goals", [])
+    if active_goals:
+        lines.append("")
+        lines.append(_bold("\U0001f3af Active Goals:"))
+        for g in active_goals:
+            progress = g.get("progress", 0)
+            bar_len = 8
+            filled = int(bar_len * min(progress, 100) / 100)
+            bar = "\u2588" * filled + "\u2591" * (bar_len - filled)
+            lines.append(
+                f"  {g['name']}: {_fmtn(g['saved'])}/{_fmtn(g['target'])} "
+                f"{g['currency']} {bar} {progress:.0f}%"
+            )
+
     transactions = data.get("transactions", [])
     strat = data.get("sorting_strategy", "")
     lines.append("")

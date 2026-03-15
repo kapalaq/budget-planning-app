@@ -929,6 +929,20 @@ class Display:
                     pct = exp_pct.get(cat, 0)
                     print(f"   {cat}: -{amt:.2f} ({pct:.1f}%)")
 
+        # Active goals
+        active_goals = data.get("active_goals", [])
+        if active_goals:
+            print(f"\n\U0001f3af Active Goals:")
+            for g in active_goals:
+                progress = g.get("progress", 0)
+                bar_len = 10
+                filled = int(bar_len * min(progress, 100) / 100)
+                bar = "\u2588" * filled + "\u2591" * (bar_len - filled)
+                print(
+                    f"   {g['name']}: {_fmt(g['saved'])}/{_fmt(g['target'])} "
+                    f"{g['currency']} {bar} {progress:.0f}%"
+                )
+
         # Transaction list
         transactions = data.get("transactions", [])
         strat = data.get("sorting_strategy", "")

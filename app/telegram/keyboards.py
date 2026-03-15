@@ -59,7 +59,9 @@ def main_menu(page: int = 1) -> InlineKeyboardMarkup:
                 ),
             ],
             [
-                InlineKeyboardButton(text="\u2753 Help", callback_data="help"),
+                InlineKeyboardButton(
+                    text="\U0001f4ca Percentages", callback_data="percentages"
+                ),
             ],
             [
                 InlineKeyboardButton(text="<< Prev", callback_data="menu_page:1"),
@@ -98,11 +100,6 @@ def main_menu(page: int = 1) -> InlineKeyboardMarkup:
                 InlineKeyboardButton(
                     text="\U0001f500\U0001f504 Rec Transfer",
                     callback_data="recurring_transfer",
-                ),
-            ],
-            [
-                InlineKeyboardButton(
-                    text="\U0001f4ca Percentages", callback_data="percentages"
                 ),
             ],
             [
@@ -665,7 +662,7 @@ def goal_list_keyboard(
             InlineKeyboardButton(
                 text="\u2795 Add Goal", callback_data="add_goal_start"
             ),
-            InlineKeyboardButton(text="\u2b05\ufe0f Menu", callback_data="menu_page:3"),
+            InlineKeyboardButton(text="\u2b05\ufe0f Menu", callback_data="goals_menu"),
         ]
     )
     return rows_to_markup(rows)
