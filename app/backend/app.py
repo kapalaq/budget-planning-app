@@ -92,7 +92,8 @@ def get_current_user(authorization: str = Header()) -> int:
 def _handle(user_id: int, action: str, data: dict | None = None) -> dict:
     """Route an action to the correct per-user handler."""
     _, handler = _get_manager(user_id)
-    return handler.handle({"action": action, "data": data or {}})
+    lang = _user_store.get_language(user_id)
+    return handler.handle({"action": action, "data": data or {}}, lang=lang)
 
 
 # Auth endpoints
@@ -172,6 +173,28 @@ def auth_unlink_telegram(body: Dict[str, Any]):
 @app.get("/health")
 def health_check():
     return {"status": "success"}
+
+
+#  Language settings
+@app.get("/settings/language")
+def get_language(user_id: int = Depends(get_current_user)):
+    lang = _user_store.get_language(user_id)
+    return {"status": "success", "data": {"language": lang}}
+
+
+@app.post("/settings/language")
+def set_language(body: Dict[str, Any], user_id: int = Depends(get_current_user)):
+    lang = body.get("language", "en-US")
+    from languages import AVAILABLE_LANGUAGES, t
+
+    if lang not in AVAILABLE_LANGUAGES:
+        raise HTTPException(status_code=400, detail=f"Unsupported language: {lang}")
+    _user_store.set_language(user_id, lang)
+    return {
+        "status": "success",
+        "message": f"Language changed to {AVAILABLE_LANGUAGES[lang]}",
+        "data": {"language": lang},
+    }
 
 
 #  Dashboard / General

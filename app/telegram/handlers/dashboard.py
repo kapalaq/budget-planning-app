@@ -4,7 +4,8 @@ from aiogram import Router, F, types
 from aiogram.filters import Command, CommandObject
 from aiogram.fsm.context import FSMContext
 
-from telegram.backend import _current_token, backend
+from languages import t
+from telegram.backend import _current_token, backend, get_lang
 from telegram.keyboards import main_menu, back_to_menu
 from telegram.utils import fmt_dashboard, _to_md2
 
@@ -20,13 +21,12 @@ async def cmd_start(message: types.Message, state: FSMContext, command: CommandO
         code = command.args.strip()
         result = await backend.link_telegram(code, message.from_user.id)
         if result.get("status") == "error":
-            await message.answer(
-                "\u274c Invalid or expired link code.\n\n"
-                "Generate a new link from the CLI app and try again."
-            )
+            lang = get_lang()
+            await message.answer("\u274c " + t("tg.invalid_link", lang))
             return
         _current_token.set(result["token"])
-        await message.answer("\u2705 Telegram account linked successfully!")
+        lang = get_lang()
+        await message.answer("\u2705 " + t("tg.linked", lang))
         await _show_dashboard_new(message)
         return
 
@@ -34,13 +34,8 @@ async def cmd_start(message: types.Message, state: FSMContext, command: CommandO
     if message.from_user and message.from_user.id not in backend._tokens:
         token = await backend.ensure_auth(message.from_user.id)
         if not token:
-            await message.answer(
-                "\U0001f44b Welcome to Budget Planner!\n\n"
-                "To get started, link your account from the CLI app:\n"
-                "1. Login in the CLI\n"
-                "2. Choose to link Telegram\n"
-                "3. Tap the generated link"
-            )
+            lang = get_lang()
+            await message.answer("\U0001f44b " + t("tg.welcome", lang))
             return
 
     await _show_dashboard_new(message)
@@ -82,9 +77,11 @@ async def _show_dashboard_edit(message: types.Message, page: int = 1):
             pass
         return
 
-    text = fmt_dashboard(resp["data"])
+    text = fmt_dashboard(resp["data"], lang=get_lang())
     if count > 0:
-        prefix = _to_md2(f"\U0001f504 {count} recurring transaction(s) generated")
+        prefix = _to_md2(
+            f"\U0001f504 {t('common.recurring_generated', get_lang(), count=count)}"
+        )
         text = f"{prefix}\n\n{text}"
     try:
         await message.edit_text(
@@ -104,9 +101,11 @@ async def _show_dashboard_new(message: types.Message):
         await message.answer(resp["message"], reply_markup=back_to_menu())
         return
 
-    text = fmt_dashboard(resp["data"])
+    text = fmt_dashboard(resp["data"], lang=get_lang())
     if count > 0:
-        prefix = _to_md2(f"\U0001f504 {count} recurring transaction(s) generated")
+        prefix = _to_md2(
+            f"\U0001f504 {t('common.recurring_generated', get_lang(), count=count)}"
+        )
         text = f"{prefix}\n\n{text}"
 
     await message.answer(text, reply_markup=main_menu(), parse_mode="MarkdownV2")

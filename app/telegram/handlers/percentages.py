@@ -3,7 +3,7 @@
 from aiogram import Router, F, types
 from aiogram.filters import Command
 
-from telegram.backend import backend
+from telegram.backend import backend, get_lang
 from telegram.keyboards import back_to_menu
 from telegram.utils import fmt_percentages
 
@@ -29,7 +29,7 @@ async def _show_percentages(message: types.Message):
         except Exception:
             await message.answer(resp["message"], reply_markup=back_to_menu(2))
         return
-    text = fmt_percentages(resp["data"])
+    text = fmt_percentages(resp["data"], lang=get_lang())
     try:
         await message.edit_text(
             text, parse_mode="MarkdownV2", reply_markup=back_to_menu(2)

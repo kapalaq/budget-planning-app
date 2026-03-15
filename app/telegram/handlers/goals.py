@@ -3,7 +3,8 @@
 from aiogram import Router, F, types
 from aiogram.fsm.context import FSMContext
 
-from telegram.backend import backend
+from languages import t
+from telegram.backend import backend, get_lang
 from telegram.keyboards import (
     back_to_menu,
     cancel_keyboard,
@@ -27,7 +28,8 @@ router = Router()
 async def cb_goals_menu(callback: types.CallbackQuery):
     await callback.answer()
     await callback.message.edit_text(
-        "\U0001f3af Savings Goals", reply_markup=goal_menu_keyboard()
+        "\U0001f3af " + t("goal.tg_title", get_lang()),
+        reply_markup=goal_menu_keyboard(),
     )
 
 
@@ -46,7 +48,7 @@ async def cb_goals_list(callback: types.CallbackQuery):
         return
     goals = resp["data"]["goals"]
     label = filter_type.capitalize()
-    text = fmt_goals(goals, label)
+    text = fmt_goals(goals, label, lang=get_lang())
     await callback.message.edit_text(
         text,
         parse_mode="MarkdownV2",
@@ -67,7 +69,7 @@ async def cb_goal_detail(callback: types.CallbackQuery):
         return
     data = resp["data"]
     status = data.get("goal", {}).get("status", "active")
-    text = fmt_goal_detail(data)
+    text = fmt_goal_detail(data, lang=get_lang())
     await callback.message.edit_text(
         text,
         parse_mode="MarkdownV2",
@@ -84,7 +86,7 @@ async def cb_add_goal_start(callback: types.CallbackQuery, state: FSMContext):
     await state.clear()
     await state.set_state(AddGoal.name)
     await callback.message.edit_text(
-        "\U0001f3af Enter goal name (e.g., MacBook Pro):",
+        "\U0001f3af " + t("goal.tg_enter_name", get_lang()),
         reply_markup=cancel_keyboard(3),
     )
 
@@ -93,12 +95,13 @@ async def cb_add_goal_start(callback: types.CallbackQuery, state: FSMContext):
 async def add_goal_name(message: types.Message, state: FSMContext):
     name = message.text.strip()
     if not name:
-        await message.answer("\u26a0\ufe0f Name cannot be empty.")
+        await message.answer("\u26a0\ufe0f " + t("wallet.tg_name_empty", get_lang()))
         return
     await state.update_data(name=name)
     await state.set_state(AddGoal.target)
     await message.answer(
-        "\U0001f4b0 Enter target amount:", reply_markup=cancel_keyboard(3)
+        "\U0001f4b0 " + t("goal.tg_enter_target", get_lang()),
+        reply_markup=cancel_keyboard(3),
     )
 
 
@@ -109,12 +112,14 @@ async def add_goal_target(message: types.Message, state: FSMContext):
         if target <= 0:
             raise ValueError
     except (ValueError, AttributeError):
-        await message.answer("\u26a0\ufe0f Please enter a positive number.")
+        await message.answer(
+            "\u26a0\ufe0f " + t("transaction.tg_positive_number", get_lang())
+        )
         return
     await state.update_data(target=target)
     await state.set_state(AddGoal.currency)
     await message.answer(
-        "\U0001f4b1 Enter currency (or skip for KZT):",
+        "\U0001f4b1 " + t("goal.tg_enter_currency", get_lang()),
         reply_markup=skip_keyboard(3),
     )
 
@@ -125,7 +130,7 @@ async def add_goal_skip_currency(callback: types.CallbackQuery, state: FSMContex
     await state.update_data(currency="KZT")
     await state.set_state(AddGoal.description)
     await callback.message.edit_text(
-        "\U0001f4dd Enter description (or skip):",
+        "\U0001f4dd " + t("goal.tg_enter_description", get_lang()),
         reply_markup=skip_keyboard(3),
     )
 
@@ -137,7 +142,7 @@ async def add_goal_currency(message: types.Message, state: FSMContext):
     await state.update_data(currency=currency)
     await state.set_state(AddGoal.description)
     await message.answer(
-        "\U0001f4dd Enter description (or skip):",
+        "\U0001f4dd " + t("goal.tg_enter_description", get_lang()),
         reply_markup=skip_keyboard(3),
     )
 
@@ -183,7 +188,7 @@ async def cb_save_to_goal(callback: types.CallbackQuery, state: FSMContext):
     await state.update_data(goal_name=name)
     await state.set_state(SaveToGoal.amount)
     await callback.message.edit_text(
-        f"\U0001f4b0 Enter amount to save to '{name}':",
+        "\U0001f4b0 " + t("goal.tg_save_amount", get_lang(), name=name),
         reply_markup=cancel_keyboard(3),
     )
 
@@ -195,7 +200,9 @@ async def save_to_goal_amount(message: types.Message, state: FSMContext):
         if amount <= 0:
             raise ValueError
     except (ValueError, AttributeError):
-        await message.answer("\u26a0\ufe0f Please enter a positive number.")
+        await message.answer(
+            "\u26a0\ufe0f " + t("transaction.tg_positive_number", get_lang())
+        )
         return
     data = await state.get_data()
     goal_name = data["goal_name"]
@@ -261,7 +268,7 @@ async def cb_recurring_goal_save(callback: types.CallbackQuery, state: FSMContex
     await state.update_data(goal_name=name)
     await state.set_state(RecurringGoalSave.amount)
     await callback.message.edit_text(
-        f"\U0001f504 Recurring save to '{name}'\n\U0001f4b2 Enter amount per period:",
+        "\U0001f504 " + t("goal.tg_recurring_save_to", get_lang(), name=name),
         reply_markup=cancel_keyboard(3),
     )
 
@@ -273,12 +280,14 @@ async def rec_goal_save_amount(message: types.Message, state: FSMContext):
         if amount <= 0:
             raise ValueError
     except (ValueError, AttributeError):
-        await message.answer("\u26a0\ufe0f Please enter a positive number.")
+        await message.answer(
+            "\u26a0\ufe0f " + t("transaction.tg_positive_number", get_lang())
+        )
         return
     await state.update_data(amount=amount)
     await state.set_state(RecurringGoalSave.description)
     await message.answer(
-        "\U0001f4dd Enter description (or skip):",
+        "\U0001f4dd " + t("goal.tg_enter_description", get_lang()),
         reply_markup=skip_keyboard(3),
     )
 
@@ -289,7 +298,7 @@ async def rec_goal_save_skip_desc(callback: types.CallbackQuery, state: FSMConte
     await state.update_data(description="")
     await state.set_state(RecurringGoalSave.start_date)
     await callback.message.edit_text(
-        "\U0001f4c5 Enter start date (YYYY-MM-DD) or skip for today:",
+        "\U0001f4c5 " + t("goal.tg_enter_start_date", get_lang()),
         reply_markup=skip_keyboard(3),
     )
 
@@ -302,7 +311,7 @@ async def rec_goal_save_description(message: types.Message, state: FSMContext):
     await state.update_data(description=desc)
     await state.set_state(RecurringGoalSave.start_date)
     await message.answer(
-        "\U0001f4c5 Enter start date (YYYY-MM-DD) or skip for today:",
+        "\U0001f4c5 " + t("goal.tg_enter_start_date", get_lang()),
         reply_markup=skip_keyboard(3),
     )
 
@@ -313,7 +322,8 @@ async def rec_goal_save_skip_start(callback: types.CallbackQuery, state: FSMCont
     await state.update_data(start_date=None)
     await state.set_state(RecurringGoalSave.frequency)
     await callback.message.edit_text(
-        "\U0001f504 Select frequency:", reply_markup=frequency_keyboard(3)
+        "\U0001f504 " + t("recurring.tg_select_frequency", get_lang()),
+        reply_markup=frequency_keyboard(3),
     )
 
 
@@ -324,7 +334,8 @@ async def rec_goal_save_start_date(message: types.Message, state: FSMContext):
     await state.update_data(start_date=date_val)
     await state.set_state(RecurringGoalSave.frequency)
     await message.answer(
-        "\U0001f504 Select frequency:", reply_markup=frequency_keyboard(3)
+        "\U0001f504 " + t("recurring.tg_select_frequency", get_lang()),
+        reply_markup=frequency_keyboard(3),
     )
 
 
@@ -335,7 +346,7 @@ async def rec_goal_save_frequency(callback: types.CallbackQuery, state: FSMConte
     await state.update_data(frequency=freq)
     await state.set_state(RecurringGoalSave.interval)
     await callback.message.edit_text(
-        f"Enter interval (every N {freq} periods, or skip for 1):",
+        t("transfer.tg_enter_interval", get_lang(), freq=freq),
         reply_markup=skip_keyboard(3),
     )
 
@@ -346,7 +357,8 @@ async def rec_goal_save_skip_interval(callback: types.CallbackQuery, state: FSMC
     await state.update_data(interval=1)
     await state.set_state(RecurringGoalSave.end_condition)
     await callback.message.edit_text(
-        "\U0001f3c1 Select end condition:", reply_markup=end_condition_keyboard(3)
+        "\U0001f3c1 " + t("recurring.tg_select_end", get_lang()),
+        reply_markup=end_condition_keyboard(3),
     )
 
 
@@ -361,12 +373,15 @@ async def rec_goal_save_interval(message: types.Message, state: FSMContext):
             if interval <= 0:
                 raise ValueError
         except ValueError:
-            await message.answer("\u26a0\ufe0f Please enter a positive integer.")
+            await message.answer(
+                "\u26a0\ufe0f " + t("recurring.tg_positive_integer", get_lang())
+            )
             return
     await state.update_data(interval=interval)
     await state.set_state(RecurringGoalSave.end_condition)
     await message.answer(
-        "\U0001f3c1 Select end condition:", reply_markup=end_condition_keyboard(3)
+        "\U0001f3c1 " + t("recurring.tg_select_end", get_lang()),
+        reply_markup=end_condition_keyboard(3),
     )
 
 
@@ -380,13 +395,13 @@ async def rec_goal_save_end_condition(callback: types.CallbackQuery, state: FSMC
     elif endc == "on_date":
         await state.set_state(RecurringGoalSave.end_date)
         await callback.message.edit_text(
-            "\U0001f4c5 Enter end date (YYYY-MM-DD):",
+            "\U0001f4c5 " + t("recurring.tg_enter_end_date", get_lang()),
             reply_markup=cancel_keyboard(3),
         )
     elif endc == "after_count":
         await state.set_state(RecurringGoalSave.end_count)
         await callback.message.edit_text(
-            "\U0001f522 Enter number of occurrences:",
+            "\U0001f522 " + t("recurring.tg_enter_count", get_lang()),
             reply_markup=cancel_keyboard(3),
         )
 
@@ -404,7 +419,9 @@ async def rec_goal_save_end_count(message: types.Message, state: FSMContext):
         if count <= 0:
             raise ValueError
     except (ValueError, AttributeError):
-        await message.answer("\u26a0\ufe0f Please enter a positive integer.")
+        await message.answer(
+            "\u26a0\ufe0f " + t("recurring.tg_positive_integer", get_lang())
+        )
         return
     await state.update_data(max_occurrences=count)
     await _finish_recurring_goal_save(message, state)

@@ -15,6 +15,16 @@ _current_token: contextvars.ContextVar[str | None] = contextvars.ContextVar(
     "_current_token", default=None
 )
 
+# Context variable holding the user's language for the current request.
+_current_lang: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "_current_lang", default="en-US"
+)
+
+
+def get_lang() -> str:
+    """Return the current user's language code."""
+    return _current_lang.get()
+
 
 class Backend:
     """Async adapter matching the handle(dict) interface used by the CLI."""
@@ -24,6 +34,8 @@ class Backend:
         self._session: aiohttp.ClientSession | None = None
         # Cache: telegram_user_id -> backend auth token
         self._tokens: dict[int, str] = {}
+        # Cache: telegram_user_id -> language code
+        self._langs: dict[int, str] = {}
 
     async def _get_session(self) -> aiohttp.ClientSession:
         if self._session is None or self._session.closed:
@@ -57,6 +69,22 @@ class Backend:
         token = data["token"]
         self._tokens[telegram_user_id] = token
         return token
+
+    async def get_user_language(self, telegram_user_id: int) -> str:
+        """Return cached language or fetch from backend."""
+        if telegram_user_id in self._langs:
+            return self._langs[telegram_user_id]
+        try:
+            resp = await self._get("/settings/language")
+            lang = resp.get("data", {}).get("language", "en-US")
+        except Exception:
+            lang = "en-US"
+        self._langs[telegram_user_id] = lang
+        return lang
+
+    def set_cached_language(self, telegram_user_id: int, lang: str):
+        """Update the cached language for a user."""
+        self._langs[telegram_user_id] = lang
 
     async def link_telegram(self, code: str, telegram_user_id: int) -> dict:
         """Consume a link code and bind this Telegram account."""
@@ -270,6 +298,12 @@ class Backend:
                 f"/recurring/{data['index']}",
                 params={"delete_option": data.get("delete_option", 1)},
             )
+
+        # Language settings
+        if action == "get_language":
+            return await self._get("/settings/language")
+        if action == "set_language":
+            return await self._post("/settings/language", body=data)
 
         return {"status": "error", "message": f"Unknown action: {action}"}
 

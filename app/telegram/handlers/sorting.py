@@ -2,7 +2,8 @@
 
 from aiogram import Router, F, types
 
-from telegram.backend import backend
+from languages import t
+from telegram.backend import backend, get_lang
 from telegram.keyboards import sorting_keyboard, back_to_menu
 
 router = Router()
@@ -18,7 +19,8 @@ async def _show_sorting(message: types.Message):
     resp = await backend.handle({"action": "get_sorting_options", "data": {}})
     options = resp["data"]["options"]
     await message.edit_text(
-        "\U0001f522 Select sorting method:", reply_markup=sorting_keyboard(options)
+        "\U0001f522 " + t("sorting.tg_select", get_lang()),
+        reply_markup=sorting_keyboard(options),
     )
 
 
@@ -53,7 +55,9 @@ async def _show_wallet_sorting(message: types.Message):
     ]
     rows.append([InlineKeyboardButton(text="<< Menu", callback_data="menu_page:3")])
     kb = InlineKeyboardMarkup(inline_keyboard=rows)
-    await message.edit_text("\U0001f522 Select wallet sorting method:", reply_markup=kb)
+    await message.edit_text(
+        "\U0001f522 " + t("sorting.tg_wallet_select", get_lang()), reply_markup=kb
+    )
 
 
 @router.callback_query(F.data.startswith("wsort:"))

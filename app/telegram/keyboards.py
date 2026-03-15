@@ -2,114 +2,121 @@
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
+from languages import t
+from telegram.backend import get_lang
+
 
 def main_menu(page: int = 1) -> InlineKeyboardMarkup:
+    lang = get_lang()
     if page == 1:
         rows = [
             [
                 InlineKeyboardButton(
-                    text="\U0001f4b5 + Income", callback_data="add_income"
+                    text=f"\U0001f4b5 {t('btn.income', lang)}", callback_data="add_income"
                 ),
                 InlineKeyboardButton(
-                    text="\U0001f4b8 - Expense", callback_data="add_expense"
+                    text=f"\U0001f4b8 {t('btn.expense', lang)}", callback_data="add_expense"
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text="\U0001f4b5\U0001f504 + Rec Income",
+                    text=f"\U0001f4b5\U0001f504 {t('btn.rec_income', lang)}",
                     callback_data="add_recurring_income",
                 ),
                 InlineKeyboardButton(
-                    text="\U0001f4b8\U0001f504 - Rec Expense",
+                    text=f"\U0001f4b8\U0001f504 {t('btn.rec_expense', lang)}",
                     callback_data="add_recurring_expense",
                 ),
             ],
             [
-                InlineKeyboardButton(text="\u2753 Help", callback_data="help"),
+                InlineKeyboardButton(text=f"\u2753 {t('btn.help', lang)}", callback_data="help"),
+                InlineKeyboardButton(
+                    text=f"\U0001f310 {t('language.title', lang)}", callback_data="language"
+                ),
             ],
             [
-                InlineKeyboardButton(text="Next >>", callback_data="menu_page:2"),
+                InlineKeyboardButton(text=t("common.next", lang), callback_data="menu_page:2"),
             ],
             [
                 InlineKeyboardButton(
-                    text="\U0001f504 Refresh", callback_data="menu_page:1"
+                    text=f"\U0001f504 {t('common.refresh', lang)}", callback_data="menu_page:1"
                 ),
-                InlineKeyboardButton(text="Disconnect", callback_data="disconnect"),
+                InlineKeyboardButton(text=t("btn.disconnect", lang), callback_data="disconnect"),
             ],
         ]
     elif page == 2:
         rows = [
             [
                 InlineKeyboardButton(
-                    text="\U0001f4cb Transactions",
+                    text=f"\U0001f4cb {t('btn.transactions', lang)}",
                     callback_data="tx_list_show",
                 ),
                 InlineKeyboardButton(
-                    text="\U0001f504 Recurring",
+                    text=f"\U0001f504 {t('btn.recurring', lang)}",
                     callback_data="recurring_list",
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text="\U0001f522 Sort",
+                    text=f"\U0001f522 {t('btn.sort', lang)}",
                     callback_data="sorting",
                 ),
                 InlineKeyboardButton(
-                    text="\U0001f50d Filters", callback_data="filters"
+                    text=f"\U0001f50d {t('btn.filters', lang)}", callback_data="filters"
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text="\U0001f4ca Percentages", callback_data="percentages"
+                    text=f"\U0001f4ca {t('btn.percentages', lang)}", callback_data="percentages"
                 ),
             ],
             [
-                InlineKeyboardButton(text="<< Prev", callback_data="menu_page:1"),
-                InlineKeyboardButton(text="Next >>", callback_data="menu_page:3"),
+                InlineKeyboardButton(text=t("common.prev", lang), callback_data="menu_page:1"),
+                InlineKeyboardButton(text=t("common.next", lang), callback_data="menu_page:3"),
             ],
             [
                 InlineKeyboardButton(
-                    text="\U0001f504 Refresh", callback_data="menu_page:2"
+                    text=f"\U0001f504 {t('common.refresh', lang)}", callback_data="menu_page:2"
                 ),
-                InlineKeyboardButton(text="Disconnect", callback_data="disconnect"),
+                InlineKeyboardButton(text=t("btn.disconnect", lang), callback_data="disconnect"),
             ],
         ]
     else:  # page == 3
         rows = [
             [
                 InlineKeyboardButton(
-                    text="\U0001f45b Wallets", callback_data="wallets"
+                    text=f"\U0001f45b {t('btn.wallets', lang)}", callback_data="wallets"
                 ),
                 InlineKeyboardButton(
-                    text="\U0001f3af Goals", callback_data="goals_menu"
+                    text=f"\U0001f3af {t('btn.goals', lang)}", callback_data="goals_menu"
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text="\U0001f522 Sort",
+                    text=f"\U0001f522 {t('btn.sort', lang)}",
                     callback_data="wallet_sorting",
                 ),
                 InlineKeyboardButton(
-                    text="\u2795 Add Wallet", callback_data="add_wallet"
+                    text=f"\u2795 {t('btn.add_wallet', lang)}", callback_data="add_wallet"
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text="\U0001f500 Transfer", callback_data="transfer"
+                    text=f"\U0001f500 {t('btn.transfer', lang)}", callback_data="transfer"
                 ),
                 InlineKeyboardButton(
-                    text="\U0001f500\U0001f504 Rec Transfer",
+                    text=f"\U0001f500\U0001f504 {t('btn.rec_transfer', lang)}",
                     callback_data="recurring_transfer",
                 ),
             ],
             [
-                InlineKeyboardButton(text="<< Prev", callback_data="menu_page:2"),
+                InlineKeyboardButton(text=t("common.prev", lang), callback_data="menu_page:2"),
             ],
             [
                 InlineKeyboardButton(
-                    text="\U0001f504 Refresh", callback_data="menu_page:3"
+                    text=f"\U0001f504 {t('common.refresh', lang)}", callback_data="menu_page:3"
                 ),
-                InlineKeyboardButton(text="Disconnect", callback_data="disconnect"),
+                InlineKeyboardButton(text=t("btn.disconnect", lang), callback_data="disconnect"),
             ],
         ]
     return InlineKeyboardMarkup(inline_keyboard=rows)
@@ -220,7 +227,7 @@ def category_keyboard(
         rows.append(
             [
                 InlineKeyboardButton(
-                    text="\u2795 New Category", callback_data="cat:__new__"
+                    text=f"\u2795 {t('category.tg_new', get_lang())}", callback_data="cat:__new__"
                 )
             ]
         )
@@ -231,17 +238,18 @@ def category_keyboard(
 
 
 def wallet_type_keyboard() -> InlineKeyboardMarkup:
+    lang = get_lang()
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="\U0001f45b Regular", callback_data="wtype:regular"
+                    text=f"\U0001f45b {t('wallet.tg_regular', lang)}", callback_data="wtype:regular"
                 ),
                 InlineKeyboardButton(
-                    text="\U0001f3e6 Deposit", callback_data="wtype:deposit"
+                    text=f"\U0001f3e6 {t('wallet.tg_deposit', lang)}", callback_data="wtype:deposit"
                 ),
             ],
-            [InlineKeyboardButton(text="\u274c Cancel", callback_data="wallets")],
+            [InlineKeyboardButton(text=f"\u274c {t('common.cancel', lang)}", callback_data="wallets")],
         ]
     )
 
@@ -274,41 +282,42 @@ def sorting_keyboard(options: dict[str, str]) -> InlineKeyboardMarkup:
 
 
 def filter_menu_keyboard() -> InlineKeyboardMarkup:
+    lang = get_lang()
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="\U0001f4c5 By Date", callback_data="filter:date"
+                    text=f"\U0001f4c5 {t('filter.tg_by_date', lang)}", callback_data="filter:date"
                 ),
                 InlineKeyboardButton(
-                    text="\U0001f4cb By Type", callback_data="filter:type"
-                ),
-            ],
-            [
-                InlineKeyboardButton(
-                    text="\U0001f3f7\ufe0f By Category", callback_data="filter:category"
-                ),
-                InlineKeyboardButton(
-                    text="\U0001f4b0 By Amount", callback_data="filter:amount"
+                    text=f"\U0001f4cb {t('filter.tg_by_type', lang)}", callback_data="filter:type"
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text="\U0001f4dd By Description", callback_data="filter:description"
+                    text=f"\U0001f3f7\ufe0f {t('filter.tg_by_category', lang)}", callback_data="filter:category"
+                ),
+                InlineKeyboardButton(
+                    text=f"\U0001f4b0 {t('filter.tg_by_amount', lang)}", callback_data="filter:amount"
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text="\U0001f441\ufe0f View Active",
+                    text=f"\U0001f4dd {t('filter.tg_by_description', lang)}", callback_data="filter:description"
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=f"\U0001f441\ufe0f {t('filter.tg_view_active', lang)}",
                     callback_data="filter:view_active",
                 ),
                 InlineKeyboardButton(
-                    text="\U0001f9f9 Clear All", callback_data="filter:clear_all"
+                    text=f"\U0001f9f9 {t('filter.tg_clear_all', lang)}", callback_data="filter:clear_all"
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text="\u2b05\ufe0f Menu", callback_data="menu_page:2"
+                    text=f"\u2b05\ufe0f {t('common.menu', lang)}", callback_data="menu_page:2"
                 )
             ],
         ]
@@ -316,95 +325,99 @@ def filter_menu_keyboard() -> InlineKeyboardMarkup:
 
 
 def date_filter_keyboard() -> InlineKeyboardMarkup:
+    lang = get_lang()
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(text="Today", callback_data="df:today"),
-                InlineKeyboardButton(text="Last Week", callback_data="df:last_week"),
+                InlineKeyboardButton(text=t("filter.date_today", lang), callback_data="df:today"),
+                InlineKeyboardButton(text=t("filter.date_last_week", lang), callback_data="df:last_week"),
             ],
             [
-                InlineKeyboardButton(text="Last Month", callback_data="df:last_month"),
-                InlineKeyboardButton(text="This Month", callback_data="df:this_month"),
+                InlineKeyboardButton(text=t("filter.date_last_month", lang), callback_data="df:last_month"),
+                InlineKeyboardButton(text=t("filter.date_this_month", lang), callback_data="df:this_month"),
             ],
             [
-                InlineKeyboardButton(text="Last Year", callback_data="df:last_year"),
-                InlineKeyboardButton(text="This Year", callback_data="df:this_year"),
+                InlineKeyboardButton(text=t("filter.date_last_year", lang), callback_data="df:last_year"),
+                InlineKeyboardButton(text=t("filter.date_this_year", lang), callback_data="df:this_year"),
             ],
-            [InlineKeyboardButton(text="\u274c Cancel", callback_data="filters")],
+            [InlineKeyboardButton(text=f"\u274c {t('common.cancel', lang)}", callback_data="filters")],
         ]
     )
 
 
 def type_filter_keyboard() -> InlineKeyboardMarkup:
+    lang = get_lang()
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="Income Only", callback_data="tf:income_only"
+                    text=t("filter.type_income", lang), callback_data="tf:income_only"
                 ),
                 InlineKeyboardButton(
-                    text="Expense Only", callback_data="tf:expense_only"
+                    text=t("filter.type_expense", lang), callback_data="tf:expense_only"
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text="Transfers Only", callback_data="tf:transfers_only"
+                    text=t("filter.type_transfers", lang), callback_data="tf:transfers_only"
                 ),
                 InlineKeyboardButton(
-                    text="No Transfers", callback_data="tf:no_transfers"
+                    text=t("filter.type_no_transfers", lang), callback_data="tf:no_transfers"
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text="Recurring Only", callback_data="tf:recurring_only"
+                    text=t("filter.type_recurring", lang), callback_data="tf:recurring_only"
                 ),
                 InlineKeyboardButton(
-                    text="Non-Recurring", callback_data="tf:non_recurring"
+                    text=t("filter.type_non_recurring", lang), callback_data="tf:non_recurring"
                 ),
             ],
-            [InlineKeyboardButton(text="\u274c Cancel", callback_data="filters")],
+            [InlineKeyboardButton(text=f"\u274c {t('common.cancel', lang)}", callback_data="filters")],
         ]
     )
 
 
 def amount_filter_keyboard() -> InlineKeyboardMarkup:
+    lang = get_lang()
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="Large (>10000)", callback_data="af:large_transactions"
+                    text=t("filter.tg_large", lang), callback_data="af:large_transactions"
                 ),
                 InlineKeyboardButton(
-                    text="Small (<100)", callback_data="af:small_transactions"
+                    text=t("filter.tg_small", lang), callback_data="af:small_transactions"
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text="Custom Large (>=)", callback_data="af:custom_large"
+                    text=t("filter.tg_custom_large", lang), callback_data="af:custom_large"
                 ),
                 InlineKeyboardButton(
-                    text="Custom Small (<=)", callback_data="af:custom_small"
+                    text=t("filter.tg_custom_small", lang), callback_data="af:custom_small"
                 ),
             ],
-            [InlineKeyboardButton(text="\u274c Cancel", callback_data="filters")],
+            [InlineKeyboardButton(text=f"\u274c {t('common.cancel', lang)}", callback_data="filters")],
         ]
     )
 
 
 def transaction_actions_keyboard(index: int) -> InlineKeyboardMarkup:
+    lang = get_lang()
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="\u270f\ufe0f Edit", callback_data=f"edit_tx:{index}"
+                    text=f"\u270f\ufe0f {t('common.edit', lang)}", callback_data=f"edit_tx:{index}"
                 ),
                 InlineKeyboardButton(
-                    text="\U0001f5d1\ufe0f Delete", callback_data=f"del_tx:{index}"
+                    text=f"\U0001f5d1\ufe0f {t('common.delete', lang)}", callback_data=f"del_tx:{index}"
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text="\u2b05\ufe0f Menu", callback_data="menu_page:2"
+                    text=f"\u2b05\ufe0f {t('common.menu', lang)}", callback_data="menu_page:2"
                 )
             ],
         ]
@@ -412,19 +425,20 @@ def transaction_actions_keyboard(index: int) -> InlineKeyboardMarkup:
 
 
 def recurring_actions_keyboard(index: int) -> InlineKeyboardMarkup:
+    lang = get_lang()
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="\u270f\ufe0f Edit", callback_data=f"edit_rec:{index}"
+                    text=f"\u270f\ufe0f {t('common.edit', lang)}", callback_data=f"edit_rec:{index}"
                 ),
                 InlineKeyboardButton(
-                    text="\U0001f5d1\ufe0f Delete", callback_data=f"del_rec:{index}"
+                    text=f"\U0001f5d1\ufe0f {t('common.delete', lang)}", callback_data=f"del_rec:{index}"
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text="\u2b05\ufe0f Menu", callback_data="menu_page:2"
+                    text=f"\u2b05\ufe0f {t('common.menu', lang)}", callback_data="menu_page:2"
                 )
             ],
         ]
@@ -432,22 +446,23 @@ def recurring_actions_keyboard(index: int) -> InlineKeyboardMarkup:
 
 
 def wallet_actions_keyboard(name: str) -> InlineKeyboardMarkup:
+    lang = get_lang()
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="\U0001f500 Switch to", callback_data=f"sw:{name}"
+                    text=f"\U0001f500 {t('btn.switch_to', lang)}", callback_data=f"sw:{name}"
                 ),
                 InlineKeyboardButton(
-                    text="\u270f\ufe0f Edit", callback_data=f"edit_w:{name}"
+                    text=f"\u270f\ufe0f {t('common.edit', lang)}", callback_data=f"edit_w:{name}"
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text="\U0001f5d1\ufe0f Delete", callback_data=f"del_w:{name}"
+                    text=f"\U0001f5d1\ufe0f {t('common.delete', lang)}", callback_data=f"del_w:{name}"
                 ),
                 InlineKeyboardButton(
-                    text="\u2b05\ufe0f Menu", callback_data="menu_page:3"
+                    text=f"\u2b05\ufe0f {t('common.menu', lang)}", callback_data="menu_page:3"
                 ),
             ],
         ]
@@ -455,44 +470,46 @@ def wallet_actions_keyboard(name: str) -> InlineKeyboardMarkup:
 
 
 def delete_recurring_keyboard(index: int) -> InlineKeyboardMarkup:
+    lang = get_lang()
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="Template Only", callback_data=f"delrec_opt:{index}:1"
+                    text=t("recurring.tg_template_only", lang), callback_data=f"delrec_opt:{index}:1"
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text="Template + Future",
+                    text=t("recurring.tg_template_future", lang),
                     callback_data=f"delrec_opt:{index}:2",
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text="Template + All",
+                    text=t("recurring.tg_template_all", lang),
                     callback_data=f"delrec_opt:{index}:3",
                 ),
             ],
-            [InlineKeyboardButton(text="\u274c Cancel", callback_data="menu_page:2")],
+            [InlineKeyboardButton(text=f"\u274c {t('common.cancel', lang)}", callback_data="menu_page:2")],
         ]
     )
 
 
 def frequency_keyboard(page: int = 1) -> InlineKeyboardMarkup:
+    lang = get_lang()
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(text="Daily", callback_data="freq:daily"),
-                InlineKeyboardButton(text="Weekly", callback_data="freq:weekly"),
+                InlineKeyboardButton(text=t("recurring.freq_daily", lang), callback_data="freq:daily"),
+                InlineKeyboardButton(text=t("recurring.freq_weekly", lang), callback_data="freq:weekly"),
             ],
             [
-                InlineKeyboardButton(text="Monthly", callback_data="freq:monthly"),
-                InlineKeyboardButton(text="Yearly", callback_data="freq:yearly"),
+                InlineKeyboardButton(text=t("recurring.freq_monthly", lang), callback_data="freq:monthly"),
+                InlineKeyboardButton(text=t("recurring.freq_yearly", lang), callback_data="freq:yearly"),
             ],
             [
                 InlineKeyboardButton(
-                    text="\u274c Cancel", callback_data=f"menu_page:{page}"
+                    text=f"\u274c {t('common.cancel', lang)}", callback_data=f"menu_page:{page}"
                 )
             ],
         ]
@@ -500,22 +517,23 @@ def frequency_keyboard(page: int = 1) -> InlineKeyboardMarkup:
 
 
 def end_condition_keyboard(page: int = 1) -> InlineKeyboardMarkup:
+    lang = get_lang()
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="Never", callback_data="endc:never")],
+            [InlineKeyboardButton(text=t("recurring.end_never", lang), callback_data="endc:never")],
             [
                 InlineKeyboardButton(
-                    text="On Specific Date", callback_data="endc:on_date"
+                    text=t("recurring.end_on_date", lang), callback_data="endc:on_date"
                 )
             ],
             [
                 InlineKeyboardButton(
-                    text="After N Occurrences", callback_data="endc:after_count"
+                    text=t("recurring.end_after_count", lang), callback_data="endc:after_count"
                 )
             ],
             [
                 InlineKeyboardButton(
-                    text="\u274c Cancel", callback_data=f"menu_page:{page}"
+                    text=f"\u274c {t('common.cancel', lang)}", callback_data=f"menu_page:{page}"
                 )
             ],
         ]
@@ -523,11 +541,12 @@ def end_condition_keyboard(page: int = 1) -> InlineKeyboardMarkup:
 
 
 def capitalization_keyboard() -> InlineKeyboardMarkup:
+    lang = get_lang()
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(text="\u2705 Yes", callback_data="cap:yes"),
-                InlineKeyboardButton(text="\u274c No", callback_data="cap:no"),
+                InlineKeyboardButton(text=f"\u2705 {t('common.yes', lang)}", callback_data="cap:yes"),
+                InlineKeyboardButton(text=f"\u274c {t('common.no', lang)}", callback_data="cap:no"),
             ],
         ]
     )
@@ -536,14 +555,15 @@ def capitalization_keyboard() -> InlineKeyboardMarkup:
 def edit_transaction_fields_keyboard(
     index: int, is_transfer: bool = False
 ) -> InlineKeyboardMarkup:
+    lang = get_lang()
     rows = [
-        [InlineKeyboardButton(text="Amount", callback_data=f"etf:{index}:amount")],
+        [InlineKeyboardButton(text=t("btn.amount", lang), callback_data=f"etf:{index}:amount")],
     ]
     if not is_transfer:
         rows.append(
             [
                 InlineKeyboardButton(
-                    text="Category", callback_data=f"etf:{index}:category"
+                    text=t("btn.category", lang), callback_data=f"etf:{index}:category"
                 )
             ]
         )
@@ -551,15 +571,15 @@ def edit_transaction_fields_keyboard(
         [
             [
                 InlineKeyboardButton(
-                    text="Description", callback_data=f"etf:{index}:description"
+                    text=t("btn.description", lang), callback_data=f"etf:{index}:description"
                 )
             ],
-            [InlineKeyboardButton(text="Date", callback_data=f"etf:{index}:date")],
+            [InlineKeyboardButton(text=t("btn.date", lang), callback_data=f"etf:{index}:date")],
             [
                 InlineKeyboardButton(
-                    text="\U0001f4be Save", callback_data=f"etf:{index}:save"
+                    text=f"\U0001f4be {t('common.save', lang)}", callback_data=f"etf:{index}:save"
                 ),
-                InlineKeyboardButton(text="\u274c Cancel", callback_data="menu_page:2"),
+                InlineKeyboardButton(text=f"\u274c {t('common.cancel', lang)}", callback_data="menu_page:2"),
             ],
         ]
     )
@@ -567,78 +587,81 @@ def edit_transaction_fields_keyboard(
 
 
 def edit_wallet_fields_keyboard(name: str) -> InlineKeyboardMarkup:
+    lang = get_lang()
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(text="Name", callback_data=f"ewf:{name}:name"),
+                InlineKeyboardButton(text=t("btn.name", lang), callback_data=f"ewf:{name}:name"),
                 InlineKeyboardButton(
-                    text="Currency", callback_data=f"ewf:{name}:currency"
+                    text=t("btn.currency", lang), callback_data=f"ewf:{name}:currency"
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text="Description", callback_data=f"ewf:{name}:description"
+                    text=t("btn.description", lang), callback_data=f"ewf:{name}:description"
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text="\U0001f4be Save", callback_data=f"ewf:{name}:save"
+                    text=f"\U0001f4be {t('common.save', lang)}", callback_data=f"ewf:{name}:save"
                 ),
-                InlineKeyboardButton(text="\u274c Cancel", callback_data="menu_page:3"),
+                InlineKeyboardButton(text=f"\u274c {t('common.cancel', lang)}", callback_data="menu_page:3"),
             ],
         ]
     )
 
 
 def edit_recurring_keyboard(index: int) -> InlineKeyboardMarkup:
+    lang = get_lang()
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="\u270f\ufe0f Edit Template",
+                    text=f"\u270f\ufe0f {t('recurring.tg_edit_template', lang)}",
                     callback_data=f"erec:{index}:template",
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text="\u23e9 Skip a Date", callback_data=f"erec:{index}:skip"
+                    text=f"\u23e9 {t('recurring.tg_skip_date', lang)}", callback_data=f"erec:{index}:skip"
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text="\u23ef\ufe0f Toggle Active/Paused",
+                    text=f"\u23ef\ufe0f {t('recurring.tg_toggle', lang)}",
                     callback_data=f"erec:{index}:toggle",
                 ),
             ],
-            [InlineKeyboardButton(text="\u274c Cancel", callback_data="menu_page:2")],
+            [InlineKeyboardButton(text=f"\u274c {t('common.cancel', lang)}", callback_data="menu_page:2")],
         ]
     )
 
 
 def goal_menu_keyboard() -> InlineKeyboardMarkup:
+    lang = get_lang()
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="\U0001f3af Active Goals", callback_data="goals:active"
+                    text=f"\U0001f3af {t('goal.tg_active', lang)}", callback_data="goals:active"
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text="\u2705 Completed", callback_data="goals:completed"
+                    text=f"\u2705 {t('goal.tg_completed', lang)}", callback_data="goals:completed"
                 ),
                 InlineKeyboardButton(
-                    text="\U0001f4cb All Goals", callback_data="goals:all"
-                ),
-            ],
-            [
-                InlineKeyboardButton(
-                    text="\u2795 Add Goal", callback_data="add_goal_start"
+                    text=f"\U0001f4cb {t('goal.tg_all', lang)}", callback_data="goals:all"
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text="\u2b05\ufe0f Menu", callback_data="menu_page:3"
+                    text=f"\u2795 {t('goal.tg_add', lang)}", callback_data="add_goal_start"
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=f"\u2b05\ufe0f {t('common.menu', lang)}", callback_data="menu_page:3"
                 )
             ],
         ]
@@ -669,15 +692,16 @@ def goal_list_keyboard(
 
 
 def goal_actions_keyboard(name: str, status: str = "active") -> InlineKeyboardMarkup:
+    lang = get_lang()
     rows = []
     if status == "active":
         rows.append(
             [
                 InlineKeyboardButton(
-                    text="\U0001f4b0 Save Money", callback_data=f"gsave:{name}"
+                    text=f"\U0001f4b0 {t('goal.tg_save_money', lang)}", callback_data=f"gsave:{name}"
                 ),
                 InlineKeyboardButton(
-                    text="\U0001f504 Recurring Save",
+                    text=f"\U0001f504 {t('goal.tg_recurring_save', lang)}",
                     callback_data=f"grecsave:{name}",
                 ),
             ]
@@ -685,7 +709,7 @@ def goal_actions_keyboard(name: str, status: str = "active") -> InlineKeyboardMa
         rows.append(
             [
                 InlineKeyboardButton(
-                    text="\u2705 Complete", callback_data=f"gcomplete:{name}"
+                    text=f"\u2705 {t('goal.tg_complete', lang)}", callback_data=f"gcomplete:{name}"
                 )
             ]
         )
@@ -693,10 +717,10 @@ def goal_actions_keyboard(name: str, status: str = "active") -> InlineKeyboardMa
         rows.append(
             [
                 InlineKeyboardButton(
-                    text="\U0001f6ab Hide", callback_data=f"ghide:{name}"
+                    text=f"\U0001f6ab {t('goal.tg_hide', lang)}", callback_data=f"ghide:{name}"
                 ),
                 InlineKeyboardButton(
-                    text="\U0001f504 Reactivate", callback_data=f"greactivate:{name}"
+                    text=f"\U0001f504 {t('goal.tg_reactivate', lang)}", callback_data=f"greactivate:{name}"
                 ),
             ]
         )
@@ -704,14 +728,36 @@ def goal_actions_keyboard(name: str, status: str = "active") -> InlineKeyboardMa
         rows.append(
             [
                 InlineKeyboardButton(
-                    text="\U0001f504 Reactivate", callback_data=f"greactivate:{name}"
+                    text=f"\U0001f504 {t('goal.tg_reactivate', lang)}", callback_data=f"greactivate:{name}"
                 )
             ]
         )
     rows.append(
-        [InlineKeyboardButton(text="\u2b05\ufe0f Goals", callback_data="goals:active")]
+        [InlineKeyboardButton(text=f"\u2b05\ufe0f {t('btn.goals', lang)}", callback_data="goals:active")]
     )
     return rows_to_markup(rows)
+
+
+def language_keyboard(current: str = "en-US") -> InlineKeyboardMarkup:
+    languages = {
+        "en-US": "English (US)",
+        "en-UK": "English (UK)",
+        "ru-RU": "Русский",
+    }
+    rows = []
+    for code, name in languages.items():
+        marker = " \u2705" if code == current else ""
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=f"{name}{marker}", callback_data=f"setlang:{code}"
+                )
+            ]
+        )
+    rows.append(
+        [InlineKeyboardButton(text="\u2b05\ufe0f Menu", callback_data="menu_page:1")]
+    )
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def rows_to_markup(rows: list[list[InlineKeyboardButton]]) -> InlineKeyboardMarkup:

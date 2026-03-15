@@ -5,7 +5,8 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
-from telegram.backend import backend
+from languages import t
+from telegram.backend import backend, get_lang
 from telegram.keyboards import (
     filter_menu_keyboard,
     date_filter_keyboard,
@@ -23,7 +24,8 @@ router = Router()
 async def cmd_filters(message: types.Message, state: FSMContext):
     await state.clear()
     await message.answer(
-        "\U0001f50d Filter options:", reply_markup=filter_menu_keyboard()
+        "\U0001f50d " + t("filter.tg_options", get_lang()),
+        reply_markup=filter_menu_keyboard(),
     )
 
 
@@ -33,11 +35,13 @@ async def cb_filters(callback: types.CallbackQuery, state: FSMContext):
     await state.clear()
     try:
         await callback.message.edit_text(
-            "\U0001f50d Filter options:", reply_markup=filter_menu_keyboard()
+            "\U0001f50d " + t("filter.tg_options", get_lang()),
+            reply_markup=filter_menu_keyboard(),
         )
     except Exception:
         await callback.message.answer(
-            "\U0001f50d Filter options:", reply_markup=filter_menu_keyboard()
+            "\U0001f50d " + t("filter.tg_options", get_lang()),
+            reply_markup=filter_menu_keyboard(),
         )
 
 
@@ -49,11 +53,13 @@ async def cb_filter_date(callback: types.CallbackQuery):
     await callback.answer()
     try:
         await callback.message.edit_text(
-            "\U0001f4c5 Select date filter:", reply_markup=date_filter_keyboard()
+            "\U0001f4c5 " + t("filter.tg_select_date", get_lang()),
+            reply_markup=date_filter_keyboard(),
         )
     except Exception:
         await callback.message.answer(
-            "\U0001f4c5 Select date filter:", reply_markup=date_filter_keyboard()
+            "\U0001f4c5 " + t("filter.tg_select_date", get_lang()),
+            reply_markup=date_filter_keyboard(),
         )
 
 
@@ -79,11 +85,13 @@ async def cb_filter_type(callback: types.CallbackQuery):
     await callback.answer()
     try:
         await callback.message.edit_text(
-            "\U0001f4cb Select type filter:", reply_markup=type_filter_keyboard()
+            "\U0001f4cb " + t("filter.tg_select_type", get_lang()),
+            reply_markup=type_filter_keyboard(),
         )
     except Exception:
         await callback.message.answer(
-            "\U0001f4cb Select type filter:", reply_markup=type_filter_keyboard()
+            "\U0001f4cb " + t("filter.tg_select_type", get_lang()),
+            reply_markup=type_filter_keyboard(),
         )
 
 
@@ -109,11 +117,13 @@ async def cb_filter_amount(callback: types.CallbackQuery):
     await callback.answer()
     try:
         await callback.message.edit_text(
-            "\U0001f4b0 Select amount filter:", reply_markup=amount_filter_keyboard()
+            "\U0001f4b0 " + t("filter.tg_select_amount", get_lang()),
+            reply_markup=amount_filter_keyboard(),
         )
     except Exception:
         await callback.message.answer(
-            "\U0001f4b0 Select amount filter:", reply_markup=amount_filter_keyboard()
+            "\U0001f4b0 " + t("filter.tg_select_amount", get_lang()),
+            reply_markup=amount_filter_keyboard(),
         )
 
 
@@ -132,11 +142,13 @@ async def cb_amount_filter_choice(callback: types.CallbackQuery, state: FSMConte
         )
         try:
             await callback.message.edit_text(
-                "\U0001f4b0 Enter the amount threshold:", reply_markup=cancel_kb
+                "\U0001f4b0 " + t("filter.tg_enter_threshold", get_lang()),
+                reply_markup=cancel_kb,
             )
         except Exception:
             await callback.message.answer(
-                "\U0001f4b0 Enter the amount threshold:", reply_markup=cancel_kb
+                "\U0001f4b0 " + t("filter.tg_enter_threshold", get_lang()),
+                reply_markup=cancel_kb,
             )
         return
 
@@ -158,7 +170,7 @@ async def on_amount_threshold(message: types.Message, state: FSMContext):
         if threshold < 0:
             raise ValueError
     except ValueError:
-        await message.answer("\u274c Please enter a valid positive number.")
+        await message.answer("\u274c " + t("filter.tg_invalid_positive", get_lang()))
         return
 
     data = await state.get_data()
@@ -208,12 +220,12 @@ async def cb_filter_category(callback: types.CallbackQuery):
     kb = InlineKeyboardMarkup(inline_keyboard=rows)
     try:
         await callback.message.edit_text(
-            "\U0001f3f7\ufe0f Select category to filter by (include only):",
+            "\U0001f3f7\ufe0f " + t("filter.tg_select_category", get_lang()),
             reply_markup=kb,
         )
     except Exception:
         await callback.message.answer(
-            "\U0001f3f7\ufe0f Select category to filter by (include only):",
+            "\U0001f3f7\ufe0f " + t("filter.tg_select_category", get_lang()),
             reply_markup=kb,
         )
 
@@ -251,12 +263,12 @@ async def cb_filter_description(callback: types.CallbackQuery, state: FSMContext
     )
     try:
         await callback.message.edit_text(
-            "\U0001f4dd Send the search text to filter descriptions by:",
+            "\U0001f4dd " + t("filter.tg_enter_search", get_lang()),
             reply_markup=cancel_kb,
         )
     except Exception:
         await callback.message.answer(
-            "\U0001f4dd Send the search text to filter descriptions by:",
+            "\U0001f4dd " + t("filter.tg_enter_search", get_lang()),
             reply_markup=cancel_kb,
         )
 
@@ -265,7 +277,7 @@ async def cb_filter_description(callback: types.CallbackQuery, state: FSMContext
 async def on_description_search(message: types.Message, state: FSMContext):
     text = message.text.strip() if message.text else ""
     if not text:
-        await message.answer("\u274c Please enter a non-empty search term.")
+        await message.answer("\u274c " + t("filter.tg_empty_search", get_lang()))
         return
 
     await state.clear()
@@ -289,7 +301,7 @@ async def cb_view_active_filters(callback: types.CallbackQuery):
     if resp["status"] == "error":
         await callback.message.answer(resp["message"], reply_markup=back_to_menu(2))
         return
-    text = fmt_filters(resp["data"]["filters"])
+    text = fmt_filters(resp["data"]["filters"], lang=get_lang())
     try:
         await callback.message.edit_text(
             text, parse_mode="MarkdownV2", reply_markup=filter_menu_keyboard()

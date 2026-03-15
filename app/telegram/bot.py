@@ -9,12 +9,13 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import TelegramObject
 
 from telegram.config import BOT_TOKEN
-from telegram.backend import _current_token, backend
+from telegram.backend import _current_lang, _current_token, backend
 from telegram.handlers import (
     auth,
     dashboard,
     goals,
     help,
+    language,
     transactions,
     transfers,
     wallets,
@@ -42,6 +43,8 @@ class AuthMiddleware(BaseMiddleware):
             token = await backend.ensure_auth(user.id)
             if token:
                 _current_token.set(token)
+                lang = await backend.get_user_language(user.id)
+                _current_lang.set(lang)
         return await handler(event, data)
 
 
@@ -55,6 +58,7 @@ def create_dispatcher() -> Dispatcher:
     dp.include_router(auth.router)
     dp.include_router(dashboard.router)
     dp.include_router(help.router)
+    dp.include_router(language.router)
     dp.include_router(transactions.router)
     dp.include_router(transfers.router)
     dp.include_router(wallets.router)
