@@ -7,6 +7,7 @@ from telegram.backend import backend
 from telegram.keyboards import (
     category_keyboard,
     cancel_keyboard,
+    skip_keyboard,
     back_to_menu,
     transaction_actions_keyboard,
     edit_transaction_fields_keyboard,
@@ -48,7 +49,7 @@ async def _start_add(message: types.Message, state: FSMContext, tt: str):
     label = "\U0001f4b5 Income" if tt == "income" else "\U0001f4b8 Expense"
     await message.edit_text(
         f"Adding {label}.\n\U0001f4b2 Enter amount:",
-        reply_markup=cancel_keyboard(2),
+        reply_markup=cancel_keyboard(1),
     )
 
 
@@ -77,14 +78,14 @@ async def add_tx_category(callback: types.CallbackQuery, state: FSMContext):
     if cat == "__new__":
         await state.set_state(AddTransaction.new_category)
         await callback.message.edit_text(
-            "\u2795 Enter new category name:", reply_markup=cancel_keyboard(2)
+            "\u2795 Enter new category name:", reply_markup=cancel_keyboard(1)
         )
         return
     await state.update_data(category=cat)
     await state.set_state(AddTransaction.description)
     await callback.message.edit_text(
         "\U0001f4dd Enter description (or send `-` to skip):",
-        reply_markup=cancel_keyboard(2),
+        reply_markup=skip_keyboard(2),
     )
 
 
@@ -98,7 +99,18 @@ async def add_tx_new_cat(message: types.Message, state: FSMContext):
     await state.set_state(AddTransaction.description)
     await message.answer(
         "\U0001f4dd Enter description (or send `-` to skip):",
-        reply_markup=cancel_keyboard(2),
+        reply_markup=skip_keyboard(2),
+    )
+
+
+@router.callback_query(AddTransaction.description, F.data == "skip_default")
+async def add_tx_skip_description(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer()
+    await state.update_data(description="")
+    await state.set_state(AddTransaction.date)
+    await callback.message.edit_text(
+        "\U0001f4c5 Enter date (YYYY-MM-DD) or send `-` for today:",
+        reply_markup=skip_keyboard(2),
     )
 
 
@@ -111,8 +123,30 @@ async def add_tx_description(message: types.Message, state: FSMContext):
     await state.set_state(AddTransaction.date)
     await message.answer(
         "\U0001f4c5 Enter date (YYYY-MM-DD) or send `-` for today:",
-        reply_markup=cancel_keyboard(2),
+        reply_markup=skip_keyboard(2),
     )
+
+
+@router.callback_query(AddTransaction.date, F.data == "skip_default")
+async def add_tx_skip_date(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer()
+    data = await state.get_data()
+    form = {
+        "transaction_type": data["transaction_type"],
+        "amount": data["amount"],
+        "category": data["category"],
+        "description": data.get("description", ""),
+        "date": None,
+    }
+    resp = await backend.handle({"action": "add_transaction", "data": form})
+    await state.clear()
+    if resp["status"] == "success":
+        await callback.message.edit_text(
+            f"\u2705 Transaction added: {data['amount']:.2f} in {data['category']}",
+            reply_markup=back_to_menu(2),
+        )
+    else:
+        await callback.message.edit_text(resp["message"], reply_markup=back_to_menu(2))
 
 
 @router.message(AddTransaction.date)
@@ -153,11 +187,11 @@ async def cb_tx_list_show(callback: types.CallbackQuery):
     await callback.answer()
     transactions, err = await _fetch_transactions()
     if err:
-        await callback.message.edit_text(err, reply_markup=back_to_menu())
+        await callback.message.edit_text(err, reply_markup=back_to_menu(2))
         return
     if not transactions:
         await callback.message.edit_text(
-            "\U0001f4ed No transactions.", reply_markup=back_to_menu()
+            "\U0001f4ed No transactions.", reply_markup=back_to_menu(2)
         )
         return
     await callback.message.edit_text(
@@ -174,7 +208,7 @@ async def cb_tx_page(callback: types.CallbackQuery):
     page = int(parts[2])
     transactions, err = await _fetch_transactions()
     if err:
-        await callback.message.answer(err, reply_markup=back_to_menu())
+        await callback.message.answer(err, reply_markup=back_to_menu(2))
         return
     try:
         await callback.message.edit_reply_markup(
@@ -197,7 +231,7 @@ async def cb_show_tx(callback: types.CallbackQuery):
 async def _show_transaction(message: types.Message, index: int):
     resp = await backend.handle({"action": "get_transaction", "data": {"index": index}})
     if resp["status"] == "error":
-        await message.edit_text(resp["message"], reply_markup=back_to_menu())
+        await message.edit_text(resp["message"], reply_markup=back_to_menu(2))
         return
     text = fmt_transaction(resp["data"])
     await message.edit_text(
@@ -279,7 +313,7 @@ async def cb_edit_tx_field(callback: types.CallbackQuery, state: FSMContext):
         await state.set_state(EditTransaction.description)
         await callback.message.edit_text(
             "\U0001f4dd Enter new description (or `-` to clear):",
-            reply_markup=cancel_keyboard(),
+            reply_markup=skip_keyboard(),
         )
     elif field == "date":
         await state.set_state(EditTransaction.date)
@@ -352,6 +386,24 @@ async def edit_tx_new_cat(message: types.Message, state: FSMContext):
     await state.set_state(EditTransaction.field_select)
     await message.answer(
         f"\u2705 Category set to {cat}. Select another field or Save:",
+        reply_markup=edit_transaction_fields_keyboard(
+            index, current.get("is_transfer", False)
+        ),
+    )
+
+
+@router.callback_query(EditTransaction.description, F.data == "skip_default")
+async def edit_tx_skip_description(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer()
+    data = await state.get_data()
+    edit_data = data.get("edit_data", {})
+    edit_data["description"] = ""
+    index = data["edit_index"]
+    current = data["current"]
+    await state.update_data(edit_data=edit_data)
+    await state.set_state(EditTransaction.field_select)
+    await callback.message.edit_text(
+        "\u2705 Description cleared. Select another field or Save:",
         reply_markup=edit_transaction_fields_keyboard(
             index, current.get("is_transfer", False)
         ),

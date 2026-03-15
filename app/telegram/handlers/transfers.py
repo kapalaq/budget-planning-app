@@ -5,7 +5,12 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 
 from telegram.backend import backend
-from telegram.keyboards import cancel_keyboard, back_to_menu, wallet_list_keyboard
+from telegram.keyboards import (
+    cancel_keyboard,
+    skip_keyboard,
+    back_to_menu,
+    wallet_list_keyboard,
+)
 from telegram.states import Transfer
 
 router = Router()
@@ -94,7 +99,18 @@ async def transfer_amount(message: types.Message, state: FSMContext):
     await state.set_state(Transfer.description)
     await message.answer(
         "\U0001f4dd Enter description (or `-` to skip):",
-        reply_markup=cancel_keyboard(3),
+        reply_markup=skip_keyboard(3),
+    )
+
+
+@router.callback_query(Transfer.description, F.data == "skip_default")
+async def transfer_skip_description(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer()
+    await state.update_data(description="")
+    await state.set_state(Transfer.date)
+    await callback.message.edit_text(
+        "\U0001f4c5 Enter date (YYYY-MM-DD) or `-` for today:",
+        reply_markup=skip_keyboard(3),
     )
 
 
@@ -107,8 +123,24 @@ async def transfer_description(message: types.Message, state: FSMContext):
     await state.set_state(Transfer.date)
     await message.answer(
         "\U0001f4c5 Enter date (YYYY-MM-DD) or `-` for today:",
-        reply_markup=cancel_keyboard(3),
+        reply_markup=skip_keyboard(3),
     )
+
+
+@router.callback_query(Transfer.date, F.data == "skip_default")
+async def transfer_skip_date(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer()
+    data = await state.get_data()
+    form = {
+        "target_wallet_name": data["target_wallet_name"],
+        "amount": data["amount"],
+        "description": data.get("description", ""),
+        "date": None,
+    }
+    resp = await backend.handle({"action": "transfer", "data": form})
+    await state.clear()
+    msg = resp.get("message", "Done")
+    await callback.message.edit_text(msg, reply_markup=back_to_menu(3))
 
 
 @router.message(Transfer.date)

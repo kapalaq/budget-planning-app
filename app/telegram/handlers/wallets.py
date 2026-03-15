@@ -8,6 +8,7 @@ from telegram.backend import backend
 from telegram.keyboards import (
     back_to_menu,
     cancel_keyboard,
+    skip_keyboard,
     wallet_type_keyboard,
     wallet_list_keyboard,
     wallet_actions_keyboard,
@@ -143,7 +144,18 @@ async def add_wallet_name(message: types.Message, state: FSMContext):
     await state.update_data(name=name)
     await state.set_state(AddWallet.currency)
     await message.answer(
-        "\U0001f4b1 Enter currency (or `-` for KZT):", reply_markup=cancel_keyboard(3)
+        "\U0001f4b1 Enter currency (or `-` for KZT):", reply_markup=skip_keyboard(3)
+    )
+
+
+@router.callback_query(AddWallet.currency, F.data == "skip_default")
+async def add_wallet_skip_currency(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer()
+    await state.update_data(currency="KZT")
+    await state.set_state(AddWallet.starting_value)
+    await callback.message.edit_text(
+        "\U0001f4b2 Enter starting balance (or `-` for 0):",
+        reply_markup=skip_keyboard(3),
     )
 
 
@@ -155,7 +167,18 @@ async def add_wallet_currency(message: types.Message, state: FSMContext):
     await state.set_state(AddWallet.starting_value)
     await message.answer(
         "\U0001f4b2 Enter starting balance (or `-` for 0):",
-        reply_markup=cancel_keyboard(3),
+        reply_markup=skip_keyboard(3),
+    )
+
+
+@router.callback_query(AddWallet.starting_value, F.data == "skip_default")
+async def add_wallet_skip_starting(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer()
+    await state.update_data(starting_value=0.0)
+    await state.set_state(AddWallet.description)
+    await callback.message.edit_text(
+        "\U0001f4dd Enter description (or `-` to skip):",
+        reply_markup=skip_keyboard(3),
     )
 
 
@@ -174,8 +197,23 @@ async def add_wallet_starting(message: types.Message, state: FSMContext):
     await state.set_state(AddWallet.description)
     await message.answer(
         "\U0001f4dd Enter description (or `-` to skip):",
-        reply_markup=cancel_keyboard(3),
+        reply_markup=skip_keyboard(3),
     )
+
+
+@router.callback_query(AddWallet.description, F.data == "skip_default")
+async def add_wallet_skip_description(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer()
+    await state.update_data(description="")
+    data = await state.get_data()
+    if data["wallet_type"] == "deposit":
+        await state.set_state(AddWallet.interest_rate)
+        await callback.message.edit_text(
+            "\U0001f4c8 Enter interest rate (% per year):",
+            reply_markup=cancel_keyboard(3),
+        )
+    else:
+        await _finish_add_wallet(callback.message, state)
 
 
 @router.message(AddWallet.description)
@@ -313,7 +351,7 @@ async def cb_edit_wallet_field(callback: types.CallbackQuery, state: FSMContext)
         await state.set_state(EditWallet.description)
         await callback.message.answer(
             "\U0001f4dd Enter new description (or `-` to clear):",
-            reply_markup=cancel_keyboard(3),
+            reply_markup=skip_keyboard(3),
         )
 
 
@@ -346,6 +384,21 @@ async def edit_wallet_currency(message: types.Message, state: FSMContext):
     await state.set_state(EditWallet.field_select)
     await message.answer(
         f"\u2705 Currency will be changed to '{currency}'. Select another field or Save:",
+        reply_markup=edit_wallet_fields_keyboard(name),
+    )
+
+
+@router.callback_query(EditWallet.description, F.data == "skip_default")
+async def edit_wallet_skip_desc(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer()
+    data = await state.get_data()
+    edit_data = data.get("edit_data", {})
+    edit_data["description"] = ""
+    name = data["edit_wallet_name"]
+    await state.update_data(edit_data=edit_data)
+    await state.set_state(EditWallet.field_select)
+    await callback.message.edit_text(
+        "\u2705 Description cleared. Select another field or Save:",
         reply_markup=edit_wallet_fields_keyboard(name),
     )
 

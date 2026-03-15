@@ -30,7 +30,7 @@ async def cb_set_sort(callback: types.CallbackQuery):
         {"action": "set_sorting", "data": {"strategy_key": key}}
     )
     msg = resp.get("message", "Done")
-    await callback.message.edit_text(msg, reply_markup=back_to_menu())
+    await callback.message.edit_text(msg, reply_markup=back_to_menu(2))
 
 
 # ── Wallet sorting (page 3) ───────────────────────────────────────────────────

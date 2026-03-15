@@ -287,7 +287,7 @@ async def cb_view_active_filters(callback: types.CallbackQuery):
     await callback.answer()
     resp = await backend.handle({"action": "get_active_filters", "data": {}})
     if resp["status"] == "error":
-        await callback.message.answer(resp["message"], reply_markup=back_to_menu())
+        await callback.message.answer(resp["message"], reply_markup=back_to_menu(2))
         return
     text = fmt_filters(resp["data"]["filters"])
     try:

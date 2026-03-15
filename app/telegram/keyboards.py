@@ -8,21 +8,20 @@ def main_menu(page: int = 1) -> InlineKeyboardMarkup:
         rows = [
             [
                 InlineKeyboardButton(
-                    text="\U0001f4cb Transactions",
-                    callback_data="tx_list_show",
+                    text="\U0001f4b5 + Income", callback_data="add_income"
                 ),
                 InlineKeyboardButton(
-                    text="\U0001f504 Recurring",
-                    callback_data="recurring_list",
+                    text="\U0001f4b8 - Expense", callback_data="add_expense"
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text="\U0001f522 Sort",
-                    callback_data="sorting",
+                    text="\U0001f4b5\U0001f504 + Rec Income",
+                    callback_data="add_recurring_income",
                 ),
                 InlineKeyboardButton(
-                    text="\U0001f50d Filters", callback_data="filters"
+                    text="\U0001f4b8\U0001f504 - Rec Expense",
+                    callback_data="add_recurring_expense",
                 ),
             ],
             [
@@ -42,20 +41,21 @@ def main_menu(page: int = 1) -> InlineKeyboardMarkup:
         rows = [
             [
                 InlineKeyboardButton(
-                    text="\U0001f4b5 + Income", callback_data="add_income"
+                    text="\U0001f4cb Transactions",
+                    callback_data="tx_list_show",
                 ),
                 InlineKeyboardButton(
-                    text="\U0001f4b8 - Expense", callback_data="add_expense"
+                    text="\U0001f504 Recurring",
+                    callback_data="recurring_list",
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text="\U0001f4b5\U0001f504 + Rec Income",
-                    callback_data="add_recurring_income",
+                    text="\U0001f522 Sort",
+                    callback_data="sorting",
                 ),
                 InlineKeyboardButton(
-                    text="\U0001f4b8\U0001f504 - Rec Expense",
-                    callback_data="add_recurring_expense",
+                    text="\U0001f50d Filters", callback_data="filters"
                 ),
             ],
             [
@@ -139,7 +139,7 @@ def transaction_list_keyboard(
     if nav:
         rows.append(nav)
     rows.append(
-        [InlineKeyboardButton(text="\u2b05\ufe0f Menu", callback_data="menu_page:1")]
+        [InlineKeyboardButton(text="\u2b05\ufe0f Menu", callback_data="menu_page:2")]
     )
     return rows_to_markup(rows)
 
@@ -163,6 +163,21 @@ def cancel_keyboard(page: int = 1) -> InlineKeyboardMarkup:
                 InlineKeyboardButton(
                     text="\u274c Cancel", callback_data=f"menu_page:{page}"
                 )
+            ]
+        ]
+    )
+
+
+def skip_keyboard(page: int = 1) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="\u23ed\ufe0f Skip", callback_data="skip_default"
+                ),
+                InlineKeyboardButton(
+                    text="\u274c Cancel", callback_data=f"menu_page:{page}"
+                ),
             ]
         ]
     )
@@ -247,7 +262,7 @@ def sorting_keyboard(options: dict[str, str]) -> InlineKeyboardMarkup:
         for key, name in options.items()
     ]
     rows.append(
-        [InlineKeyboardButton(text="\u2b05\ufe0f Menu", callback_data="menu_page:1")]
+        [InlineKeyboardButton(text="\u2b05\ufe0f Menu", callback_data="menu_page:2")]
     )
     return rows_to_markup(rows)
 
@@ -287,7 +302,7 @@ def filter_menu_keyboard() -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(
-                    text="\u2b05\ufe0f Menu", callback_data="menu_page:1"
+                    text="\u2b05\ufe0f Menu", callback_data="menu_page:2"
                 )
             ],
         ]
@@ -383,7 +398,7 @@ def transaction_actions_keyboard(index: int) -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(
-                    text="\u2b05\ufe0f Menu", callback_data="menu_page:1"
+                    text="\u2b05\ufe0f Menu", callback_data="menu_page:2"
                 )
             ],
         ]
@@ -403,7 +418,7 @@ def recurring_actions_keyboard(index: int) -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(
-                    text="\u2b05\ufe0f Menu", callback_data="menu_page:1"
+                    text="\u2b05\ufe0f Menu", callback_data="menu_page:2"
                 )
             ],
         ]
@@ -453,7 +468,7 @@ def delete_recurring_keyboard(index: int) -> InlineKeyboardMarkup:
                     callback_data=f"delrec_opt:{index}:3",
                 ),
             ],
-            [InlineKeyboardButton(text="\u274c Cancel", callback_data="menu_page:1")],
+            [InlineKeyboardButton(text="\u274c Cancel", callback_data="menu_page:2")],
         ]
     )
 
@@ -538,7 +553,7 @@ def edit_transaction_fields_keyboard(
                 InlineKeyboardButton(
                     text="\U0001f4be Save", callback_data=f"etf:{index}:save"
                 ),
-                InlineKeyboardButton(text="\u274c Cancel", callback_data="menu_page:1"),
+                InlineKeyboardButton(text="\u274c Cancel", callback_data="menu_page:2"),
             ],
         ]
     )
@@ -589,7 +604,7 @@ def edit_recurring_keyboard(index: int) -> InlineKeyboardMarkup:
                     callback_data=f"erec:{index}:toggle",
                 ),
             ],
-            [InlineKeyboardButton(text="\u274c Cancel", callback_data="menu_page:1")],
+            [InlineKeyboardButton(text="\u274c Cancel", callback_data="menu_page:2")],
         ]
     )
 
