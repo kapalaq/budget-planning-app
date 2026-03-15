@@ -5,3 +5,5 @@ poetry==2.3.2
 python-dotenv==1.2.1
 aiogram==3.25.0
 aiohttp==3.13.3
+pymongo==4.12.1
+psycopg2-binary==2.9.10

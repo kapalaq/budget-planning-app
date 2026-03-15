@@ -14,9 +14,11 @@ from fastapi import Depends, FastAPI, Header, HTTPException
 
 import logger_setup
 from api.request_handler import RequestHandler
-from auth.session_manager import SessionManager
-from data.storage import JsonStorage
-from data.user_store import UserStore
+from data.mongo import get_mongo_db
+from data.postgres import get_postgres_conn
+from db.session_manager import SessionManager
+from db.storage import MongoStorage
+from db.user_store import UserStore
 from wallet.wallet import Wallet
 from wallet.wallet_manager import WalletManager
 
@@ -28,7 +30,7 @@ logger = logging.getLogger(__name__)
 # Per-user state
 _user_managers: dict[int, WalletManager] = {}
 _user_handlers: dict[int, RequestHandler] = {}
-_storage: JsonStorage | None = None
+_storage: MongoStorage | None = None
 _user_store: UserStore | None = None
 _session_manager: SessionManager | None = None
 
@@ -50,19 +52,26 @@ def _get_manager(user_id: int) -> tuple[WalletManager, RequestHandler]:
 async def lifespan(app: FastAPI):
     global _storage, _user_store, _session_manager
 
-    data_dir = os.path.join(os.getcwd(), os.getenv("DATA_DIR", "data"))
-    _storage = JsonStorage(os.path.join(data_dir, "jsons"))
-    _user_store = UserStore(os.path.join(data_dir, "user_auth", "users.csv"))
+    # PostgreSQL for user authentication
+    postgres_dsn = os.getenv(
+        "POSTGRES_DSN",
+        "postgresql://postgres:postgres@localhost:5432/budget_planner",
+    )
+    pg_conn = get_postgres_conn(postgres_dsn)
+    _user_store = UserStore(pg_conn)
 
-    session_data = _storage.load("sessions")
-    _session_manager = SessionManager.from_json(session_data.get("session_manager"))
+    # MongoDB for session management
+    mongo_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017")
+    mongo_db_name = os.getenv("MONGO_DB", "budget_planner")
+    mongo_db = get_mongo_db(mongo_uri, mongo_db_name)
+    _session_manager = SessionManager(mongo_db)
+    _storage = MongoStorage(mongo_db)
 
     yield
 
     logger.info("Shutting down... Saving all user data.")
     for user_id, wm in _user_managers.items():
         _storage.save(user_id, {"wallet_manager": wm.to_json()})
-    _storage.save("sessions", {"session_manager": _session_manager.to_json()})
 
 
 app = FastAPI(title="Budget Planner API", lifespan=lifespan)
