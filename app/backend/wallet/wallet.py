@@ -26,6 +26,14 @@ class WalletType(Enum):
     DEPOSIT = "deposit"
 
 
+class GoalStatus(Enum):
+    """Status of a savings goal wallet."""
+
+    ACTIVE = "active"
+    COMPLETED = "completed"
+    HIDDEN = "hidden"
+
+
 class Wallet:
     """Main wallet class that holds and manages all transactions."""
 
@@ -37,6 +45,9 @@ class Wallet:
         starting_value: float = None,
         currency: str = "KZT",
         description: str = "",
+        is_goal_wallet: bool = False,
+        goal_target: Optional[float] = None,
+        goal_description: Optional[str] = None,
     ):
         """
         Args:
@@ -44,6 +55,9 @@ class Wallet:
             :param starting_value: A value that will present on the wallet from the beginning.
             :param currency: Currency of the wallet.
             :param description: Description of the wallet.
+            :param is_goal_wallet: Whether this wallet is a savings goal.
+            :param goal_target: Target amount for the savings goal.
+            :param goal_description: Description of the savings goal.
         """
         # Important
         self.id = str(uuid.uuid4())[:8]
@@ -60,6 +74,16 @@ class Wallet:
         self.total_income: float = 0.0
         self.balance: float = 0.0
         self.datetime_created: datetime = datetime.now()
+
+        # Goal fields
+        self.is_goal_wallet: bool = is_goal_wallet
+        self.goal_target: Optional[float] = goal_target
+        self.goal_description: Optional[str] = goal_description
+        self.goal_status: GoalStatus = GoalStatus.ACTIVE
+        self.goal_created_at: Optional[datetime] = (
+            datetime.now() if is_goal_wallet else None
+        )
+        self.goal_completed_at: Optional[datetime] = None
 
         if starting_value is not None:
             self.__initial_transaction = Transaction(
@@ -121,6 +145,21 @@ class Wallet:
             else None
         )
 
+        # Goal fields
+        wallet.is_goal_wallet = data.get("is_goal_wallet", False)
+        wallet.goal_target = data.get("goal_target")
+        wallet.goal_description = data.get("goal_description")
+        try:
+            wallet.goal_status = GoalStatus(data.get("goal_status", "active"))
+        except ValueError:
+            wallet.goal_status = GoalStatus.ACTIVE
+        gc = data.get("goal_created_at")
+        wallet.goal_created_at = datetime.strptime(gc, DATETIME_FORMAT) if gc else None
+        gca = data.get("goal_completed_at")
+        wallet.goal_completed_at = (
+            datetime.strptime(gca, DATETIME_FORMAT) if gca else None
+        )
+
         wallet.__transactions = {}
         for t_data in data.get("transactions", []):
             if t_data.get("type") == "transfer":
@@ -132,7 +171,7 @@ class Wallet:
         return wallet
 
     def to_json(self) -> Dict[str, Any]:
-        return {
+        data = {
             "id": self.id,
             "name": self.name,
             "wallet_type": self.wallet_type.value,
@@ -148,7 +187,22 @@ class Wallet:
                 self.__category_manager.to_json() if self.__category_manager else None
             ),
             "transactions": [t.to_json() for t in self.__transactions.values()],
+            "is_goal_wallet": self.is_goal_wallet,
+            "goal_target": self.goal_target,
+            "goal_description": self.goal_description,
+            "goal_status": self.goal_status.value,
+            "goal_created_at": (
+                self.goal_created_at.strftime(DATETIME_FORMAT)
+                if self.goal_created_at
+                else None
+            ),
+            "goal_completed_at": (
+                self.goal_completed_at.strftime(DATETIME_FORMAT)
+                if self.goal_completed_at
+                else None
+            ),
         }
+        return data
 
     def assign_category_manager(self, category_manager: CategoryManager):
         """Function to assign category manager."""

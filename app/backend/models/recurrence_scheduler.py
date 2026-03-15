@@ -56,11 +56,13 @@ class RecurrenceScheduler:
         return list(self._recurring_transactions.values())
 
     def get_recurring_for_wallet(self, wallet_name: str) -> List[RecurringTransaction]:
-        """Get all recurring transactions for a specific wallet."""
+        """Get all recurring transactions for a specific wallet (source or target)."""
+        name_lower = wallet_name.lower()
         return [
             r
             for r in self._recurring_transactions.values()
-            if r.wallet_name.lower() == wallet_name.lower()
+            if r.wallet_name.lower() == name_lower
+            or (r.target_wallet_name and r.target_wallet_name.lower() == name_lower)
         ]
 
     def get_recurring_by_index(self, index: int) -> Optional[RecurringTransaction]:
@@ -113,9 +115,23 @@ class RecurrenceScheduler:
                 ):
                     continue
 
-                # Create and add the transaction
-                transaction = recurring.create_transaction(occ_date)
-                wallet.add_transaction(transaction)
+                # Create and add the transaction (or transfer)
+                if recurring.is_transfer:
+                    target = self._wallet_manager.get_wallet(
+                        recurring.target_wallet_name
+                    )
+                    if target is None:
+                        continue
+                    self._wallet_manager.transfer(
+                        from_wallet_name=wallet.name,
+                        to_wallet_name=target.name,
+                        amount=recurring.amount,
+                        description=recurring.description,
+                        datetime_created=occ_date,
+                    )
+                else:
+                    transaction = recurring.create_transaction(occ_date)
+                    wallet.add_transaction(transaction)
 
                 recurring.generated_count += 1
                 recurring.last_generated = occ_date
@@ -140,14 +156,16 @@ class RecurrenceScheduler:
         return False
 
     def remove_recurring_for_wallet(self, wallet_name: str) -> int:
-        """Remove all recurring transactions for a wallet.
+        """Remove all recurring transactions for a wallet (source or target).
 
         Returns the number of removed recurring transactions.
         """
+        name_lower = wallet_name.lower()
         to_remove = [
             rid
             for rid, r in self._recurring_transactions.items()
-            if r.wallet_name.lower() == wallet_name.lower()
+            if r.wallet_name.lower() == name_lower
+            or (r.target_wallet_name and r.target_wallet_name.lower() == name_lower)
         ]
         for rid in to_remove:
             del self._recurring_transactions[rid]

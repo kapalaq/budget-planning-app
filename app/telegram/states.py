@@ -65,3 +65,37 @@ class FilterInput(StatesGroup):
 
 class DeleteRecurring(StatesGroup):
     delete_option = State()
+
+
+class AddGoal(StatesGroup):
+    name = State()
+    target = State()
+    currency = State()
+    description = State()
+
+
+class SaveToGoal(StatesGroup):
+    amount = State()
+
+
+class RecurringTransfer(StatesGroup):
+    target_wallet = State()
+    amount = State()
+    description = State()
+    start_date = State()
+    frequency = State()
+    interval = State()
+    end_condition = State()
+    end_date = State()
+    end_count = State()
+
+
+class RecurringGoalSave(StatesGroup):
+    amount = State()
+    description = State()
+    start_date = State()
+    frequency = State()
+    interval = State()
+    end_condition = State()
+    end_date = State()
+    end_count = State()

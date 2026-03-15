@@ -254,6 +254,20 @@ class InputHandler:
         return response == "y"
 
     @staticmethod
+    def get_menu_choice(max_option: int) -> Optional[int]:
+        """Get a numbered menu choice from user. Returns 1-based index or None."""
+        choice = input("\nSelect (number): ").strip()
+        try:
+            num = int(choice)
+            if 1 <= num <= max_option:
+                return num
+            print("\n[!]Invalid selection")
+            return None
+        except ValueError:
+            print("\n[!]Invalid input")
+            return None
+
+    @staticmethod
     def parse_indexed_command(command: str) -> Tuple[Optional[str], Optional[int]]:
         """Parse commands like 'show 1', 'edit 2', 'delete 3'."""
         parts = command.split()
@@ -470,6 +484,43 @@ class InputHandler:
             "amount": amount,
             "description": description,
             "date": date,
+        }
+
+    # ============= Goal Input Methods =============
+
+    @staticmethod
+    def get_goal_input() -> Optional[Dict]:
+        """Get all inputs for a new savings goal."""
+        print(f"\n{'=' * 50}")
+        print("  New Savings Goal")
+        print("=" * 50)
+
+        name = input("Enter goal name (e.g., MacBook Pro): ").strip()
+        if not name:
+            print("\n[!]Goal name cannot be empty")
+            return None
+
+        try:
+            target_str = input("Enter target amount: ").strip()
+            target = float(target_str)
+            if target <= 0:
+                print("\n[!]Target must be positive")
+                return None
+        except ValueError:
+            print("\n[!]Invalid amount")
+            return None
+
+        currency = input("Enter currency (default: KZT): ").strip()
+        if not currency:
+            currency = "KZT"
+
+        description = input("Enter description (optional): ").strip()
+
+        return {
+            "name": name,
+            "target": target,
+            "currency": currency,
+            "goal_description": description or name,
         }
 
     # ============= Filter Input Methods =============

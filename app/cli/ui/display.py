@@ -7,6 +7,11 @@ RequestHandler middleground, receives dict responses, and renders output.
 from ui.input_handler import InputHandler
 
 
+def _fmt(v: float) -> str:
+    """Format a number, stripping trailing zeros (5.00 -> 5, 5.30 -> 5.3)."""
+    return f"{v:.2f}".rstrip("0").rstrip(".")
+
+
 class Display:
     """Frontend controller: input collection, request dispatch, rendering."""
 
@@ -59,6 +64,8 @@ class Display:
             self._handle_add_recurring("expense")
         elif cmd_lower == "recurring":
             self._handle_recurring_list()
+        elif cmd_lower == "recurring_transfer":
+            self._handle_recurring_transfer()
         elif cmd_lower == "transfer":
             self._handle_transfer()
         elif cmd_lower == "sort":
@@ -80,6 +87,14 @@ class Display:
             self._handle_add_wallet()
         elif cmd_lower == "sort_wallets":
             self._handle_wallet_sorting()
+        elif cmd_lower == "goals":
+            self._handle_goals()
+        elif cmd_lower == "add_goal":
+            self._handle_add_goal()
+        elif cmd_lower == "goals_completed":
+            self._handle_goals("completed")
+        elif cmd_lower == "goals_all":
+            self._handle_goals("all")
         else:
             # Indexed commands  (show 1, edit 2, delete 3, show_rec 1, …)
             action, index = InputHandler.parse_indexed_command(cmd_lower)
@@ -119,6 +134,21 @@ class Display:
                 return
             elif act == "switch":
                 self._handle_switch_wallet(name)
+                return
+            elif act == "save":
+                self._handle_save_to_goal(name)
+                return
+            elif act == "recurring_save":
+                self._handle_recurring_goal_save(name)
+                return
+            elif act == "goal":
+                self._handle_goal_detail(name)
+                return
+            elif act == "complete_goal":
+                self._handle_complete_goal(name)
+                return
+            elif act == "hide_goal":
+                self._handle_hide_goal(name)
                 return
 
         self._show_error(
@@ -165,6 +195,16 @@ class Display:
                 "delete_wallet <name>",
                 "switch <name>",
                 "sort_wallets",
+            ],
+            "Goals": [
+                "goals",
+                "add_goal",
+                "save <name>",
+                "goal <name>",
+                "complete_goal <name>",
+                "hide_goal <name>",
+                "goals_completed",
+                "goals_all",
             ],
             "Recurring": [
                 "+r",
@@ -503,6 +543,227 @@ class Display:
         self._render_message(resp)
         if resp["status"] == "success":
             self._handle_dashboard()
+
+    # ================================================================== #
+    #  Goal handlers                                                       #
+    # ================================================================== #
+
+    def _handle_goals(self, filter_type: str = "active"):
+        resp = self._handler.handle(
+            {"action": "get_goals", "data": {"filter": filter_type}}
+        )
+        if resp["status"] == "error":
+            self._show_error(resp["message"])
+            return
+        goals = resp["data"]["goals"]
+        label = filter_type.capitalize()
+        self._show_header(f"Savings Goals ({label})")
+        if not goals:
+            print(f"   No {filter_type} goals")
+            return
+        for i, g in enumerate(goals, 1):
+            goal = g.get("goal", {})
+            target = goal.get("target", 0)
+            saved = goal.get("saved", 0)
+            progress = goal.get("progress", 0)
+            status = goal.get("status", "active")
+            bar_len = 20
+            filled = int(bar_len * min(progress, 100) / 100)
+            bar = "\u2588" * filled + "\u2591" * (bar_len - filled)
+            status_marker = ""
+            if status == "completed":
+                status_marker = " [COMPLETED]"
+            elif status == "hidden":
+                status_marker = " [HIDDEN]"
+            print(
+                f"   {i}. {g['name']} ({g['currency']}){status_marker}\n"
+                f"      Saved: {_fmt(saved)} / {_fmt(target)}\n"
+                f"      Progress: {bar} {progress:.0f}%"
+            )
+
+    def _handle_add_goal(self):
+        form = InputHandler.get_goal_input()
+        if form is None:
+            self._show_error("Goal creation cancelled")
+            return
+        resp = self._handler.handle({"action": "add_goal", "data": form})
+        self._render_message(resp)
+
+    def _handle_goal_detail(self, name: str):
+        # Try with "Goal: " prefix first, then raw name
+        resp = self._handler.handle(
+            {"action": "get_goal_detail", "data": {"name": f"Goal: {name}"}}
+        )
+        if resp["status"] == "error":
+            resp = self._handler.handle(
+                {"action": "get_goal_detail", "data": {"name": name}}
+            )
+        if resp["status"] == "error":
+            self._show_error(resp["message"])
+            return
+        self._render_goal_detail(resp["data"])
+
+    def _handle_save_to_goal(self, name: str):
+        # Try with "Goal: " prefix first
+        goal_name = f"Goal: {name}"
+        resp = self._handler.handle(
+            {"action": "get_goal_detail", "data": {"name": goal_name}}
+        )
+        if resp["status"] == "error":
+            goal_name = name
+            resp = self._handler.handle(
+                {"action": "get_goal_detail", "data": {"name": goal_name}}
+            )
+        if resp["status"] == "error":
+            self._show_error(resp["message"])
+            return
+
+        self._render_goal_detail(resp["data"])
+        amount = InputHandler.get_amount()
+        if amount is None:
+            self._show_info("Save cancelled")
+            return
+        description = InputHandler.get_description()
+
+        resp = self._handler.handle(
+            {
+                "action": "save_to_goal",
+                "data": {
+                    "goal_name": goal_name,
+                    "amount": amount,
+                    "description": description,
+                },
+            }
+        )
+        self._render_message(resp)
+
+    def _handle_complete_goal(self, name: str):
+        goal_name = f"Goal: {name}"
+        resp = self._handler.handle(
+            {"action": "get_goal_detail", "data": {"name": goal_name}}
+        )
+        if resp["status"] == "error":
+            goal_name = name
+        if not InputHandler.confirm(f"Mark goal '{name}' as completed?"):
+            self._show_info("Cancelled")
+            return
+        resp = self._handler.handle(
+            {"action": "complete_goal", "data": {"name": goal_name}}
+        )
+        self._render_message(resp)
+
+    def _handle_hide_goal(self, name: str):
+        goal_name = f"Goal: {name}"
+        resp = self._handler.handle(
+            {"action": "get_goal_detail", "data": {"name": goal_name}}
+        )
+        if resp["status"] == "error":
+            goal_name = name
+        resp = self._handler.handle(
+            {"action": "hide_goal", "data": {"name": goal_name}}
+        )
+        self._render_message(resp)
+
+    def _render_goal_detail(self, data: dict):
+        goal = data.get("goal", {})
+        target = goal.get("target", 0)
+        saved = goal.get("saved", 0)
+        progress = goal.get("progress", 0)
+        bar_len = 30
+        filled = int(bar_len * min(progress, 100) / 100)
+        bar = "\u2588" * filled + "\u2591" * (bar_len - filled)
+
+        self._show_header(f"Goal: {data['name']}")
+        print(f"   Status:      {goal.get('status', 'active').upper()}")
+        print(f"   Target:      {_fmt(target)} {data['currency']}")
+        print(f"   Saved:       {_fmt(saved)} {data['currency']}")
+        print(f"   Remaining:   {_fmt(goal.get('remaining', 0))} {data['currency']}")
+        print(f"   Progress:    {bar} {progress:.0f}%")
+        if goal.get("goal_description"):
+            print(f"   Description: {goal['goal_description']}")
+        if goal.get("created_at"):
+            print(f"   Created:     {goal['created_at']}")
+        if goal.get("completed_at"):
+            print(f"   Completed:   {goal['completed_at']}")
+
+    #  Recurring transfer / goal save handlers
+    def _handle_recurring_transfer(self):
+        resp = self._handler.handle({"action": "get_transfer_context", "data": {}})
+        if resp["status"] == "error":
+            self._show_error(resp["message"])
+            return
+        targets = resp["data"]["target_wallets"]
+        from_wallet = resp["data"]["from_wallet"]
+
+        self._show_header(f"Recurring Transfer from: {from_wallet['name']}")
+        for i, w in enumerate(targets, 1):
+            print(f"   {i}. {w['name']} ({w['currency']}) {w['balance']:.2f}")
+        choice = InputHandler.get_menu_choice(len(targets))
+        if choice is None:
+            self._show_info("Cancelled")
+            return
+        target = targets[choice - 1]
+
+        amount = InputHandler.get_amount()
+        if amount is None:
+            self._show_info("Cancelled")
+            return
+        description = InputHandler.get_description()
+        rule_data = InputHandler.get_recurrence_rule_input()
+        if rule_data is None:
+            self._show_info("Cancelled")
+            return
+
+        resp = self._handler.handle(
+            {
+                "action": "add_recurring_transfer",
+                "data": {
+                    "target_wallet_name": target["name"],
+                    "amount": amount,
+                    "description": description,
+                    "recurrence_rule": rule_data,
+                },
+            }
+        )
+        self._render_message(resp)
+
+    def _handle_recurring_goal_save(self, name: str):
+        goal_name = f"Goal: {name}"
+        resp = self._handler.handle(
+            {"action": "get_goal_detail", "data": {"name": goal_name}}
+        )
+        if resp["status"] == "error":
+            goal_name = name
+            resp = self._handler.handle(
+                {"action": "get_goal_detail", "data": {"name": goal_name}}
+            )
+        if resp["status"] == "error":
+            self._show_error(resp["message"])
+            return
+
+        self._render_goal_detail(resp["data"])
+        amount = InputHandler.get_amount()
+        if amount is None:
+            self._show_info("Cancelled")
+            return
+        description = InputHandler.get_description()
+        rule_data = InputHandler.get_recurrence_rule_input()
+        if rule_data is None:
+            self._show_info("Cancelled")
+            return
+
+        resp = self._handler.handle(
+            {
+                "action": "add_recurring_goal_save",
+                "data": {
+                    "goal_name": goal_name,
+                    "amount": amount,
+                    "description": description,
+                    "recurrence_rule": rule_data,
+                },
+            }
+        )
+        self._render_message(resp)
 
     #  Recurring handlers
     def _handle_add_recurring(self, tt_name: str):

@@ -172,6 +172,30 @@ class HttpRequestHandler:
         if action == "switch_wallet":
             return self._post("/wallets/switch", body=data)
 
+        # Goals
+        if action == "get_goals":
+            return self._get("/goals", params={"filter": data.get("filter", "active")})
+        if action == "get_all_goals":
+            return self._get("/goals/all")
+        if action == "get_goal_detail":
+            return self._get(f"/goals/{data['name']}")
+        if action == "add_goal":
+            return self._post("/goals", body=data)
+        if action == "complete_goal":
+            return self._post(f"/goals/{data['name']}/complete")
+        if action == "hide_goal":
+            return self._post(f"/goals/{data['name']}/hide")
+        if action == "reactivate_goal":
+            return self._post(f"/goals/{data['name']}/reactivate")
+        if action == "save_to_goal":
+            return self._post("/goals/save", body=data)
+
+        # Recurring transfers
+        if action == "add_recurring_transfer":
+            return self._post("/recurring/transfer", body=data)
+        if action == "add_recurring_goal_save":
+            return self._post("/recurring/goal-save", body=data)
+
         # Recurring
         if action == "process_recurring":
             return self._post("/recurring/process")

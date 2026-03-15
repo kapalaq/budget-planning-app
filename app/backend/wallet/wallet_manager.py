@@ -7,7 +7,7 @@ from models.category import CategoryManager
 from models.recurrence_scheduler import RecurrenceScheduler
 from models.transaction import TransactionType, Transfer
 from strategies.sorting import WalletSortingContext
-from wallet.wallet import DepositWallet, Wallet, WalletType
+from wallet.wallet import DepositWallet, GoalStatus, Wallet, WalletType
 
 
 class WalletManager:
@@ -128,10 +128,17 @@ class WalletManager:
         """Get a wallet by its name."""
         return self._wallets.get(name.lower(), None)
 
-    def remove_wallet(self, name: str) -> bool:
+    def remove_wallet(self, name: str, force: bool = False) -> bool:
         """Remove a wallet by its name."""
         wallet_to_delete = self._wallets.get(name.lower())
         if wallet_to_delete is None:
+            return False
+
+        if (
+            not force
+            and wallet_to_delete.is_goal_wallet
+            and wallet_to_delete.goal_status == GoalStatus.ACTIVE
+        ):
             return False
 
         del self._wallets[name.lower()]
@@ -174,7 +181,13 @@ class WalletManager:
             for recurring in self._recurrence_scheduler.get_recurring_for_wallet(
                 old_name
             ):
-                recurring.wallet_name = new_name
+                if recurring.wallet_name.lower() == old_name.lower():
+                    recurring.wallet_name = new_name
+                if (
+                    recurring.target_wallet_name
+                    and recurring.target_wallet_name.lower() == old_name.lower()
+                ):
+                    recurring.target_wallet_name = new_name
 
         # Update other fields if provided
         if currency:
@@ -182,6 +195,66 @@ class WalletManager:
         if description is not None:
             wallet.description = description
 
+        return True
+
+    # ── Goal helpers ───────────────────────────────────────────────────
+
+    def get_active_goals(self) -> List[Wallet]:
+        """Get all active savings goal wallets."""
+        return [
+            w
+            for w in self._wallets.values()
+            if w.is_goal_wallet and w.goal_status == GoalStatus.ACTIVE
+        ]
+
+    def get_completed_goals(self) -> List[Wallet]:
+        """Get all completed savings goal wallets."""
+        return [
+            w
+            for w in self._wallets.values()
+            if w.is_goal_wallet and w.goal_status == GoalStatus.COMPLETED
+        ]
+
+    def get_all_goals(self) -> List[Wallet]:
+        """Get all savings goal wallets (including hidden)."""
+        return [w for w in self._wallets.values() if w.is_goal_wallet]
+
+    def get_visible_wallets(self) -> List[Wallet]:
+        """Get wallets visible on dashboard (non-goal + active goals)."""
+        return [
+            w
+            for w in self._wallets.values()
+            if not w.is_goal_wallet or w.goal_status == GoalStatus.ACTIVE
+        ]
+
+    def complete_goal(self, wallet_name: str) -> bool:
+        """Mark a goal as completed."""
+        wallet = self.get_wallet(wallet_name)
+        if wallet is None or not wallet.is_goal_wallet:
+            return False
+        if wallet.goal_status != GoalStatus.ACTIVE:
+            return False
+        wallet.goal_status = GoalStatus.COMPLETED
+        wallet.goal_completed_at = datetime.now()
+        return True
+
+    def hide_goal(self, wallet_name: str) -> bool:
+        """Hide a completed goal from the main UI."""
+        wallet = self.get_wallet(wallet_name)
+        if wallet is None or not wallet.is_goal_wallet:
+            return False
+        wallet.goal_status = GoalStatus.HIDDEN
+        return True
+
+    def reactivate_goal(self, wallet_name: str) -> bool:
+        """Reactivate a completed or hidden goal."""
+        wallet = self.get_wallet(wallet_name)
+        if wallet is None or not wallet.is_goal_wallet:
+            return False
+        if wallet.goal_status == GoalStatus.ACTIVE:
+            return False
+        wallet.goal_status = GoalStatus.ACTIVE
+        wallet.goal_completed_at = None
         return True
 
     def transfer(

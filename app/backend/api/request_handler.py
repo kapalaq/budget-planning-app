@@ -33,8 +33,13 @@ from strategies.filtering import (
     TransferOnlyFilter,
 )
 from strategies.sorting import SortingContext, WalletSortingContext
-from wallet.wallet import DepositWallet, Wallet, WalletType
+from wallet.wallet import DepositWallet, GoalStatus, Wallet, WalletType
 from wallet.wallet_manager import WalletManager
+
+
+def _fmt(v: float) -> str:
+    """Format a number, stripping trailing zeros (5.00 -> 5, 5.30 -> 5.3)."""
+    return f"{v:.2f}".rstrip("0").rstrip(".")
 
 
 class RequestHandler:
@@ -81,6 +86,18 @@ class RequestHandler:
             "get_recurring_detail": self._get_recurring_detail,
             "edit_recurring": self._edit_recurring,
             "delete_recurring": self._delete_recurring,
+            # Recurring transfers
+            "add_recurring_transfer": self._add_recurring_transfer,
+            "add_recurring_goal_save": self._add_recurring_goal_save,
+            # Goals
+            "add_goal": self._add_goal,
+            "get_goals": self._get_goals,
+            "get_all_goals": self._get_all_goals,
+            "get_goal_detail": self._get_goal_detail,
+            "complete_goal": self._complete_goal,
+            "hide_goal": self._hide_goal,
+            "reactivate_goal": self._reactivate_goal,
+            "save_to_goal": self._save_to_goal,
         }
 
     #  Public entry point
@@ -148,6 +165,7 @@ class RequestHandler:
             "transaction_count": w.transaction_count(),
             "wallet_type": w.wallet_type.value,
             "created": w.datetime_created.strftime("%Y-%m-%d %H:%M"),
+            "is_goal_wallet": w.is_goal_wallet,
         }
 
         if isinstance(w, DepositWallet):
@@ -161,6 +179,28 @@ class RequestHandler:
                 "principal": w.principal,
                 "accrued_interest": w.calculate_accrued_interest(),
                 "maturity_amount": w.calculate_maturity_amount(),
+            }
+
+        if w.is_goal_wallet:
+            target = w.goal_target or 0
+            progress = (w.balance / target * 100) if target > 0 else 0
+            result["goal"] = {
+                "target": target,
+                "goal_description": w.goal_description or "",
+                "status": w.goal_status.value,
+                "progress": min(progress, 100),
+                "saved": w.balance,
+                "remaining": max(target - w.balance, 0),
+                "created_at": (
+                    w.goal_created_at.strftime("%Y-%m-%d %H:%M")
+                    if w.goal_created_at
+                    else None
+                ),
+                "completed_at": (
+                    w.goal_completed_at.strftime("%Y-%m-%d %H:%M")
+                    if w.goal_completed_at
+                    else None
+                ),
             }
 
         return result
@@ -185,6 +225,8 @@ class RequestHandler:
             "summary": r.summary_str(),
             "detail": r.detailed_str(),
             "sign": sign,
+            "is_transfer": r.is_transfer,
+            "target_wallet_name": r.target_wallet_name,
         }
         return result
 
@@ -297,8 +339,12 @@ class RequestHandler:
             ("delete_wallet <name>", "Delete a wallet"),
             ("switch <name>", "Switch to a wallet"),
             ("sort_wallets", "Change wallet sorting"),
+            ("goals", "View savings goals"),
+            ("add_goal", "Create a savings goal"),
+            ("save <name>", "Save money to a goal"),
             ("+r", "Add recurring income"),
             ("-r", "Add recurring expense"),
+            ("recurring_transfer", "Add recurring transfer"),
             ("recurring", "List recurring transactions"),
             ("show_rec <N>", "Show recurring details"),
             ("edit_rec <N>", "Edit recurring transaction"),
@@ -746,7 +792,13 @@ class RequestHandler:
         if wallet is None:
             return {"status": "error", "message": f"Wallet '{name}' not found"}
 
-        if self._wm.remove_wallet(name):
+        if wallet.is_goal_wallet and wallet.goal_status == GoalStatus.ACTIVE:
+            return {
+                "status": "error",
+                "message": "Cannot delete an active goal. Complete or hide it first.",
+            }
+
+        if self._wm.remove_wallet(name, force=True):
             return {
                 "status": "success",
                 "message": f"Wallet '{name}' deleted successfully!",
@@ -921,3 +973,236 @@ class RequestHandler:
             "status": "success",
             "message": " ".join(info_messages),
         }
+
+    # ------------------------------------------------------------------ #
+    #  Recurring transfers                                                 #
+    # ------------------------------------------------------------------ #
+
+    def _add_recurring_transfer(self, data: dict) -> dict:
+        """Create a recurring transfer between two wallets."""
+        wallet, err = self._current_wallet_or_error()
+        if err:
+            return err
+
+        target_name = data.get("target_wallet_name", "")
+        target = self._wm.get_wallet(target_name)
+        if target is None:
+            return {
+                "status": "error",
+                "message": f"Target wallet '{target_name}' not found",
+            }
+
+        if target.name.lower() == wallet.name.lower():
+            return {"status": "error", "message": "Cannot transfer to the same wallet"}
+
+        amount = data.get("amount")
+        if amount is None or amount <= 0:
+            return {"status": "error", "message": "Amount must be positive"}
+
+        start_date = data.get("start_date")
+        if isinstance(start_date, str):
+            start_date = datetime.fromisoformat(start_date)
+        elif start_date is None:
+            start_date = datetime.now()
+
+        rule = self._build_recurrence_rule(data["recurrence_rule"])
+
+        recurring = RecurringTransaction(
+            amount=amount,
+            transaction_type=TransactionType.EXPENSE,
+            category="Transfer",
+            description=data.get("description", f"Transfer to {target.name}"),
+            recurrence_rule=rule,
+            start_date=start_date,
+            wallet_name=wallet.name,
+            target_wallet_name=target.name,
+        )
+
+        scheduler = self._wm.recurrence_scheduler
+        scheduler.add_recurring(recurring)
+        count = scheduler.process_due_transactions()
+
+        return {
+            "status": "success",
+            "message": (
+                f"Recurring transfer created: {wallet.name} -> {target.name}! "
+                f"({count} transaction(s) generated)"
+            ),
+        }
+
+    def _add_recurring_goal_save(self, data: dict) -> dict:
+        """Create a recurring save-to-goal (recurring transfer to goal wallet)."""
+        wallet, err = self._current_wallet_or_error()
+        if err:
+            return err
+
+        goal_name = data.get("goal_name", "")
+        goal_wallet = self._wm.get_wallet(goal_name)
+        if goal_wallet is None or not goal_wallet.is_goal_wallet:
+            return {"status": "error", "message": f"Goal '{goal_name}' not found"}
+
+        amount = data.get("amount")
+        if amount is None or amount <= 0:
+            return {"status": "error", "message": "Amount must be positive"}
+
+        start_date = data.get("start_date")
+        if isinstance(start_date, str):
+            start_date = datetime.fromisoformat(start_date)
+        elif start_date is None:
+            start_date = datetime.now()
+
+        rule = self._build_recurrence_rule(data["recurrence_rule"])
+
+        recurring = RecurringTransaction(
+            amount=amount,
+            transaction_type=TransactionType.EXPENSE,
+            category="Transfer",
+            description=data.get("description", f"Saving to {goal_name}"),
+            recurrence_rule=rule,
+            start_date=start_date,
+            wallet_name=wallet.name,
+            target_wallet_name=goal_wallet.name,
+        )
+
+        scheduler = self._wm.recurrence_scheduler
+        scheduler.add_recurring(recurring)
+        count = scheduler.process_due_transactions()
+
+        return {
+            "status": "success",
+            "message": (
+                f"Recurring save to '{goal_name}' created! "
+                f"({count} transaction(s) generated)"
+            ),
+        }
+
+    # ------------------------------------------------------------------ #
+    #  Goals                                                               #
+    # ------------------------------------------------------------------ #
+
+    def _add_goal(self, data: dict) -> dict:
+        name = data.get("name", "").strip()
+        if not name:
+            return {"status": "error", "message": "Goal name cannot be empty"}
+
+        target = data.get("target")
+        if target is None or target <= 0:
+            return {"status": "error", "message": "Target amount must be positive"}
+
+        wallet_name = f"Goal: {name}"
+        new_wallet = Wallet(
+            name=wallet_name,
+            currency=data.get("currency", "KZT"),
+            description=data.get("description", ""),
+            is_goal_wallet=True,
+            goal_target=target,
+            goal_description=data.get("goal_description", name),
+        )
+
+        if self._wm.add_wallet(new_wallet):
+            return {
+                "status": "success",
+                "message": f"Savings goal '{name}' created! Target: {_fmt(target)}",
+                "data": self._serialize_wallet(new_wallet),
+            }
+        return {
+            "status": "error",
+            "message": f"Goal wallet '{wallet_name}' already exists",
+        }
+
+    def _get_goals(self, data: dict) -> dict:
+        filter_status = data.get("filter", "active")
+        if filter_status == "active":
+            goals = self._wm.get_active_goals()
+        elif filter_status == "completed":
+            goals = self._wm.get_completed_goals()
+        elif filter_status == "all":
+            goals = self._wm.get_all_goals()
+        else:
+            goals = self._wm.get_active_goals()
+
+        return {
+            "status": "success",
+            "data": {
+                "goals": [self._serialize_wallet(g) for g in goals],
+                "filter": filter_status,
+            },
+        }
+
+    def _get_all_goals(self, data: dict) -> dict:
+        goals = self._wm.get_all_goals()
+        return {
+            "status": "success",
+            "data": {
+                "goals": [self._serialize_wallet(g) for g in goals],
+                "filter": "all",
+            },
+        }
+
+    def _get_goal_detail(self, data: dict) -> dict:
+        name = data.get("name", "")
+        wallet = self._wm.get_wallet(name)
+        if wallet is None:
+            return {"status": "error", "message": f"Goal '{name}' not found"}
+        if not wallet.is_goal_wallet:
+            return {"status": "error", "message": f"'{name}' is not a goal wallet"}
+        return {"status": "success", "data": self._serialize_wallet(wallet)}
+
+    def _complete_goal(self, data: dict) -> dict:
+        name = data.get("name", "")
+        if self._wm.complete_goal(name):
+            return {
+                "status": "success",
+                "message": f"Goal completed! Congratulations!",
+            }
+        wallet = self._wm.get_wallet(name)
+        if wallet is None:
+            return {"status": "error", "message": f"Goal '{name}' not found"}
+        if not wallet.is_goal_wallet:
+            return {"status": "error", "message": f"'{name}' is not a goal wallet"}
+        return {"status": "error", "message": "Goal is not active"}
+
+    def _hide_goal(self, data: dict) -> dict:
+        name = data.get("name", "")
+        if self._wm.hide_goal(name):
+            return {"status": "success", "message": "Goal hidden from dashboard"}
+        return {"status": "error", "message": "Cannot hide this goal"}
+
+    def _reactivate_goal(self, data: dict) -> dict:
+        name = data.get("name", "")
+        if self._wm.reactivate_goal(name):
+            return {"status": "success", "message": "Goal reactivated!"}
+        return {"status": "error", "message": "Cannot reactivate this goal"}
+
+    def _save_to_goal(self, data: dict) -> dict:
+        """Transfer money from current wallet to a goal wallet."""
+        wallet, err = self._current_wallet_or_error()
+        if err:
+            return err
+
+        goal_name = data.get("goal_name", "")
+        amount = data.get("amount")
+        if amount is None or amount <= 0:
+            return {"status": "error", "message": "Amount must be positive"}
+
+        goal_wallet = self._wm.get_wallet(goal_name)
+        if goal_wallet is None or not goal_wallet.is_goal_wallet:
+            return {"status": "error", "message": f"Goal '{goal_name}' not found"}
+
+        if self._wm.transfer(
+            from_wallet_name=wallet.name,
+            to_wallet_name=goal_wallet.name,
+            amount=amount,
+            description=data.get("description", f"Saving to {goal_name}"),
+        ):
+            target = goal_wallet.goal_target or 0
+            new_balance = goal_wallet.balance
+            progress = (new_balance / target * 100) if target > 0 else 0
+            return {
+                "status": "success",
+                "message": (
+                    f"Saved {_fmt(amount)} to '{goal_name}'! "
+                    f"Progress: {_fmt(new_balance)}/{_fmt(target)} ({progress:.0f}%)"
+                ),
+            }
+        return {"status": "error", "message": "Failed to save to goal"}

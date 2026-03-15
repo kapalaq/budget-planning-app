@@ -310,6 +310,62 @@ def delete_wallet(name: str, user_id: int = Depends(get_current_user)):
     return _handle(user_id, "delete_wallet", {"name": name})
 
 
+#  Goals
+@app.get("/goals")
+def get_goals(filter: str = "active", user_id: int = Depends(get_current_user)):
+    return _handle(user_id, "get_goals", {"filter": filter})
+
+
+@app.post("/goals")
+def add_goal(body: Dict[str, Any], user_id: int = Depends(get_current_user)):
+    return _handle(user_id, "add_goal", body)
+
+
+@app.get("/goals/all")
+def get_all_goals(user_id: int = Depends(get_current_user)):
+    return _handle(user_id, "get_all_goals")
+
+
+@app.get("/goals/{name}")
+def get_goal_detail(name: str, user_id: int = Depends(get_current_user)):
+    return _handle(user_id, "get_goal_detail", {"name": name})
+
+
+@app.post("/goals/{name}/complete")
+def complete_goal(name: str, user_id: int = Depends(get_current_user)):
+    return _handle(user_id, "complete_goal", {"name": name})
+
+
+@app.post("/goals/{name}/hide")
+def hide_goal(name: str, user_id: int = Depends(get_current_user)):
+    return _handle(user_id, "hide_goal", {"name": name})
+
+
+@app.post("/goals/{name}/reactivate")
+def reactivate_goal(name: str, user_id: int = Depends(get_current_user)):
+    return _handle(user_id, "reactivate_goal", {"name": name})
+
+
+@app.post("/goals/save")
+def save_to_goal(body: Dict[str, Any], user_id: int = Depends(get_current_user)):
+    return _handle(user_id, "save_to_goal", body)
+
+
+#  Recurring transfers
+@app.post("/recurring/transfer")
+def add_recurring_transfer(
+    body: Dict[str, Any], user_id: int = Depends(get_current_user)
+):
+    return _handle(user_id, "add_recurring_transfer", body)
+
+
+@app.post("/recurring/goal-save")
+def add_recurring_goal_save(
+    body: Dict[str, Any], user_id: int = Depends(get_current_user)
+):
+    return _handle(user_id, "add_recurring_goal_save", body)
+
+
 #  Recurring
 @app.post("/recurring/process")
 def process_recurring(user_id: int = Depends(get_current_user)):

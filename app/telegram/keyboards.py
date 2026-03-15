@@ -78,6 +78,9 @@ def main_menu(page: int = 1) -> InlineKeyboardMarkup:
                 InlineKeyboardButton(
                     text="\U0001f45b Wallets", callback_data="wallets"
                 ),
+                InlineKeyboardButton(
+                    text="\U0001f3af Goals", callback_data="goals_menu"
+                ),
             ],
             [
                 InlineKeyboardButton(
@@ -92,6 +95,12 @@ def main_menu(page: int = 1) -> InlineKeyboardMarkup:
                 InlineKeyboardButton(
                     text="\U0001f500 Transfer", callback_data="transfer"
                 ),
+                InlineKeyboardButton(
+                    text="\U0001f500\U0001f504 Rec Transfer",
+                    callback_data="recurring_transfer",
+                ),
+            ],
+            [
                 InlineKeyboardButton(
                     text="\U0001f4ca Percentages", callback_data="percentages"
                 ),
@@ -607,6 +616,105 @@ def edit_recurring_keyboard(index: int) -> InlineKeyboardMarkup:
             [InlineKeyboardButton(text="\u274c Cancel", callback_data="menu_page:2")],
         ]
     )
+
+
+def goal_menu_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="\U0001f3af Active Goals", callback_data="goals:active"
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text="\u2705 Completed", callback_data="goals:completed"
+                ),
+                InlineKeyboardButton(
+                    text="\U0001f4cb All Goals", callback_data="goals:all"
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text="\u2795 Add Goal", callback_data="add_goal_start"
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text="\u2b05\ufe0f Menu", callback_data="menu_page:3"
+                )
+            ],
+        ]
+    )
+
+
+def goal_list_keyboard(
+    goals: list[dict], action_prefix: str = "gdet"
+) -> InlineKeyboardMarkup:
+    rows = []
+    for g in goals:
+        goal = g.get("goal", {})
+        progress = goal.get("progress", 0)
+        name = g["name"]
+        label = f"{name} ({progress:.0f}%)"
+        rows.append(
+            [InlineKeyboardButton(text=label, callback_data=f"{action_prefix}:{name}")]
+        )
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text="\u2795 Add Goal", callback_data="add_goal_start"
+            ),
+            InlineKeyboardButton(text="\u2b05\ufe0f Menu", callback_data="menu_page:3"),
+        ]
+    )
+    return rows_to_markup(rows)
+
+
+def goal_actions_keyboard(name: str, status: str = "active") -> InlineKeyboardMarkup:
+    rows = []
+    if status == "active":
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text="\U0001f4b0 Save Money", callback_data=f"gsave:{name}"
+                ),
+                InlineKeyboardButton(
+                    text="\U0001f504 Recurring Save",
+                    callback_data=f"grecsave:{name}",
+                ),
+            ]
+        )
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text="\u2705 Complete", callback_data=f"gcomplete:{name}"
+                )
+            ]
+        )
+    elif status == "completed":
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text="\U0001f6ab Hide", callback_data=f"ghide:{name}"
+                ),
+                InlineKeyboardButton(
+                    text="\U0001f504 Reactivate", callback_data=f"greactivate:{name}"
+                ),
+            ]
+        )
+    elif status == "hidden":
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text="\U0001f504 Reactivate", callback_data=f"greactivate:{name}"
+                )
+            ]
+        )
+    rows.append(
+        [InlineKeyboardButton(text="\u2b05\ufe0f Goals", callback_data="goals:active")]
+    )
+    return rows_to_markup(rows)
 
 
 def rows_to_markup(rows: list[list[InlineKeyboardButton]]) -> InlineKeyboardMarkup:

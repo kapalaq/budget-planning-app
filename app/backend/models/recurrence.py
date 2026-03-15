@@ -370,7 +370,12 @@ class RecurrenceRule:
 
 @dataclass
 class RecurringTransaction:
-    """Template for a recurring transaction that generates concrete transactions."""
+    """Template for a recurring transaction that generates concrete transactions.
+
+    When ``target_wallet_name`` is set the recurring entry represents a
+    *recurring transfer* (or recurring goal save) and the scheduler will call
+    ``wallet_manager.transfer()`` instead of adding a plain transaction.
+    """
 
     amount: float
     transaction_type: TransactionType
@@ -384,6 +389,7 @@ class RecurringTransaction:
     generated_count: int = 0
     last_generated: Optional[datetime] = None
     exceptions: Set[datetime] = field(default_factory=set)
+    target_wallet_name: Optional[str] = None
 
     @classmethod
     def from_json(cls, data: Dict[str, Any]) -> Optional["RecurringTransaction"]:
@@ -419,6 +425,7 @@ class RecurringTransaction:
                 datetime.strptime(dt, DATETIME_FORMAT)
                 for dt in data.get("exceptions", [])
             ),
+            target_wallet_name=data.get("target_wallet_name"),
         )
 
     def to_json(self) -> Dict[str, Any]:
@@ -442,6 +449,7 @@ class RecurringTransaction:
             "exceptions": [
                 dt.strftime(DATETIME_FORMAT) for dt in sorted(self.exceptions)
             ],
+            "target_wallet_name": self.target_wallet_name,
         }
 
     def create_transaction(self, date: datetime) -> Transaction:
@@ -455,10 +463,21 @@ class RecurringTransaction:
             recurrence_id=self.id,
         )
 
+    @property
+    def is_transfer(self) -> bool:
+        """True when this recurring entry represents a transfer."""
+        return self.target_wallet_name is not None
+
     def summary_str(self) -> str:
         """Return a short summary string."""
         sign = "+" if self.transaction_type == TransactionType.INCOME else "-"
         status = "Active" if self.is_active else "Paused"
+        if self.is_transfer:
+            return (
+                f"[{status}] Transfer {self.wallet_name} -> "
+                f"{self.target_wallet_name} {sign}{abs(self.amount):.2f} "
+                f"({self.recurrence_rule.description()})"
+            )
         return (
             f"[{status}] {self.category} - {sign}{abs(self.amount):.2f} "
             f"({self.recurrence_rule.description()})"
@@ -468,9 +487,12 @@ class RecurringTransaction:
         """Return a detailed string representation."""
         sign = "+" if self.transaction_type == TransactionType.INCOME else "-"
         status = "Active" if self.is_active else "Paused"
-        type_name = (
-            "Income" if self.transaction_type == TransactionType.INCOME else "Expense"
-        )
+        if self.is_transfer:
+            type_name = "Recurring Transfer"
+        elif self.transaction_type == TransactionType.INCOME:
+            type_name = "Income"
+        else:
+            type_name = "Expense"
 
         lines = [
             f"ID: {self.id}",
@@ -480,10 +502,16 @@ class RecurringTransaction:
             f"Category: {self.category}",
             f"Description: {self.description or 'N/A'}",
             f"Wallet: {self.wallet_name}",
-            f"Pattern: {self.recurrence_rule.description()}",
-            f"Start Date: {self.start_date.strftime('%Y-%m-%d')}",
-            f"Generated: {self.generated_count} transactions",
         ]
+        if self.is_transfer:
+            lines.append(f"Target Wallet: {self.target_wallet_name}")
+        lines.extend(
+            [
+                f"Pattern: {self.recurrence_rule.description()}",
+                f"Start Date: {self.start_date.strftime('%Y-%m-%d')}",
+                f"Generated: {self.generated_count} transactions",
+            ]
+        )
 
         if self.last_generated:
             lines.append(f"Last Generated: {self.last_generated.strftime('%Y-%m-%d')}")

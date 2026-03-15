@@ -55,6 +55,11 @@ def _esc_sentinel(s: str) -> str:
     return s
 
 
+def _fmtn(v: float) -> str:
+    """Format a number, stripping trailing zeros (5.00 -> 5, 5.30 -> 5.3)."""
+    return f"{v:.2f}".rstrip("0").rstrip(".")
+
+
 # ── Public formatters ────────────────────────────────────────────────
 
 
@@ -240,6 +245,56 @@ def fmt_help(commands: list[dict]) -> str:
     lines = [_bold("\u2753 Available Commands:"), ""]
     for c in commands:
         lines.append(f"  {_code('/' + c['command'])} - {c['description']}")
+    return _to_md2("\n".join(lines))
+
+
+def fmt_goals(goals: list[dict], filter_label: str = "Active") -> str:
+    if not goals:
+        return _to_md2(f"\U0001f3af No {filter_label.lower()} goals")
+    lines = [f"\U0001f3af {_bold(f'{filter_label} Goals:')}", ""]
+    for i, g in enumerate(goals, 1):
+        goal = g.get("goal", {})
+        target = goal.get("target", 0)
+        saved = goal.get("saved", 0)
+        progress = goal.get("progress", 0)
+        status = goal.get("status", "active")
+        bar_len = 10
+        filled = int(bar_len * min(progress, 100) / 100)
+        bar = "\u2588" * filled + "\u2591" * (bar_len - filled)
+        status_marker = ""
+        if status == "completed":
+            status_marker = " \u2705"
+        elif status == "hidden":
+            status_marker = " \U0001f6ab"
+        lines.append(f"  {_code(f'{i}.')} {g['name']}{status_marker}")
+        lines.append(f"     {_fmtn(saved)} / {_fmtn(target)} {g['currency']}")
+        lines.append(f"     {bar} {progress:.0f}%")
+    return _to_md2("\n".join(lines))
+
+
+def fmt_goal_detail(data: dict) -> str:
+    goal = data.get("goal", {})
+    target = goal.get("target", 0)
+    saved = goal.get("saved", 0)
+    progress = goal.get("progress", 0)
+    remaining = goal.get("remaining", 0)
+    bar_len = 15
+    filled = int(bar_len * min(progress, 100) / 100)
+    bar = "\u2588" * filled + "\u2591" * (bar_len - filled)
+    lines = [
+        _bold(f"\U0001f3af {data['name']}"),
+        f"\U0001f4cb Status: {goal.get('status', 'active').upper()}",
+        f"\U0001f3af Target: {_fmtn(target)} {data['currency']}",
+        f"\U0001f4b0 Saved: {_fmtn(saved)} {data['currency']}",
+        f"\U0001f4c9 Remaining: {_fmtn(remaining)} {data['currency']}",
+        f"\U0001f4ca Progress: {bar} {progress:.0f}%",
+    ]
+    if goal.get("goal_description"):
+        lines.append(f"\U0001f4dd {goal['goal_description']}")
+    if goal.get("created_at"):
+        lines.append(f"\U0001f4c5 Created: {goal['created_at']}")
+    if goal.get("completed_at"):
+        lines.append(f"\u2705 Completed: {goal['completed_at']}")
     return _to_md2("\n".join(lines))
 
 
