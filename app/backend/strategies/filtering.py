@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, List, Optional, Set, Dict, Any
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
 
 from models.transaction import Transaction, TransactionType, Transfer
 

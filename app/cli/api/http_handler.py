@@ -104,6 +104,8 @@ class HttpRequestHandler:
         # Dashboard / general
         if action == "get_dashboard":
             return self._get("/dashboard")
+        if action == "get_portfolio":
+            return self._get("/portfolio")
         if action == "get_help":
             return self._get("/help")
 

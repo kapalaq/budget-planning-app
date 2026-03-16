@@ -8,9 +8,8 @@ from dotenv import load_dotenv
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from typing import Any, Dict
 from contextlib import asynccontextmanager
-from fastapi import Depends, FastAPI, Header, HTTPException
+from typing import Any, Dict
 
 import logger_setup
 from api.request_handler import RequestHandler
@@ -19,6 +18,7 @@ from data.postgres import get_postgres_conn
 from db.session_manager import SessionManager
 from db.storage import MongoStorage
 from db.user_store import UserStore
+from fastapi import Depends, FastAPI, Header, HTTPException
 from wallet.wallet import Wallet
 from wallet.wallet_manager import WalletManager
 
@@ -201,6 +201,44 @@ def set_language(body: Dict[str, Any], user_id: int = Depends(get_current_user))
 @app.get("/dashboard")
 def get_dashboard(user_id: int = Depends(get_current_user)):
     return _handle(user_id, "get_dashboard")
+
+
+@app.get("/portfolio")
+async def get_portfolio(user_id: int = Depends(get_current_user)):
+    """Cross-currency portfolio totals using live exchange rates."""
+    from services.currency import currency_service
+
+    wm, _ = _get_manager(user_id)
+    base_currency = wm.current_wallet.currency if wm.current_wallet else "USD"
+
+    wallets_data = []
+    total_converted = 0.0
+    rates_available = True
+
+    for w in wm.get_visible_wallets():
+        converted = await currency_service.convert(w.balance, w.currency, base_currency)
+        if converted is None:
+            rates_available = False
+            converted = w.balance if w.currency == base_currency else 0.0
+        total_converted += converted
+        wallets_data.append(
+            {
+                "name": w.name,
+                "currency": w.currency,
+                "balance": w.balance,
+                "converted": round(converted, 2),
+            }
+        )
+
+    return {
+        "status": "success",
+        "data": {
+            "base_currency": base_currency,
+            "total_balance": round(total_converted, 2),
+            "wallets": wallets_data,
+            "rates_available": rates_available,
+        },
+    }
 
 
 @app.get("/help")

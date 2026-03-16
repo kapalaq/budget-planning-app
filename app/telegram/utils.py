@@ -157,6 +157,31 @@ def fmt_dashboard(data: dict, lang: str = "en-US") -> str:
     return _to_md2("\n".join(lines))
 
 
+def fmt_portfolio(data: dict, lang: str = "en-US") -> str:
+    base = data["base_currency"]
+    total = data["total_balance"]
+    wallets = data.get("wallets", [])
+    rates_ok = data.get("rates_available", True)
+
+    lines = [_bold(f"\U0001f4b1 {t('portfolio.title', lang)}"), ""]
+    for w in wallets:
+        sign = "+" if w["balance"] >= 0 else ""
+        line = f"  {w['name']}: {sign}{w['balance']:.2f} {w['currency']}"
+        if w["currency"] != base:
+            line += f" ({w['converted']:.2f} {base})"
+        lines.append(line)
+    lines.append("")
+    total_sign = "+" if total >= 0 else ""
+    lines.append(
+        _bold(
+            f"\U0001f4b0 {t('portfolio.total', lang)}: {total_sign}{total:.2f} {base}"
+        )
+    )
+    if not rates_ok:
+        lines.append(f"\n\u26a0\ufe0f {t('portfolio.rates_unavailable', lang)}")
+    return _to_md2("\n".join(lines))
+
+
 def fmt_transaction(data: dict, lang: str = "en-US") -> str:
     sign = data["sign"]
     na = t("common.na", lang)
@@ -170,9 +195,11 @@ def fmt_transaction(data: dict, lang: str = "en-US") -> str:
             + t("transaction.type_transfer_in", lang).split("(")[-1].rstrip(")")
         )
         lines.append(_bold(f"\U0001f500 {t('transfer.title', lang)} ({direction})"))
-        lines.append(
-            f"\U0001f4b2 {t('transaction.field_amount', lang)}: {sign}{abs(data['amount']):.2f}"
-        )
+        amount_str = f"{sign}{abs(data['amount']):.2f}"
+        if data.get("cross_currency") and data.get("connected_amount") is not None:
+            other_cur = data.get("connected_currency", "")
+            amount_str += f" ({abs(data['connected_amount']):.2f} {other_cur})"
+        lines.append(f"\U0001f4b2 {t('transaction.field_amount', lang)}: {amount_str}")
         lines.append(
             f"\U0001f4e4 {t('transaction.field_from', lang)}: {data.get('from_wallet', '?')}"
         )

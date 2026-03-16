@@ -74,6 +74,8 @@ class Display:
             self._handle_filter()
         elif cmd_lower == "percent":
             self._handle_percentages()
+        elif cmd_lower == "portfolio":
+            self._handle_portfolio()
         elif cmd_lower == "help":
             self._handle_help()
         elif cmd_lower in ("quit", "exit", "q"):
@@ -169,6 +171,28 @@ class Display:
             self._show_info(resp["message"])
             return
         self._render_dashboard(resp["data"])
+
+    def _handle_portfolio(self):
+        resp = self._handler.handle({"action": "get_portfolio", "data": {}})
+        if resp["status"] == "error":
+            self._show_error(resp.get("message", "Failed to load portfolio"))
+            return
+        data = resp["data"]
+        base = data["base_currency"]
+        self._show_header(f"Portfolio Overview (in {base})")
+        for w in data.get("wallets", []):
+            sign = "+" if w["balance"] >= 0 else ""
+            line = f"   {w['name']}: {sign}{w['balance']:.2f} {w['currency']}"
+            if w["currency"] != base:
+                line += f" ({w['converted']:.2f} {base})"
+            print(line)
+        total = data["total_balance"]
+        total_sign = "+" if total >= 0 else ""
+        print(f"\n   Total: {total_sign}{total:.2f} {base}")
+        if not data.get("rates_available", True):
+            print(
+                "\n   [!] Exchange rates unavailable — some conversions may be missing"
+            )
 
     def _handle_help(self):
         resp = self._handler.handle({"action": "get_help", "data": {}})
@@ -971,7 +995,11 @@ class Display:
             direction = "Outgoing" if data["transaction_type"] == "-" else "Incoming"
             print(f"ID: {data['id']}")
             print(f"Type: Transfer ({direction})")
-            print(f"Amount: {sign}{abs(data['amount']):.2f}")
+            amount_str = f"Amount: {sign}{abs(data['amount']):.2f}"
+            if data.get("cross_currency") and data.get("connected_amount") is not None:
+                other_cur = data.get("connected_currency", "")
+                amount_str += f" ({abs(data['connected_amount']):.2f} {other_cur})"
+            print(amount_str)
             print(f"From: {data.get('from_wallet', '?')}")
             print(f"To: {data.get('to_wallet', '?')}")
             print(f"Description: {data['description'] or 'N/A'}")

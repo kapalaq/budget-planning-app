@@ -1,24 +1,23 @@
 """Wallet handlers."""
 
-from aiogram import Router, F, types
+from aiogram import F, Router, types
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
-
 from languages import t
 from telegram.backend import backend, get_lang
 from telegram.keyboards import (
     back_to_menu,
     cancel_keyboard,
-    skip_keyboard,
-    wallet_type_keyboard,
-    wallet_list_keyboard,
-    wallet_actions_keyboard,
-    edit_wallet_fields_keyboard,
-    confirm_keyboard,
     capitalization_keyboard,
+    confirm_keyboard,
+    edit_wallet_fields_keyboard,
+    skip_keyboard,
+    wallet_actions_keyboard,
+    wallet_list_keyboard,
+    wallet_type_keyboard,
 )
 from telegram.states import AddWallet, EditWallet
-from telegram.utils import fmt_wallets, fmt_wallet_detail
+from telegram.utils import fmt_wallet_detail, fmt_wallets
 
 router = Router()
 

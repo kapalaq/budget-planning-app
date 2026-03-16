@@ -1,18 +1,17 @@
 """Filter handlers."""
 
-from aiogram import Router, F, types
+from aiogram import F, Router, types
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
-
 from languages import t
 from telegram.backend import backend, get_lang
 from telegram.keyboards import (
-    filter_menu_keyboard,
-    date_filter_keyboard,
-    type_filter_keyboard,
     amount_filter_keyboard,
     back_to_menu,
+    date_filter_keyboard,
+    filter_menu_keyboard,
+    type_filter_keyboard,
 )
 from telegram.states import FilterInput
 from telegram.utils import fmt_filters

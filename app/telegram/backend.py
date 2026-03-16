@@ -4,7 +4,6 @@ import contextvars
 import logging
 
 import aiohttp
-
 from telegram.config import BACKEND_URL
 
 logger = logging.getLogger(__name__)
@@ -186,6 +185,8 @@ class Backend:
         # Dashboard / general
         if action == "get_dashboard":
             return await self._get("/dashboard")
+        if action == "get_portfolio":
+            return await self._get("/portfolio")
         if action == "get_help":
             return await self._get("/help")
 

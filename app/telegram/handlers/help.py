@@ -2,7 +2,6 @@
 
 from aiogram import Router, types
 from aiogram.filters import Command
-
 from languages import t
 from telegram.backend import get_lang
 from telegram.keyboards import back_to_menu

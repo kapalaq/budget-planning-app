@@ -1,7 +1,7 @@
 """Wallet Manager module to work with different wallets."""
 
 from datetime import datetime
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional
 
 from models.category import CategoryManager
 from models.recurrence_scheduler import RecurrenceScheduler
@@ -264,19 +264,22 @@ class WalletManager:
         amount: float,
         description: str = "",
         datetime_created: datetime = None,
+        received_amount: float = None,
     ) -> bool:
         """Transfer money between two wallets.
 
         Creates synchronized Transfer transactions in both wallets:
         - Source wallet gets an expense Transfer (-amount)
-        - Target wallet gets an income Transfer (+amount)
+        - Target wallet gets an income Transfer (+received_amount or +amount)
 
         Args:
             from_wallet_name: Name of the source wallet.
             to_wallet_name: Name of the target wallet.
-            amount: Amount to transfer (positive value).
+            amount: Amount to transfer (positive value, in source currency).
             description: Optional description for the transfer.
             datetime_created: Optional datetime for the transfer.
+            received_amount: Amount received in target currency. If None,
+                uses the same amount (same-currency transfer).
 
         Returns:
             True if transfer was successful, False otherwise.
@@ -296,6 +299,8 @@ class WalletManager:
         if datetime_created is None:
             datetime_created = datetime.now()
 
+        incoming_amount = received_amount if received_amount is not None else amount
+
         # Create the outgoing transfer (expense from source wallet)
         outgoing = Transfer(
             amount=amount,
@@ -308,7 +313,7 @@ class WalletManager:
 
         # Create the incoming transfer (income to target wallet)
         incoming = Transfer(
-            amount=amount,
+            amount=incoming_amount,
             transaction_type=TransactionType.INCOME,
             category="Transfer",
             description=description,

@@ -1,20 +1,20 @@
 """Transfer handler."""
 
-from aiogram import Router, F, types
+from aiogram import F, Router, types
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
-
+from backend.services.currency import currency_service
 from languages import t
 from telegram.backend import backend, get_lang
 from telegram.keyboards import (
-    cancel_keyboard,
-    skip_keyboard,
     back_to_menu,
-    wallet_list_keyboard,
-    frequency_keyboard,
+    cancel_keyboard,
     end_condition_keyboard,
+    frequency_keyboard,
+    skip_keyboard,
+    wallet_list_keyboard,
 )
-from telegram.states import Transfer, RecurringTransfer
+from telegram.states import RecurringTransfer, Transfer
 
 router = Router()
 
@@ -83,7 +83,20 @@ async def _start_transfer(message: types.Message, state: FSMContext):
 async def transfer_target(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
     target_name = callback.data.split(":", 1)[1]
-    await state.update_data(target_wallet_name=target_name)
+    # Find target wallet currency from stored targets
+    data = await state.get_data()
+    targets = data.get("targets", [])
+    target_currency = ""
+    for tw in targets:
+        if tw["name"] == target_name:
+            target_currency = tw.get("currency", "")
+            break
+    from_currency = data.get("from_wallet", {}).get("currency", "")
+    await state.update_data(
+        target_wallet_name=target_name,
+        from_currency=from_currency,
+        target_currency=target_currency,
+    )
     await state.set_state(Transfer.amount)
     try:
         await callback.message.edit_text(
@@ -100,7 +113,7 @@ async def transfer_target(callback: types.CallbackQuery, state: FSMContext):
 @router.message(Transfer.amount)
 async def transfer_amount(message: types.Message, state: FSMContext):
     try:
-        amount = float(message.text.strip())
+        amount = float(message.text.strip().replace(",", "."))
         if amount <= 0:
             raise ValueError
     except (ValueError, AttributeError):
@@ -109,6 +122,66 @@ async def transfer_amount(message: types.Message, state: FSMContext):
         )
         return
     await state.update_data(amount=amount)
+    data = await state.get_data()
+    from_cur = data.get("from_currency", "")
+    target_cur = data.get("target_currency", "")
+    if from_cur and target_cur and from_cur != target_cur:
+        await state.set_state(Transfer.received_amount)
+        hint = ""
+        converted = await currency_service.convert(amount, from_cur, target_cur)
+        if converted is not None:
+            hint = f"\n\u2139\ufe0f Skip \u2248 {converted:,.2f} {target_cur}"
+        await message.answer(
+            f"\U0001f4b1 {from_cur} \u2192 {target_cur}\n"
+            + t("transfer.tg_enter_received", get_lang(), currency=target_cur)
+            + hint,
+            reply_markup=skip_keyboard(3),
+        )
+    else:
+        await state.set_state(Transfer.description)
+        await message.answer(
+            "\U0001f4dd " + t("transfer.tg_enter_description", get_lang()),
+            reply_markup=skip_keyboard(3),
+        )
+
+
+@router.callback_query(Transfer.received_amount, F.data == "skip_default")
+async def transfer_skip_received(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer()
+    data = await state.get_data()
+    amount = data["amount"]
+    from_cur = data.get("from_currency", "")
+    target_cur = data.get("target_currency", "")
+    converted = await currency_service.convert(amount, from_cur, target_cur)
+    if converted is None:
+        await callback.message.edit_text(
+            "\u26a0\ufe0f "
+            + t("transfer.tg_rate_unavailable", get_lang())
+            + f"\n\U0001f4b1 {from_cur} \u2192 {target_cur}\n"
+            + t("transfer.tg_enter_received", get_lang(), currency=target_cur),
+            reply_markup=skip_keyboard(3),
+        )
+        return
+    await state.update_data(received_amount=converted)
+    await state.set_state(Transfer.description)
+    await callback.message.edit_text(
+        "\U0001f4dd " + t("transfer.tg_enter_description", get_lang()),
+        reply_markup=skip_keyboard(3),
+    )
+
+
+@router.message(Transfer.received_amount)
+async def transfer_received_amount(message: types.Message, state: FSMContext):
+    try:
+        received = float(message.text.strip().replace(",", "."))
+        if received <= 0:
+            raise ValueError
+    except (ValueError, AttributeError):
+        await message.answer(
+            "\u26a0\ufe0f " + t("transaction.tg_positive_number", get_lang())
+        )
+        return
+    await state.update_data(received_amount=received)
     await state.set_state(Transfer.description)
     await message.answer(
         "\U0001f4dd " + t("transfer.tg_enter_description", get_lang()),
@@ -140,16 +213,23 @@ async def transfer_description(message: types.Message, state: FSMContext):
     )
 
 
-@router.callback_query(Transfer.date, F.data == "skip_default")
-async def transfer_skip_date(callback: types.CallbackQuery, state: FSMContext):
-    await callback.answer()
-    data = await state.get_data()
+def _build_transfer_form(data: dict, date_val=None) -> dict:
     form = {
         "target_wallet_name": data["target_wallet_name"],
         "amount": data["amount"],
         "description": data.get("description", ""),
-        "date": None,
+        "date": date_val,
     }
+    if data.get("received_amount") is not None:
+        form["received_amount"] = data["received_amount"]
+    return form
+
+
+@router.callback_query(Transfer.date, F.data == "skip_default")
+async def transfer_skip_date(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer()
+    data = await state.get_data()
+    form = _build_transfer_form(data)
     resp = await backend.handle({"action": "transfer", "data": form})
     await state.clear()
     msg = resp.get("message", "Done")
@@ -161,12 +241,7 @@ async def transfer_date(message: types.Message, state: FSMContext):
     text = message.text.strip()
     date_val = None if text == "-" or text.lower() == "skip" else text
     data = await state.get_data()
-    form = {
-        "target_wallet_name": data["target_wallet_name"],
-        "amount": data["amount"],
-        "description": data.get("description", ""),
-        "date": date_val,
-    }
+    form = _build_transfer_form(data, date_val)
     resp = await backend.handle({"action": "transfer", "data": form})
     await state.clear()
     msg = resp.get("message", "Done")
@@ -208,7 +283,19 @@ async def cb_recurring_transfer(callback: types.CallbackQuery, state: FSMContext
 async def rec_transfer_target(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
     target_name = callback.data.split(":", 1)[1]
-    await state.update_data(target_wallet_name=target_name)
+    data = await state.get_data()
+    targets = data.get("targets", [])
+    target_currency = ""
+    for tw in targets:
+        if tw["name"] == target_name:
+            target_currency = tw.get("currency", "")
+            break
+    from_currency = data.get("from_wallet", {}).get("currency", "")
+    await state.update_data(
+        target_wallet_name=target_name,
+        from_currency=from_currency,
+        target_currency=target_currency,
+    )
     await state.set_state(RecurringTransfer.amount)
     await callback.message.edit_text(
         f"\U0001f3af Target: {target_name}\n\U0001f4b2 Enter amount:",
@@ -228,6 +315,66 @@ async def rec_transfer_amount(message: types.Message, state: FSMContext):
         )
         return
     await state.update_data(amount=amount)
+    data = await state.get_data()
+    from_cur = data.get("from_currency", "")
+    target_cur = data.get("target_currency", "")
+    if from_cur and target_cur and from_cur != target_cur:
+        await state.set_state(RecurringTransfer.received_amount)
+        hint = ""
+        converted = await currency_service.convert(amount, from_cur, target_cur)
+        if converted is not None:
+            hint = f"\n\u2139\ufe0f Skip \u2248 {converted:,.2f} {target_cur}"
+        await message.answer(
+            f"\U0001f4b1 {from_cur} \u2192 {target_cur}\n"
+            + t("transfer.tg_enter_received", get_lang(), currency=target_cur)
+            + hint,
+            reply_markup=skip_keyboard(3),
+        )
+    else:
+        await state.set_state(RecurringTransfer.description)
+        await message.answer(
+            "\U0001f4dd " + t("transfer.tg_enter_description", get_lang()),
+            reply_markup=skip_keyboard(3),
+        )
+
+
+@router.callback_query(RecurringTransfer.received_amount, F.data == "skip_default")
+async def rec_transfer_skip_received(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer()
+    data = await state.get_data()
+    amount = data["amount"]
+    from_cur = data.get("from_currency", "")
+    target_cur = data.get("target_currency", "")
+    converted = await currency_service.convert(amount, from_cur, target_cur)
+    if converted is None:
+        await callback.message.edit_text(
+            "\u26a0\ufe0f "
+            + t("transfer.tg_rate_unavailable", get_lang())
+            + f"\n\U0001f4b1 {from_cur} \u2192 {target_cur}\n"
+            + t("transfer.tg_enter_received", get_lang(), currency=target_cur),
+            reply_markup=skip_keyboard(3),
+        )
+        return
+    await state.update_data(received_amount=converted)
+    await state.set_state(RecurringTransfer.description)
+    await callback.message.edit_text(
+        "\U0001f4dd " + t("transfer.tg_enter_description", get_lang()),
+        reply_markup=skip_keyboard(3),
+    )
+
+
+@router.message(RecurringTransfer.received_amount)
+async def rec_transfer_received_amount(message: types.Message, state: FSMContext):
+    try:
+        received = float(message.text.strip().replace(",", "."))
+        if received <= 0:
+            raise ValueError
+    except (ValueError, AttributeError):
+        await message.answer(
+            "\u26a0\ufe0f " + t("transaction.tg_positive_number", get_lang())
+        )
+        return
+    await state.update_data(received_amount=received)
     await state.set_state(RecurringTransfer.description)
     await message.answer(
         "\U0001f4dd " + t("transfer.tg_enter_description", get_lang()),
@@ -389,6 +536,8 @@ async def _finish_recurring_transfer(message: types.Message, state: FSMContext):
         "start_date": data.get("start_date"),
         "recurrence_rule": rule,
     }
+    if data.get("received_amount") is not None:
+        form["received_amount"] = data["received_amount"]
     resp = await backend.handle({"action": "add_recurring_transfer", "data": form})
     await state.clear()
     msg = resp.get("message", "Done")

@@ -6,7 +6,7 @@ from collections import defaultdict
 from datetime import datetime
 from enum import Enum
 from functools import singledispatchmethod
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, List, Optional
 
 from models.category import CategoryManager
 from models.transaction import Transaction, TransactionType, Transfer

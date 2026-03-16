@@ -1,10 +1,9 @@
 """Sorting handlers."""
 
-from aiogram import Router, F, types
-
+from aiogram import F, Router, types
 from languages import t
 from telegram.backend import backend, get_lang
-from telegram.keyboards import sorting_keyboard, back_to_menu
+from telegram.keyboards import back_to_menu, sorting_keyboard
 
 router = Router()
 

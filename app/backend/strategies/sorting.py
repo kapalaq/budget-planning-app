@@ -1,7 +1,7 @@
 """Sorting strategies for transactions and wallets using Strategy Pattern."""
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, List, Optional, ValuesView, Dict, Any
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, ValuesView
 
 if TYPE_CHECKING:
     from wallet.wallet import Wallet

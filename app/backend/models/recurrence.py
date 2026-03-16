@@ -5,7 +5,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import List, Optional, Set, Dict, Any
+from typing import Any, Dict, List, Optional, Set
 
 from models.transaction import Transaction, TransactionType
 
@@ -390,6 +390,7 @@ class RecurringTransaction:
     last_generated: Optional[datetime] = None
     exceptions: Set[datetime] = field(default_factory=set)
     target_wallet_name: Optional[str] = None
+    received_amount: Optional[float] = None
 
     @classmethod
     def from_json(cls, data: Dict[str, Any]) -> Optional["RecurringTransaction"]:
@@ -426,6 +427,11 @@ class RecurringTransaction:
                 for dt in data.get("exceptions", [])
             ),
             target_wallet_name=data.get("target_wallet_name"),
+            received_amount=(
+                float(data["received_amount"])
+                if data.get("received_amount") is not None
+                else None
+            ),
         )
 
     def to_json(self) -> Dict[str, Any]:
@@ -450,6 +456,7 @@ class RecurringTransaction:
                 dt.strftime(DATETIME_FORMAT) for dt in sorted(self.exceptions)
             ],
             "target_wallet_name": self.target_wallet_name,
+            "received_amount": self.received_amount,
         }
 
     def create_transaction(self, date: datetime) -> Transaction:

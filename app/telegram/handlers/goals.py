@@ -1,19 +1,18 @@
 """Savings goal handlers."""
 
-from aiogram import Router, F, types
+from aiogram import F, Router, types
 from aiogram.fsm.context import FSMContext
-
 from languages import t
 from telegram.backend import backend, get_lang
 from telegram.keyboards import (
     back_to_menu,
     cancel_keyboard,
+    end_condition_keyboard,
+    frequency_keyboard,
     goal_actions_keyboard,
     goal_list_keyboard,
     goal_menu_keyboard,
     skip_keyboard,
-    frequency_keyboard,
-    end_condition_keyboard,
 )
 from telegram.states import AddGoal, RecurringGoalSave, SaveToGoal
 from telegram.utils import fmt_goal_detail, fmt_goals
@@ -44,7 +43,7 @@ async def cb_goals_list(callback: types.CallbackQuery):
         {"action": "get_goals", "data": {"filter": filter_type}}
     )
     if resp["status"] == "error":
-        await callback.message.edit_text(resp["message"], reply_markup=back_to_menu(3))
+        await callback.message.edit_text(resp["message"], reply_markup=back_to_menu(2))
         return
     goals = resp["data"]["goals"]
     label = filter_type.capitalize()
@@ -65,7 +64,7 @@ async def cb_goal_detail(callback: types.CallbackQuery):
     name = callback.data.split(":", 1)[1]
     resp = await backend.handle({"action": "get_goal_detail", "data": {"name": name}})
     if resp["status"] == "error":
-        await callback.message.edit_text(resp["message"], reply_markup=back_to_menu(3))
+        await callback.message.edit_text(resp["message"], reply_markup=back_to_menu(2))
         return
     data = resp["data"]
     status = data.get("goal", {}).get("status", "active")
@@ -174,7 +173,7 @@ async def _finish_add_goal(message: types.Message, state: FSMContext):
     resp = await backend.handle({"action": "add_goal", "data": form})
     await state.clear()
     msg = resp.get("message", "Done")
-    await message.answer(msg, reply_markup=back_to_menu(3))
+    await message.answer(msg, reply_markup=back_to_menu(2))
 
 
 # ── Save to goal ─────────────────────────────────────────────────────
@@ -218,7 +217,7 @@ async def save_to_goal_amount(message: types.Message, state: FSMContext):
     )
     await state.clear()
     msg = resp.get("message", "Done")
-    await message.answer(msg, reply_markup=back_to_menu(3))
+    await message.answer(msg, reply_markup=back_to_menu(2))
 
 
 # ── Complete goal ────────────────────────────────────────────────────
@@ -230,7 +229,7 @@ async def cb_complete_goal(callback: types.CallbackQuery):
     name = callback.data.split(":", 1)[1]
     resp = await backend.handle({"action": "complete_goal", "data": {"name": name}})
     msg = resp.get("message", "Done")
-    await callback.message.edit_text(msg, reply_markup=back_to_menu(3))
+    await callback.message.edit_text(msg, reply_markup=back_to_menu(2))
 
 
 # ── Hide goal ────────────────────────────────────────────────────────
@@ -242,7 +241,7 @@ async def cb_hide_goal(callback: types.CallbackQuery):
     name = callback.data.split(":", 1)[1]
     resp = await backend.handle({"action": "hide_goal", "data": {"name": name}})
     msg = resp.get("message", "Done")
-    await callback.message.edit_text(msg, reply_markup=back_to_menu(3))
+    await callback.message.edit_text(msg, reply_markup=back_to_menu(2))
 
 
 # ── Reactivate goal ──────────────────────────────────────────────────
@@ -254,7 +253,7 @@ async def cb_reactivate_goal(callback: types.CallbackQuery):
     name = callback.data.split(":", 1)[1]
     resp = await backend.handle({"action": "reactivate_goal", "data": {"name": name}})
     msg = resp.get("message", "Done")
-    await callback.message.edit_text(msg, reply_markup=back_to_menu(3))
+    await callback.message.edit_text(msg, reply_markup=back_to_menu(2))
 
 
 # ── Recurring save to goal ──────────────────────────────────────────
@@ -449,4 +448,4 @@ async def _finish_recurring_goal_save(message: types.Message, state: FSMContext)
     resp = await backend.handle({"action": "add_recurring_goal_save", "data": form})
     await state.clear()
     msg = resp.get("message", "Done")
-    await message.answer(msg, reply_markup=back_to_menu(3))
+    await message.answer(msg, reply_markup=back_to_menu(2))

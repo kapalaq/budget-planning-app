@@ -111,7 +111,10 @@ class RequestHandler:
         handler = self._routes.get(action)
         if handler:
             return handler(data)
-        return {"status": "error", "message": t("common.unknown_action", lang, action=action)}
+        return {
+            "status": "error",
+            "message": t("common.unknown_action", lang, action=action),
+        }
 
     # ------------------------------------------------------------------ #
     #  Serialisation helpers                                              #
@@ -151,6 +154,14 @@ class RequestHandler:
                     else "Unknown"
                 )
                 result["to_wallet"] = t.source.name if t.source else "Unknown"
+
+            result["cross_currency"] = t.cross_currency
+            if t.cross_currency and t.connected:
+                result["connected_amount"] = t.connected.amount
+                result["connected_currency"] = (
+                    t.connected.source.currency if t.connected.source else ""
+                )
+                result["source_currency"] = t.source.currency if t.source else ""
 
         return result
 
@@ -250,7 +261,7 @@ class RequestHandler:
             transactions = wallet.get_filtered_transactions()
         else:
             transactions = wallet.get_sorted_transactions()
-        return [self._serialize_transaction(t) for t in transactions]
+        return [self._serialize_transaction(tr) for tr in transactions]
 
     @staticmethod
     def _parse_transaction_type(value: str) -> TransactionType:
@@ -275,21 +286,21 @@ class RequestHandler:
         # Calculate totals from the (possibly filtered) list
         total_income = 0.0
         total_expense = 0.0
-        for t in transactions:
-            if t.transaction_type == TransactionType.INCOME:
-                total_income += t.amount
+        for tr in transactions:
+            if tr.transaction_type == TransactionType.INCOME:
+                total_income += tr.amount
             else:
-                total_expense += t.amount
+                total_expense += tr.amount
         balance = total_income - total_expense
 
         # Category breakdown
         income_by_cat: Dict[str, float] = defaultdict(float)
         expense_by_cat: Dict[str, float] = defaultdict(float)
-        for t in transactions:
-            if t.transaction_type == TransactionType.INCOME:
-                income_by_cat[t.category] += t.amount
+        for tr in transactions:
+            if tr.transaction_type == TransactionType.INCOME:
+                income_by_cat[tr.category] += tr.amount
             else:
-                expense_by_cat[t.category] += t.amount
+                expense_by_cat[tr.category] += tr.amount
 
         income_pct = {}
         expense_pct = {}
@@ -331,7 +342,9 @@ class RequestHandler:
                 "filter_count": len(transactions),
                 "total_count": wallet.transaction_count(),
                 "sorting_strategy": wallet.sorting_context.current_strategy.name,
-                "transactions": [self._serialize_transaction(t) for t in transactions],
+                "transactions": [
+                    self._serialize_transaction(tr) for tr in transactions
+                ],
                 "income_by_category": dict(income_by_cat),
                 "expense_by_category": dict(expense_by_cat),
                 "income_percentages": income_pct,
@@ -404,7 +417,10 @@ class RequestHandler:
         index = data.get("index")
         transaction = wallet.get_transaction(index)
         if transaction is None:
-            return {"status": "error", "message": t("transaction.not_found", self._lang, index=index)}
+            return {
+                "status": "error",
+                "message": t("transaction.not_found", self._lang, index=index),
+            }
         return {
             "status": "success",
             "data": self._serialize_transaction(transaction),
@@ -465,7 +481,10 @@ class RequestHandler:
                 else t("transaction.updated", self._lang)
             )
             return {"status": "success", "message": msg}
-        return {"status": "error", "message": t("transaction.not_found", self._lang, index=index)}
+        return {
+            "status": "error",
+            "message": t("transaction.not_found", self._lang, index=index),
+        }
 
     def _delete_transaction(self, data: dict) -> dict:
         wallet, err = self._current_wallet_or_error()
@@ -475,10 +494,16 @@ class RequestHandler:
         index = data["index"]
         transaction = wallet.get_transaction(index)
         if transaction is None:
-            return {"status": "error", "message": t("transaction.not_found", self._lang, index=index)}
+            return {
+                "status": "error",
+                "message": t("transaction.not_found", self._lang, index=index),
+            }
 
         if wallet.delete_transaction(index):
-            return {"status": "success", "message": t("transaction.deleted", self._lang)}
+            return {
+                "status": "success",
+                "message": t("transaction.deleted", self._lang),
+            }
         return {"status": "error", "message": t("transaction.deleted", self._lang)}
 
     #  Transfer
@@ -510,16 +535,32 @@ class RequestHandler:
         if isinstance(date, str):
             date = datetime.fromisoformat(date)
 
+        received_amount = data.get("received_amount")
+        if received_amount is not None:
+            received_amount = float(received_amount)
+
         if self._wm.transfer(
             from_wallet_name=wallet.name,
             to_wallet_name=data["target_wallet_name"],
             amount=data["amount"],
             description=data.get("description", ""),
             datetime_created=date,
+            received_amount=received_amount,
         ):
+            msg = t(
+                "transfer.success",
+                self._lang,
+                amount=f"{data['amount']:.2f}",
+                from_wallet=wallet.name,
+                to_wallet=data["target_wallet_name"],
+            )
+            if received_amount is not None:
+                target_wallet = self._wm.get_wallet(data["target_wallet_name"])
+                target_cur = target_wallet.currency if target_wallet else ""
+                msg += f" ({received_amount:.2f} {target_cur})"
             return {
                 "status": "success",
-                "message": t("transfer.success", self._lang, amount=f"{data['amount']:.2f}", from_wallet=wallet.name, to_wallet=data['target_wallet_name']),
+                "message": msg,
             }
         return {"status": "error", "message": t("transfer.failed", self._lang)}
 
@@ -539,7 +580,11 @@ class RequestHandler:
         if wallet.sorting_context.set_strategy(key):
             return {
                 "status": "success",
-                "message": t("sorting.changed", self._lang, name=wallet.sorting_context.current_strategy.name),
+                "message": t(
+                    "sorting.changed",
+                    self._lang,
+                    name=wallet.sorting_context.current_strategy.name,
+                ),
             }
         return {"status": "error", "message": t("sorting.invalid", self._lang)}
 
@@ -555,7 +600,11 @@ class RequestHandler:
         if self._wm.sorting_context.set_strategy(key):
             return {
                 "status": "success",
-                "message": t("sorting.wallet_changed", self._lang, name=self._wm.sorting_context.current_strategy.name),
+                "message": t(
+                    "sorting.wallet_changed",
+                    self._lang,
+                    name=self._wm.sorting_context.current_strategy.name,
+                ),
             }
         return {"status": "error", "message": t("sorting.invalid", self._lang)}
 
@@ -687,11 +736,11 @@ class RequestHandler:
             transactions = wallet.get_filtered_transactions()
             income_by_cat: Dict[str, float] = defaultdict(float)
             expense_by_cat: Dict[str, float] = defaultdict(float)
-            for t in transactions:
-                if t.transaction_type == TransactionType.INCOME:
-                    income_by_cat[t.category] += t.amount
+            for tr in transactions:
+                if tr.transaction_type == TransactionType.INCOME:
+                    income_by_cat[tr.category] += t.amount
                 else:
-                    expense_by_cat[t.category] += t.amount
+                    expense_by_cat[tr.category] += t.amount
             total_income = sum(income_by_cat.values())
             total_expense = sum(expense_by_cat.values())
             income_pct = (
@@ -745,7 +794,10 @@ class RequestHandler:
         name = data["name"]
         wallet = self._wm.get_wallet(name)
         if wallet is None:
-            return {"status": "error", "message": t("wallet.not_found", self._lang, name=name)}
+            return {
+                "status": "error",
+                "message": t("wallet.not_found", self._lang, name=name),
+            }
         return {"status": "success", "data": self._serialize_wallet(wallet)}
 
     def _add_wallet(self, data: dict) -> dict:
@@ -779,14 +831,17 @@ class RequestHandler:
             }
         return {
             "status": "error",
-            "message": t("wallet.already_exists", self._lang, name=data['name']),
+            "message": t("wallet.already_exists", self._lang, name=data["name"]),
         }
 
     def _edit_wallet(self, data: dict) -> dict:
         name = data["name"]
         wallet = self._wm.get_wallet(name)
         if wallet is None:
-            return {"status": "error", "message": t("wallet.not_found", self._lang, name=name)}
+            return {
+                "status": "error",
+                "message": t("wallet.not_found", self._lang, name=name),
+            }
 
         if self._wm.update_wallet(
             old_name=name,
@@ -804,7 +859,10 @@ class RequestHandler:
         name = data["name"]
         wallet = self._wm.get_wallet(name)
         if wallet is None:
-            return {"status": "error", "message": t("wallet.not_found", self._lang, name=name)}
+            return {
+                "status": "error",
+                "message": t("wallet.not_found", self._lang, name=name),
+            }
 
         if wallet.is_goal_wallet and wallet.goal_status == GoalStatus.ACTIVE:
             return {
@@ -826,7 +884,10 @@ class RequestHandler:
                 "status": "success",
                 "message": t("wallet.switched", self._lang, name=name),
             }
-        return {"status": "error", "message": t("wallet.not_found", self._lang, name=name)}
+        return {
+            "status": "error",
+            "message": t("wallet.not_found", self._lang, name=name),
+        }
 
     #  Recurring CRUD
     @staticmethod
@@ -944,15 +1005,23 @@ class RequestHandler:
             recurring.exceptions.add(skip)
             return {
                 "status": "success",
-                "message": t("recurring.date_skipped", self._lang, date=skip.strftime('%Y-%m-%d')),
+                "message": t(
+                    "recurring.date_skipped", self._lang, date=skip.strftime("%Y-%m-%d")
+                ),
             }
         elif action == "toggle_active":
             if recurring.is_active:
                 scheduler.deactivate_recurring(recurring.id)
-                return {"status": "success", "message": t("recurring.paused", self._lang)}
+                return {
+                    "status": "success",
+                    "message": t("recurring.paused", self._lang),
+                }
             else:
                 scheduler.activate_recurring(recurring.id)
-                return {"status": "success", "message": t("recurring.resumed", self._lang)}
+                return {
+                    "status": "success",
+                    "message": t("recurring.resumed", self._lang),
+                }
 
         return {"status": "error", "message": t("recurring.invalid_edit", self._lang)}
 
@@ -976,8 +1045,8 @@ class RequestHandler:
             info_messages.append(f"Removed {deleted} future transaction(s)")
         elif delete_option == 3 and wallet:
             all_rec = wallet.get_transactions_by_recurrence(rec_id)
-            for t in all_rec:
-                wallet.delete_transaction(t.id)
+            for tr in all_rec:
+                wallet.delete_transaction(tr.id)
             info_messages.append(f"Removed {len(all_rec)} generated transaction(s)")
 
         scheduler.remove_recurring(rec_id)
@@ -1011,7 +1080,10 @@ class RequestHandler:
 
         amount = data.get("amount")
         if amount is None or amount <= 0:
-            return {"status": "error", "message": t("common.amount_positive", self._lang)}
+            return {
+                "status": "error",
+                "message": t("common.amount_positive", self._lang),
+            }
 
         start_date = data.get("start_date")
         if isinstance(start_date, str):
@@ -1020,6 +1092,10 @@ class RequestHandler:
             start_date = datetime.now()
 
         rule = self._build_recurrence_rule(data["recurrence_rule"])
+
+        received_amount = data.get("received_amount")
+        if received_amount is not None:
+            received_amount = float(received_amount)
 
         recurring = RecurringTransaction(
             amount=amount,
@@ -1030,6 +1106,7 @@ class RequestHandler:
             start_date=start_date,
             wallet_name=wallet.name,
             target_wallet_name=target.name,
+            received_amount=received_amount,
         )
 
         scheduler = self._wm.recurrence_scheduler
@@ -1050,11 +1127,17 @@ class RequestHandler:
         goal_name = data.get("goal_name", "")
         goal_wallet = self._wm.get_wallet(goal_name)
         if goal_wallet is None or not goal_wallet.is_goal_wallet:
-            return {"status": "error", "message": t("goal.not_found", self._lang, name=goal_name)}
+            return {
+                "status": "error",
+                "message": t("goal.not_found", self._lang, name=goal_name),
+            }
 
         amount = data.get("amount")
         if amount is None or amount <= 0:
-            return {"status": "error", "message": t("common.amount_positive", self._lang)}
+            return {
+                "status": "error",
+                "message": t("common.amount_positive", self._lang),
+            }
 
         start_date = data.get("start_date")
         if isinstance(start_date, str):
@@ -1110,7 +1193,9 @@ class RequestHandler:
         if self._wm.add_wallet(new_wallet):
             return {
                 "status": "success",
-                "message": t("goal.created", self._lang, name=name, amount=_fmt(target)),
+                "message": t(
+                    "goal.created", self._lang, name=name, amount=_fmt(target)
+                ),
                 "data": self._serialize_wallet(new_wallet),
             }
         return {
@@ -1151,9 +1236,15 @@ class RequestHandler:
         name = data.get("name", "")
         wallet = self._wm.get_wallet(name)
         if wallet is None:
-            return {"status": "error", "message": t("goal.not_found", self._lang, name=name)}
+            return {
+                "status": "error",
+                "message": t("goal.not_found", self._lang, name=name),
+            }
         if not wallet.is_goal_wallet:
-            return {"status": "error", "message": t("goal.not_goal_wallet", self._lang, name=name)}
+            return {
+                "status": "error",
+                "message": t("goal.not_goal_wallet", self._lang, name=name),
+            }
         return {"status": "success", "data": self._serialize_wallet(wallet)}
 
     def _complete_goal(self, data: dict) -> dict:
@@ -1165,9 +1256,15 @@ class RequestHandler:
             }
         wallet = self._wm.get_wallet(name)
         if wallet is None:
-            return {"status": "error", "message": t("goal.not_found", self._lang, name=name)}
+            return {
+                "status": "error",
+                "message": t("goal.not_found", self._lang, name=name),
+            }
         if not wallet.is_goal_wallet:
-            return {"status": "error", "message": t("goal.not_goal_wallet", self._lang, name=name)}
+            return {
+                "status": "error",
+                "message": t("goal.not_goal_wallet", self._lang, name=name),
+            }
         return {"status": "error", "message": t("goal.not_active", self._lang)}
 
     def _hide_goal(self, data: dict) -> dict:
@@ -1191,11 +1288,17 @@ class RequestHandler:
         goal_name = data.get("goal_name", "")
         amount = data.get("amount")
         if amount is None or amount <= 0:
-            return {"status": "error", "message": t("common.amount_positive", self._lang)}
+            return {
+                "status": "error",
+                "message": t("common.amount_positive", self._lang),
+            }
 
         goal_wallet = self._wm.get_wallet(goal_name)
         if goal_wallet is None or not goal_wallet.is_goal_wallet:
-            return {"status": "error", "message": t("goal.not_found", self._lang, name=goal_name)}
+            return {
+                "status": "error",
+                "message": t("goal.not_found", self._lang, name=goal_name),
+            }
 
         if self._wm.transfer(
             from_wallet_name=wallet.name,

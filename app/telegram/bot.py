@@ -7,22 +7,21 @@ from typing import Any, Awaitable, Callable
 from aiogram import BaseMiddleware, Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import TelegramObject
-
-from telegram.config import BOT_TOKEN
 from telegram.backend import _current_lang, _current_token, backend
+from telegram.config import BOT_TOKEN
 from telegram.handlers import (
     auth,
     dashboard,
+    filters,
     goals,
     help,
     language,
+    percentages,
+    recurring,
+    sorting,
     transactions,
     transfers,
     wallets,
-    recurring,
-    sorting,
-    filters,
-    percentages,
 )
 
 logging.basicConfig(level=logging.INFO)

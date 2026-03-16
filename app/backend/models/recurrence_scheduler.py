@@ -1,7 +1,7 @@
 """Recurrence scheduler that materializes recurring transactions."""
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Dict, List, Optional, Any
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from models.recurrence import RecurringTransaction
 
@@ -128,6 +128,7 @@ class RecurrenceScheduler:
                         amount=recurring.amount,
                         description=recurring.description,
                         datetime_created=occ_date,
+                        received_amount=recurring.received_amount,
                     )
                 else:
                     transaction = recurring.create_transaction(occ_date)

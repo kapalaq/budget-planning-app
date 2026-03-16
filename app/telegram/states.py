@@ -14,6 +14,7 @@ class AddTransaction(StatesGroup):
 class Transfer(StatesGroup):
     target_wallet = State()
     amount = State()
+    received_amount = State()
     description = State()
     date = State()
 
@@ -81,6 +82,7 @@ class SaveToGoal(StatesGroup):
 class RecurringTransfer(StatesGroup):
     target_wallet = State()
     amount = State()
+    received_amount = State()
     description = State()
     start_date = State()
     frequency = State()

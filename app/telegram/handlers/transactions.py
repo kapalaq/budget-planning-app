@@ -1,22 +1,21 @@
 """Transaction handlers: add, show, edit, delete."""
 
-from aiogram import Router, F, types
+from aiogram import F, Router, types
 from aiogram.fsm.context import FSMContext
-
 from languages import t
 from telegram.backend import backend, get_lang
 from telegram.keyboards import (
-    category_keyboard,
-    cancel_keyboard,
-    skip_keyboard,
     back_to_menu,
-    transaction_actions_keyboard,
-    edit_transaction_fields_keyboard,
+    cancel_keyboard,
+    category_keyboard,
     confirm_keyboard,
+    edit_transaction_fields_keyboard,
+    skip_keyboard,
+    transaction_actions_keyboard,
     transaction_list_keyboard,
 )
 from telegram.states import AddTransaction, EditTransaction
-from telegram.utils import fmt_transaction, _to_md2
+from telegram.utils import _to_md2, fmt_transaction
 
 router = Router()
 
@@ -304,7 +303,7 @@ async def cb_edit_tx_field(callback: types.CallbackQuery, state: FSMContext):
         if not edit_data:
             await callback.message.edit_text(
                 "\u2139\ufe0f " + t("transaction.tg_no_changes", get_lang()),
-                reply_markup=back_to_menu(),
+                reply_markup=back_to_menu(2),
             )
             await state.clear()
             return
@@ -312,14 +311,14 @@ async def cb_edit_tx_field(callback: types.CallbackQuery, state: FSMContext):
         resp = await backend.handle({"action": "edit_transaction", "data": edit_data})
         await state.clear()
         msg = resp.get("message", "Done")
-        await callback.message.edit_text(msg, reply_markup=back_to_menu())
+        await callback.message.edit_text(msg, reply_markup=back_to_menu(2))
         return
 
     if field == "amount":
         await state.set_state(EditTransaction.amount)
         await callback.message.edit_text(
             "\U0001f4b2 " + t("transaction.tg_enter_new_amount", get_lang()),
-            reply_markup=cancel_keyboard(),
+            reply_markup=cancel_keyboard(2),
         )
     elif field == "category":
         current = data["current"]
@@ -339,13 +338,13 @@ async def cb_edit_tx_field(callback: types.CallbackQuery, state: FSMContext):
         await state.set_state(EditTransaction.description)
         await callback.message.edit_text(
             "\U0001f4dd " + t("transaction.tg_enter_new_description", get_lang()),
-            reply_markup=skip_keyboard(),
+            reply_markup=skip_keyboard(2),
         )
     elif field == "date":
         await state.set_state(EditTransaction.date)
         await callback.message.edit_text(
             "\U0001f4c5 " + t("transaction.tg_enter_new_date", get_lang()),
-            reply_markup=cancel_keyboard(),
+            reply_markup=cancel_keyboard(2),
         )
 
 
@@ -384,7 +383,7 @@ async def edit_tx_category(callback: types.CallbackQuery, state: FSMContext):
         await state.set_state(EditTransaction.new_category)
         await callback.message.edit_text(
             "\u2795 " + t("transaction.tg_new_category", get_lang()),
-            reply_markup=cancel_keyboard(),
+            reply_markup=cancel_keyboard(2),
         )
         return
     data = await state.get_data()
@@ -504,7 +503,7 @@ async def cb_delete_tx(callback: types.CallbackQuery):
     await callback.message.edit_text(
         f"{text}\n{warning}{suffix}",
         parse_mode="MarkdownV2",
-        reply_markup=confirm_keyboard("deltx", str(index)),
+        reply_markup=confirm_keyboard("deltx", str(index), 2),
     )
 
 
@@ -516,4 +515,4 @@ async def cb_confirm_delete_tx(callback: types.CallbackQuery):
         {"action": "delete_transaction", "data": {"index": index}}
     )
     msg = resp.get("message", "Done")
-    await callback.message.edit_text(msg, reply_markup=back_to_menu())
+    await callback.message.edit_text(msg, reply_markup=back_to_menu(2))

@@ -1,8 +1,7 @@
 """Percentages handler."""
 
-from aiogram import Router, F, types
+from aiogram import F, Router, types
 from aiogram.filters import Command
-
 from telegram.backend import backend, get_lang
 from telegram.keyboards import back_to_menu
 from telegram.utils import fmt_percentages

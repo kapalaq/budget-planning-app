@@ -1,13 +1,12 @@
 """Dashboard and start handlers."""
 
-from aiogram import Router, F, types
+from aiogram import F, Router, types
 from aiogram.filters import Command, CommandObject
 from aiogram.fsm.context import FSMContext
-
 from languages import t
 from telegram.backend import _current_token, backend, get_lang
-from telegram.keyboards import main_menu, back_to_menu
-from telegram.utils import fmt_dashboard, _to_md2
+from telegram.keyboards import back_to_menu, main_menu
+from telegram.utils import _to_md2, fmt_dashboard, fmt_portfolio
 
 router = Router()
 
@@ -109,3 +108,23 @@ async def _show_dashboard_new(message: types.Message):
         text = f"{prefix}\n\n{text}"
 
     await message.answer(text, reply_markup=main_menu(), parse_mode="MarkdownV2")
+
+
+@router.callback_query(F.data == "portfolio")
+async def cb_portfolio(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer()
+    resp = await backend.handle({"action": "get_portfolio", "data": {}})
+    if resp["status"] == "error":
+        await callback.message.edit_text(
+            resp.get("message", "Error"), reply_markup=back_to_menu(3)
+        )
+        return
+    text = fmt_portfolio(resp["data"], lang=get_lang())
+    try:
+        await callback.message.edit_text(
+            text, reply_markup=back_to_menu(3), parse_mode="MarkdownV2"
+        )
+    except Exception:
+        await callback.message.answer(
+            text, reply_markup=back_to_menu(3), parse_mode="MarkdownV2"
+        )

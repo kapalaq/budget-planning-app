@@ -4,7 +4,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Optional, Dict, Any
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 if TYPE_CHECKING:
     from wallet.wallet import Wallet
@@ -131,11 +131,16 @@ class Transfer(Transaction):
         return True
 
     def synchronise(self) -> None:
-        """Synchronize this transfer with its connected counterpart."""
+        """Synchronize this transfer with its connected counterpart.
+
+        For cross-currency transfers (where both sides have independent amounts),
+        only description, date and transaction_type are synced — not amount.
+        """
         if self.connected is not None and not self._syncing:
             self._syncing = True
             try:
-                self.connected.amount = self.amount
+                if not self.cross_currency:
+                    self.connected.amount = self.amount
                 # Flip the transaction type for the connected side
                 self.connected.transaction_type = (
                     TransactionType.INCOME
@@ -146,6 +151,13 @@ class Transfer(Transaction):
                 self.connected.datetime_created = self.datetime_created
             finally:
                 self._syncing = False
+
+    @property
+    def cross_currency(self) -> bool:
+        """True when the two sides of this transfer use different currencies."""
+        if self.source and self.connected and self.connected.source:
+            return self.source.currency != self.connected.source.currency
+        return False
 
     def update(self, transaction: "Transaction") -> bool:
         """Updates attributes of this transaction and syncs with connected."""
@@ -187,10 +199,25 @@ class Transfer(Transaction):
             )
             to_wallet = self.source.name if self.source else "Unknown"
 
+        currency = self.source.currency if self.source else ""
+        amount_line = f"Amount: {sign}{abs(self.amount):.2f} {currency}".strip()
+
+        # Show counterpart amount for cross-currency transfers
+        if self.cross_currency and self.connected:
+            other_cur = self.connected.source.currency if self.connected.source else ""
+            other_sign = (
+                "+"
+                if self.connected.transaction_type == TransactionType.INCOME
+                else "-"
+            )
+            amount_line += (
+                f" ({other_sign}{abs(self.connected.amount):.2f} {other_cur})".strip()
+            )
+
         return (
             f"ID: {self.id}\n"
             f"Type: Transfer ({'Outgoing' if self.transaction_type == TransactionType.EXPENSE else 'Incoming'})\n"
-            f"Amount: {sign}{abs(self.amount):.2f}\n"
+            f"{amount_line}\n"
             f"From: {from_wallet}\n"
             f"To: {to_wallet}\n"
             f"Description: {self.description or 'N/A'}\n"
@@ -206,14 +233,26 @@ class Transfer(Transaction):
                 if self.connected and self.connected.source
                 else "?"
             )
-            return f"Transfer to {target} - {sign}{abs(self.amount):.2f}"
+            s = f"Transfer to {target} - {sign}{abs(self.amount):.2f}"
+            if self.cross_currency and self.connected:
+                other_cur = (
+                    self.connected.source.currency if self.connected.source else ""
+                )
+                s += f" ({abs(self.connected.amount):.2f} {other_cur})"
+            return s
         else:
             source = (
                 self.connected.source.name
                 if self.connected and self.connected.source
                 else "?"
             )
-            return f"Transfer from {source} - {sign}{abs(self.amount):.2f}"
+            s = f"Transfer from {source} - {sign}{abs(self.amount):.2f}"
+            if self.cross_currency and self.connected:
+                other_cur = (
+                    self.connected.source.currency if self.connected.source else ""
+                )
+                s += f" (sent {abs(self.connected.amount):.2f} {other_cur})"
+            return s
 
     def to_json(self) -> Dict[str, Any]:
         """Turns Transfer data into dict for persistence, storing connected ID only."""

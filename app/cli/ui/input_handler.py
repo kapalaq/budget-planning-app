@@ -1,7 +1,28 @@
 """Input handling utilities for the budget planner (frontend side)."""
 
+import logging
+import os
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
+
+import requests
+
+logger = logging.getLogger(__name__)
+
+_EXCHANGE_API = os.getenv("CURRENCY_API_URL")
+
+
+def _get_exchange_rate(from_currency: str, to_currency: str) -> Optional[float]:
+    """Fetch exchange rate. Returns rate or None on failure."""
+    try:
+        resp = requests.get(_EXCHANGE_API.format(base=from_currency.upper()), timeout=5)
+        if resp.status_code == 200:
+            data = resp.json()
+            if data.get("result") == "success":
+                return data["rates"].get(to_currency.upper())
+    except Exception as e:
+        logger.warning("Currency API error: %s", e)
+    return None
 
 
 class InputHandler:
@@ -476,15 +497,45 @@ class InputHandler:
         if amount is None:
             return None
 
+        # Cross-currency: ask for received amount in target currency
+        received_amount = None
+        if from_wallet["currency"] != target["currency"]:
+            from_cur = from_wallet["currency"]
+            target_cur = target["currency"]
+            print(f"\nDifferent currencies: {from_cur} -> {target_cur}")
+            rate = _get_exchange_rate(from_cur, target_cur)
+            hint = ""
+            if rate is not None:
+                hint = f" (Enter to use rate: {amount * rate:,.2f} {target_cur})"
+            recv_str = input(f"Enter received amount in {target_cur}{hint}: ").strip()
+            if recv_str == "" and rate is not None:
+                received_amount = amount * rate
+                print(f"  Using exchange rate: {received_amount:,.2f} {target_cur}")
+            elif recv_str == "":
+                print("\n[!]Exchange rate unavailable, please enter amount manually")
+                return None
+            else:
+                try:
+                    received_amount = float(recv_str)
+                    if received_amount <= 0:
+                        print("\n[!]Amount must be positive")
+                        return None
+                except ValueError:
+                    print("\n[!]Invalid amount")
+                    return None
+
         description = InputHandler.get_description()
         date = InputHandler.get_datetime()
 
-        return {
+        result = {
             "target_wallet_name": target["name"],
             "amount": amount,
             "description": description,
             "date": date,
         }
+        if received_amount is not None:
+            result["received_amount"] = received_amount
+        return result
 
     # ============= Goal Input Methods =============
 

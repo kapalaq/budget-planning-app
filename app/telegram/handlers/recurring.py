@@ -1,21 +1,20 @@
 """Recurring transaction handlers."""
 
-from aiogram import Router, F, types
+from aiogram import F, Router, types
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
-
 from languages import t
 from telegram.backend import backend, get_lang
 from telegram.keyboards import (
     back_to_menu,
     cancel_keyboard,
-    skip_keyboard,
     category_keyboard,
-    frequency_keyboard,
-    end_condition_keyboard,
-    recurring_actions_keyboard,
     delete_recurring_keyboard,
     edit_recurring_keyboard,
+    end_condition_keyboard,
+    frequency_keyboard,
+    recurring_actions_keyboard,
+    skip_keyboard,
 )
 from telegram.states import AddRecurring, DeleteRecurring
 from telegram.utils import fmt_recurring_list
@@ -388,14 +387,14 @@ async def cb_edit_rec_action(callback: types.CallbackQuery, state: FSMContext):
             }
         )
         msg = resp.get("message", "Done")
-        await callback.message.answer(msg, reply_markup=back_to_menu())
+        await callback.message.answer(msg, reply_markup=back_to_menu(2))
     elif action == "skip":
         await state.clear()
         await state.update_data(rec_index=index)
         await state.set_state(DeleteRecurring.delete_option)
         await callback.message.answer(
             "\U0001f4c5 " + t("recurring.tg_enter_skip_date", get_lang()),
-            reply_markup=cancel_keyboard(),
+            reply_markup=cancel_keyboard(2),
         )
     elif action == "template":
         # Simplified: send edit data for amount change
@@ -406,7 +405,7 @@ async def cb_edit_rec_action(callback: types.CallbackQuery, state: FSMContext):
             {"action": "get_recurring_detail", "data": {"index": index}}
         )
         if resp["status"] == "error":
-            await callback.message.answer(resp["message"], reply_markup=back_to_menu())
+            await callback.message.answer(resp["message"], reply_markup=back_to_menu(2))
             return
 
         await callback.message.answer(
@@ -441,7 +440,7 @@ async def skip_date_entry(message: types.Message, state: FSMContext):
         )
         await state.clear()
         msg = resp.get("message", "Done")
-        await message.answer(msg, reply_markup=back_to_menu())
+        await message.answer(msg, reply_markup=back_to_menu(2))
 
 
 # ── Delete recurring ─────────────────────────────────────────────────
@@ -470,4 +469,4 @@ async def cb_delete_rec_opt(callback: types.CallbackQuery):
         }
     )
     msg = resp.get("message", "Done")
-    await callback.message.edit_text(msg, reply_markup=back_to_menu())
+    await callback.message.edit_text(msg, reply_markup=back_to_menu(2))

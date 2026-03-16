@@ -1,6 +1,6 @@
 """Category management for transactions."""
 
-from typing import Set, Dict, Any
+from typing import Any, Dict, Set
 
 from models.transaction import TransactionType
 
