@@ -20,8 +20,8 @@
 **/*.log
 
 # Database files
-**/*.json
 **/*.csv
 
 # Agent
 CLAUDE.md
+.claude
