@@ -2,12 +2,10 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY app/backend/ ./backend/
+RUN pip install --no-cache-dir -r backend/requirements.txt
 
-COPY . ./backend/
-
-COPY ./languages/ ./languages/
+COPY app/languages/ ./languages/
 
 WORKDIR /app/backend
 
