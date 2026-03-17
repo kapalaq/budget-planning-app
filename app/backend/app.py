@@ -1,5 +1,6 @@
 """FastAPI backend for the budget planner."""
 
+import asyncio
 import logging
 import os
 import sys
@@ -30,9 +31,12 @@ logger = logging.getLogger(__name__)
 # Per-user state
 _user_managers: dict[int, WalletManager] = {}
 _user_handlers: dict[int, RequestHandler] = {}
+_dirty_users: set[int] = set()
 _storage: MongoStorage | None = None
 _user_store: UserStore | None = None
 _session_manager: SessionManager | None = None
+
+AUTOSAVE_INTERVAL = 60  # seconds (5 minutes)
 
 
 def _get_manager(user_id: int) -> tuple[WalletManager, RequestHandler]:
@@ -45,6 +49,29 @@ def _get_manager(user_id: int) -> tuple[WalletManager, RequestHandler]:
         _user_managers[user_id] = wm
         _user_handlers[user_id] = RequestHandler(wm)
     return _user_managers[user_id], _user_handlers[user_id]
+
+
+def _save_dirty_users():
+    """Save all users marked as dirty and clear the dirty set."""
+    if not _dirty_users:
+        return
+    for user_id in list(_dirty_users):
+        if user_id in _user_managers:
+            _storage.save(
+                user_id, {"wallet_manager": _user_managers[user_id].to_json()}
+            )
+    logger.info("Auto-saved %d user(s).", len(_dirty_users))
+    _dirty_users.clear()
+
+
+async def _autosave_loop():
+    """Background task: save dirty users every AUTOSAVE_INTERVAL seconds."""
+    while True:
+        await asyncio.sleep(AUTOSAVE_INTERVAL)
+        try:
+            _save_dirty_users()
+        except Exception:
+            logger.exception("Auto-save failed")
 
 
 # Entry point
@@ -67,11 +94,14 @@ async def lifespan(app: FastAPI):
     _session_manager = SessionManager(mongo_db)
     _storage = MongoStorage(mongo_db)
 
+    autosave_task = asyncio.create_task(_autosave_loop())
+
     yield
 
+    autosave_task.cancel()
     logger.info("Shutting down... Saving all user data.")
-    for user_id, wm in _user_managers.items():
-        _storage.save(user_id, {"wallet_manager": wm.to_json()})
+    _dirty_users.update(_user_managers.keys())
+    _save_dirty_users()
 
 
 app = FastAPI(title="Budget Planner API", lifespan=lifespan)
@@ -89,11 +119,37 @@ def get_current_user(authorization: str = Header()) -> int:
     return user_id
 
 
+# Actions that only read data and don't need saving
+_READ_ONLY_ACTIONS = frozenset(
+    {
+        "get_dashboard",
+        "get_help",
+        "get_categories",
+        "get_transaction",
+        "get_transfer_context",
+        "get_sorting_options",
+        "get_wallet_sorting_options",
+        "get_active_filters",
+        "get_percentages",
+        "get_wallets",
+        "get_wallet_detail",
+        "get_recurring_list",
+        "get_recurring_detail",
+        "get_goals",
+        "get_all_goals",
+        "get_goal_detail",
+    }
+)
+
+
 def _handle(user_id: int, action: str, data: dict | None = None) -> dict:
     """Route an action to the correct per-user handler."""
     _, handler = _get_manager(user_id)
     lang = _user_store.get_language(user_id)
-    return handler.handle({"action": action, "data": data or {}}, lang=lang)
+    result = handler.handle({"action": action, "data": data or {}}, lang=lang)
+    if action not in _READ_ONLY_ACTIONS:
+        _dirty_users.add(user_id)
+    return result
 
 
 # Auth endpoints

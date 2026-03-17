@@ -182,7 +182,12 @@ def transaction_list_keyboard(
     if nav:
         rows.append(nav)
     rows.append(
-        [InlineKeyboardButton(text=f"\u2b05\ufe0f {t('common.menu', lang)}", callback_data="menu_page:2")]
+        [
+            InlineKeyboardButton(
+                text=f"\u2b05\ufe0f {t('common.menu', lang)}",
+                callback_data="menu_page:2",
+            )
+        ]
     )
     return rows_to_markup(rows)
 
@@ -193,7 +198,8 @@ def back_to_menu(page: int = 1) -> InlineKeyboardMarkup:
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text=f"\u2b05\ufe0f {t('common.menu', lang)}", callback_data=f"menu_page:{page}"
+                    text=f"\u2b05\ufe0f {t('common.menu', lang)}",
+                    callback_data=f"menu_page:{page}",
                 )
             ]
         ]
@@ -206,7 +212,8 @@ def cancel_keyboard(page: int = 1) -> InlineKeyboardMarkup:
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text=f"\u274c {t('common.cancel', lang)}", callback_data=f"menu_page:{page}"
+                    text=f"\u274c {t('common.cancel', lang)}",
+                    callback_data=f"menu_page:{page}",
                 )
             ]
         ]
@@ -219,10 +226,12 @@ def skip_keyboard(page: int = 1) -> InlineKeyboardMarkup:
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text=f"\u23ed\ufe0f {t('common.skip', lang)}", callback_data="skip_default"
+                    text=f"\u23ed\ufe0f {t('common.skip', lang)}",
+                    callback_data="skip_default",
                 ),
                 InlineKeyboardButton(
-                    text=f"\u274c {t('common.cancel', lang)}", callback_data=f"menu_page:{page}"
+                    text=f"\u274c {t('common.cancel', lang)}",
+                    callback_data=f"menu_page:{page}",
                 ),
             ]
         ]
@@ -237,10 +246,12 @@ def confirm_keyboard(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text=f"\u2705 {t('common.yes', lang)}", callback_data=f"confirm_{action}:{payload}"
+                    text=f"\u2705 {t('common.yes', lang)}",
+                    callback_data=f"confirm_{action}:{payload}",
                 ),
                 InlineKeyboardButton(
-                    text=f"\u274c {t('common.no', lang)}", callback_data=f"menu_page:{page}"
+                    text=f"\u274c {t('common.no', lang)}",
+                    callback_data=f"menu_page:{page}",
                 ),
             ]
         ]
@@ -268,7 +279,12 @@ def category_keyboard(
             ]
         )
     rows.append(
-        [InlineKeyboardButton(text=f"\u274c {t('common.cancel', lang)}", callback_data=f"menu_page:{page}")]
+        [
+            InlineKeyboardButton(
+                text=f"\u274c {t('common.cancel', lang)}",
+                callback_data=f"menu_page:{page}",
+            )
+        ]
     )
     return rows_to_markup(rows)
 
@@ -308,7 +324,12 @@ def wallet_list_keyboard(
             [InlineKeyboardButton(text=label, callback_data=f"{action_prefix}:{name}")]
         )
     rows.append(
-        [InlineKeyboardButton(text=f"\u2b05\ufe0f {t('common.menu', lang)}", callback_data="menu_page:3")]
+        [
+            InlineKeyboardButton(
+                text=f"\u2b05\ufe0f {t('common.menu', lang)}",
+                callback_data="menu_page:3",
+            )
+        ]
     )
     return rows_to_markup(rows)
 
@@ -320,7 +341,12 @@ def sorting_keyboard(options: dict[str, str]) -> InlineKeyboardMarkup:
         for key, name in options.items()
     ]
     rows.append(
-        [InlineKeyboardButton(text=f"\u2b05\ufe0f {t('common.menu', lang)}", callback_data="menu_page:2")]
+        [
+            InlineKeyboardButton(
+                text=f"\u2b05\ufe0f {t('common.menu', lang)}",
+                callback_data="menu_page:2",
+            )
+        ]
     )
     return rows_to_markup(rows)
 
@@ -918,7 +944,12 @@ def language_keyboard(current: str = "en-US") -> InlineKeyboardMarkup:
             ]
         )
     rows.append(
-        [InlineKeyboardButton(text=f"\u2b05\ufe0f {t('common.menu', lang)}", callback_data="menu_page:1")]
+        [
+            InlineKeyboardButton(
+                text=f"\u2b05\ufe0f {t('common.menu', lang)}",
+                callback_data="menu_page:1",
+            )
+        ]
     )
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
