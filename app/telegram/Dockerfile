@@ -2,14 +2,11 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy telegram module
-COPY . ./telegram/
+COPY app/telegram/ ./telegram/
+RUN pip install --no-cache-dir -r telegram/requirements.txt
 
 # Shared dependencies: languages and currency service
-COPY ../languages/ ./languages/
+COPY app/languages/ ./languages/
 
 ENV PYTHONPATH=/app
 
