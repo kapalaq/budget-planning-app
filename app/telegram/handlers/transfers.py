@@ -3,7 +3,6 @@
 from aiogram import F, Router, types
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
-from backend.services.currency import currency_service
 from languages import t
 from telegram.backend import backend, get_lang
 from telegram.keyboards import (
@@ -128,7 +127,7 @@ async def transfer_amount(message: types.Message, state: FSMContext):
     if from_cur and target_cur and from_cur != target_cur:
         await state.set_state(Transfer.received_amount)
         hint = ""
-        converted = await currency_service.convert(amount, from_cur, target_cur)
+        converted = await backend.convert_currency(amount, from_cur, target_cur)
         if converted is not None:
             hint = f"\n\u2139\ufe0f Skip \u2248 {converted:,.2f} {target_cur}"
         await message.answer(
@@ -152,7 +151,7 @@ async def transfer_skip_received(callback: types.CallbackQuery, state: FSMContex
     amount = data["amount"]
     from_cur = data.get("from_currency", "")
     target_cur = data.get("target_currency", "")
-    converted = await currency_service.convert(amount, from_cur, target_cur)
+    converted = await backend.convert_currency(amount, from_cur, target_cur)
     if converted is None:
         await callback.message.edit_text(
             "\u26a0\ufe0f "
@@ -321,7 +320,7 @@ async def rec_transfer_amount(message: types.Message, state: FSMContext):
     if from_cur and target_cur and from_cur != target_cur:
         await state.set_state(RecurringTransfer.received_amount)
         hint = ""
-        converted = await currency_service.convert(amount, from_cur, target_cur)
+        converted = await backend.convert_currency(amount, from_cur, target_cur)
         if converted is not None:
             hint = f"\n\u2139\ufe0f Skip \u2248 {converted:,.2f} {target_cur}"
         await message.answer(
@@ -345,7 +344,7 @@ async def rec_transfer_skip_received(callback: types.CallbackQuery, state: FSMCo
     amount = data["amount"]
     from_cur = data.get("from_currency", "")
     target_cur = data.get("target_currency", "")
-    converted = await currency_service.convert(amount, from_cur, target_cur)
+    converted = await backend.convert_currency(amount, from_cur, target_cur)
     if converted is None:
         await callback.message.edit_text(
             "\u26a0\ufe0f "

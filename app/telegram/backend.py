@@ -306,7 +306,35 @@ class Backend:
         if action == "set_language":
             return await self._post("/settings/language", body=data)
 
+        if action == "convert_currency":
+            return await self._get(
+                "/currency/convert",
+                params={
+                    "amount": data["amount"],
+                    "from_currency": data["from_currency"],
+                    "to_currency": data["to_currency"],
+                },
+            )
+
         return {"status": "error", "message": f"Unknown action: {action}"}
+
+    async def convert_currency(
+        self, amount: float, from_currency: str, to_currency: str
+    ) -> float | None:
+        """Convert amount between currencies via the backend API."""
+        resp = await self.handle(
+            {
+                "action": "convert_currency",
+                "data": {
+                    "amount": amount,
+                    "from_currency": from_currency,
+                    "to_currency": to_currency,
+                },
+            }
+        )
+        if resp.get("status") == "success":
+            return resp["data"].get("converted")
+        return None
 
 
 backend = Backend()

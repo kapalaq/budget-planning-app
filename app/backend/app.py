@@ -241,6 +241,18 @@ async def get_portfolio(user_id: int = Depends(get_current_user)):
     }
 
 
+@app.get("/currency/convert")
+async def convert_currency(amount: float, from_currency: str, to_currency: str):
+    """Convert amount between currencies using live exchange rates."""
+    from services.currency import currency_service
+
+    converted = await currency_service.convert(amount, from_currency, to_currency)
+    return {
+        "status": "success",
+        "data": {"converted": converted},
+    }
+
+
 @app.get("/help")
 def get_help(user_id: int = Depends(get_current_user)):
     return _handle(user_id, "get_help")

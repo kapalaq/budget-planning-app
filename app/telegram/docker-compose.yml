@@ -1,8 +1,8 @@
 services:
   telegram:
     build:
-      context: ..
-      dockerfile: telegram/Dockerfile
+      context: ../..
+      dockerfile: app/telegram/Dockerfile
     env_file: ../../.env
     environment:
       BACKEND_URL: ${BACKEND_URL:-http://host.docker.internal:8000}
