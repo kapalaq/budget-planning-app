@@ -120,7 +120,16 @@ class Backend:
             return await self._dispatch(action, data)
         except aiohttp.ClientResponseError as exc:
             if exc.status == 401:
-                self._clear_current_token()
+                tg_user_id = self._clear_current_token()
+                # Re-authenticate and retry once
+                if tg_user_id is not None:
+                    token = await self.ensure_auth(tg_user_id)
+                    if token:
+                        _current_token.set(token)
+                        try:
+                            return await self._dispatch(action, data)
+                        except Exception:
+                            pass
                 return {
                     "status": "error",
                     "message": "Session expired. Please reconnect from the CLI app.",
@@ -139,15 +148,18 @@ class Backend:
             logger.exception("Backend error for action=%s", action)
             return {"status": "error", "message": str(exc)}
 
-    def _clear_current_token(self):
-        """Remove the cached token for the user whose request just failed."""
+    def _clear_current_token(self) -> int | None:
+        """Remove the cached token for the user whose request just failed.
+
+        Returns the telegram_user_id that owned the token, or None.
+        """
         token = _current_token.get()
         if token:
-            # Find and remove the token from the cache
             for tg_id, cached in list(self._tokens.items()):
                 if cached == token:
                     del self._tokens[tg_id]
-                    break
+                    return tg_id
+        return None
 
     async def _get(self, path: str, params: dict | None = None) -> dict:
         session = await self._get_session()
