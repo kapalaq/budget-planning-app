@@ -11,6 +11,7 @@ from telegram.backend import _current_lang, _current_token, backend
 from telegram.config import BOT_TOKEN
 from telegram.handlers import (
     auth,
+    bills,
     dashboard,
     filters,
     goals,
@@ -62,6 +63,7 @@ def create_dispatcher() -> Dispatcher:
     dp.include_router(transfers.router)
     dp.include_router(wallets.router)
     dp.include_router(goals.router)
+    dp.include_router(bills.router)
     dp.include_router(recurring.router)
     dp.include_router(sorting.router)
     dp.include_router(filters.router)

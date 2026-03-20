@@ -399,6 +399,65 @@ def fmt_goal_detail(data: dict, lang: str = "en-US") -> str:
     return _to_md2("\n".join(lines))
 
 
+def fmt_bills(
+    bills: list[dict], filter_label: str = "Active", lang: str = "en-US"
+) -> str:
+    if not bills:
+        return _to_md2(
+            f"\U0001f4cb {t('bill.no_bills', lang, filter=filter_label.lower())}"
+        )
+    bills_label = t("btn.bills", lang)
+    lines = [f"\U0001f4cb {_bold(f'{filter_label} {bills_label}:')}", ""]
+    for i, b in enumerate(bills, 1):
+        bill = b.get("bill", {})
+        target = bill.get("target", 0)
+        saved = bill.get("saved", 0)
+        progress = bill.get("progress", 0)
+        status = bill.get("status", "active")
+        bar_len = 10
+        filled = int(bar_len * min(progress, 100) / 100)
+        bar = "\u2588" * filled + "\u2591" * (bar_len - filled)
+        status_marker = ""
+        if status == "completed":
+            status_marker = " \u2705"
+        elif status == "hidden":
+            status_marker = " \U0001f6ab"
+        lines.append(f"  {_code(f'{i}.')} {b['name']}{status_marker}")
+        lines.append(f"     {_fmtn(saved)} / {_fmtn(target)} {b['currency']}")
+        lines.append(f"     {bar} {progress:.0f}%")
+    return _to_md2("\n".join(lines))
+
+
+def fmt_bill_detail(data: dict, lang: str = "en-US") -> str:
+    bill = data.get("bill", {})
+    target = bill.get("target", 0)
+    saved = bill.get("saved", 0)
+    progress = bill.get("progress", 0)
+    remaining = bill.get("remaining", 0)
+    bar_len = 15
+    filled = int(bar_len * min(progress, 100) / 100)
+    bar = "\u2588" * filled + "\u2591" * (bar_len - filled)
+    lines = [
+        _bold(f"\U0001f4cb {data['name']}"),
+        f"\U0001f4cb {t('bill.field_status', lang)}: {bill.get('status', 'active').upper()}",
+        f"\U0001f3af {t('bill.field_target', lang)}: {_fmtn(target)} {data['currency']}",
+        f"\U0001f4b0 {t('bill.field_paid', lang)}: {_fmtn(saved)} {data['currency']}",
+        f"\U0001f4c9 {t('bill.field_remaining', lang)}: {_fmtn(remaining)} {data['currency']}",
+        f"\U0001f4ca {t('bill.field_progress', lang)}: {bar} {progress:.0f}%",
+    ]
+    if bill.get("goal_description"):
+        lines.append(f"\U0001f4dd {bill['goal_description']}")
+    if bill.get("created_at"):
+        lines.append(
+            f"\U0001f4c5 {t('bill.field_created', lang)}: {bill['created_at']}"
+        )
+    if bill.get("completed_at"):
+        lines.append(
+            f"\u2705 {t('bill.field_completed', lang)}: {bill['completed_at']}"
+        )
+    return _to_md2("\n".join(lines))
+
+
 def fmt_filters(filters: list[dict], lang: str = "en-US") -> str:
     if not filters:
         return _to_md2(f"\U0001f50d {t('filter.tg_no_active', lang)}")

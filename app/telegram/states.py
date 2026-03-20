@@ -101,3 +101,14 @@ class RecurringGoalSave(StatesGroup):
     end_condition = State()
     end_date = State()
     end_count = State()
+
+
+class AddBill(StatesGroup):
+    name = State()
+    target = State()
+    currency = State()
+    description = State()
+
+
+class PayBill(StatesGroup):
+    amount = State()

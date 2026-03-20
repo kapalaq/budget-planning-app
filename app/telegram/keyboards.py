@@ -135,6 +135,12 @@ def main_menu(page: int = 1) -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(
+                    text=f"\U0001f4cb {t('btn.bills', lang)}",
+                    callback_data="bills_menu",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
                     text=t("common.prev", lang), callback_data="menu_page:2"
                 ),
             ],
@@ -920,6 +926,119 @@ def goal_actions_keyboard(name: str, status: str = "active") -> InlineKeyboardMa
             InlineKeyboardButton(
                 text=f"\u2b05\ufe0f {t('btn.goals', lang)}",
                 callback_data="goals:active",
+            )
+        ]
+    )
+    return rows_to_markup(rows)
+
+
+def bill_menu_keyboard() -> InlineKeyboardMarkup:
+    lang = get_lang()
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=f"\U0001f4cb {t('bill.tg_active', lang)}",
+                    callback_data="bills:active",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=f"\u2705 {t('bill.tg_completed', lang)}",
+                    callback_data="bills:completed",
+                ),
+                InlineKeyboardButton(
+                    text=f"\U0001f4cb {t('bill.tg_all', lang)}",
+                    callback_data="bills:all",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=f"\u2795 {t('bill.tg_add', lang)}",
+                    callback_data="add_bill_start",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=f"\u2b05\ufe0f {t('common.menu', lang)}",
+                    callback_data="menu_page:3",
+                )
+            ],
+        ]
+    )
+
+
+def bill_list_keyboard(
+    bills: list[dict], action_prefix: str = "bdet"
+) -> InlineKeyboardMarkup:
+    lang = get_lang()
+    rows = []
+    for b in bills:
+        bill = b.get("bill", {})
+        progress = bill.get("progress", 0)
+        name = b["name"]
+        label = f"{name} ({progress:.0f}%)"
+        rows.append(
+            [InlineKeyboardButton(text=label, callback_data=f"{action_prefix}:{name}")]
+        )
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=f"\u2795 {t('bill.tg_add', lang)}", callback_data="add_bill_start"
+            ),
+            InlineKeyboardButton(text="\u2b05\ufe0f Menu", callback_data="bills_menu"),
+        ]
+    )
+    return rows_to_markup(rows)
+
+
+def bill_actions_keyboard(name: str, status: str = "active") -> InlineKeyboardMarkup:
+    lang = get_lang()
+    rows = []
+    if status == "active":
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=f"\U0001f4b0 {t('bill.tg_pay_money', lang)}",
+                    callback_data=f"bpay:{name}",
+                ),
+            ]
+        )
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=f"\u2705 {t('bill.tg_complete', lang)}",
+                    callback_data=f"bcomplete:{name}",
+                )
+            ]
+        )
+    elif status == "completed":
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=f"\U0001f6ab {t('bill.tg_hide', lang)}",
+                    callback_data=f"bhide:{name}",
+                ),
+                InlineKeyboardButton(
+                    text=f"\U0001f504 {t('bill.tg_reactivate', lang)}",
+                    callback_data=f"breactivate:{name}",
+                ),
+            ]
+        )
+    elif status == "hidden":
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=f"\U0001f504 {t('bill.tg_reactivate', lang)}",
+                    callback_data=f"breactivate:{name}",
+                )
+            ]
+        )
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=f"\u2b05\ufe0f {t('btn.bills', lang)}",
+                callback_data="bills:active",
             )
         ]
     )

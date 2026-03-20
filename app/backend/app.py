@@ -138,6 +138,9 @@ _READ_ONLY_ACTIONS = frozenset(
         "get_goals",
         "get_all_goals",
         "get_goal_detail",
+        "get_bills",
+        "get_all_bills",
+        "get_bill_detail",
     }
 )
 
@@ -478,6 +481,47 @@ def reactivate_goal(name: str, user_id: int = Depends(get_current_user)):
 @app.post("/goals/save")
 def save_to_goal(body: Dict[str, Any], user_id: int = Depends(get_current_user)):
     return _handle(user_id, "save_to_goal", body)
+
+
+#  Bills
+@app.get("/bills")
+def get_bills(filter: str = "active", user_id: int = Depends(get_current_user)):
+    return _handle(user_id, "get_bills", {"filter": filter})
+
+
+@app.post("/bills")
+def add_bill(body: Dict[str, Any], user_id: int = Depends(get_current_user)):
+    return _handle(user_id, "add_bill", body)
+
+
+@app.get("/bills/all")
+def get_all_bills(user_id: int = Depends(get_current_user)):
+    return _handle(user_id, "get_all_bills")
+
+
+@app.get("/bills/{name}")
+def get_bill_detail(name: str, user_id: int = Depends(get_current_user)):
+    return _handle(user_id, "get_bill_detail", {"name": name})
+
+
+@app.post("/bills/{name}/complete")
+def complete_bill(name: str, user_id: int = Depends(get_current_user)):
+    return _handle(user_id, "complete_bill", {"name": name})
+
+
+@app.post("/bills/{name}/hide")
+def hide_bill(name: str, user_id: int = Depends(get_current_user)):
+    return _handle(user_id, "hide_bill", {"name": name})
+
+
+@app.post("/bills/{name}/reactivate")
+def reactivate_bill(name: str, user_id: int = Depends(get_current_user)):
+    return _handle(user_id, "reactivate_bill", {"name": name})
+
+
+@app.post("/bills/save")
+def save_to_bill(body: Dict[str, Any], user_id: int = Depends(get_current_user)):
+    return _handle(user_id, "save_to_bill", body)
 
 
 #  Recurring transfers

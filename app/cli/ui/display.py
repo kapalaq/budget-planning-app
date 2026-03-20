@@ -97,6 +97,14 @@ class Display:
             self._handle_goals("completed")
         elif cmd_lower == "goals_all":
             self._handle_goals("all")
+        elif cmd_lower == "bills":
+            self._handle_bills()
+        elif cmd_lower == "add_bill":
+            self._handle_add_bill()
+        elif cmd_lower == "bills_completed":
+            self._handle_bills("completed")
+        elif cmd_lower == "bills_all":
+            self._handle_bills("all")
         else:
             # Indexed commands  (show 1, edit 2, delete 3, show_rec 1, …)
             action, index = InputHandler.parse_indexed_command(cmd_lower)
@@ -151,6 +159,18 @@ class Display:
                 return
             elif act == "hide_goal":
                 self._handle_hide_goal(name)
+                return
+            elif act == "bill":
+                self._handle_bill_detail(name)
+                return
+            elif act == "pay":
+                self._handle_pay_bill(name)
+                return
+            elif act == "complete_bill":
+                self._handle_complete_bill(name)
+                return
+            elif act == "hide_bill":
+                self._handle_hide_bill(name)
                 return
 
         self._show_error(
@@ -229,6 +249,16 @@ class Display:
                 "hide_goal <name>",
                 "goals_completed",
                 "goals_all",
+            ],
+            "Bills": [
+                "bills",
+                "add_bill",
+                "pay <name>",
+                "bill <name>",
+                "complete_bill <name>",
+                "hide_bill <name>",
+                "bills_completed",
+                "bills_all",
             ],
             "Recurring": [
                 "+r",
@@ -709,6 +739,146 @@ class Display:
             print(f"   Created:     {goal['created_at']}")
         if goal.get("completed_at"):
             print(f"   Completed:   {goal['completed_at']}")
+
+    # ================================================================== #
+    #  Bill handlers                                                       #
+    # ================================================================== #
+
+    def _handle_bills(self, filter_type: str = "active"):
+        resp = self._handler.handle(
+            {"action": "get_bills", "data": {"filter": filter_type}}
+        )
+        if resp["status"] == "error":
+            self._show_error(resp["message"])
+            return
+        bills = resp["data"]["bills"]
+        label = filter_type.capitalize()
+        self._show_header(f"Bills ({label})")
+        if not bills:
+            print(f"   No {filter_type} bills")
+            return
+        for i, b in enumerate(bills, 1):
+            bill = b.get("bill", {})
+            target = bill.get("target", 0)
+            saved = bill.get("saved", 0)
+            progress = bill.get("progress", 0)
+            status = bill.get("status", "active")
+            bar_len = 20
+            filled = int(bar_len * min(progress, 100) / 100)
+            bar = "\u2588" * filled + "\u2591" * (bar_len - filled)
+            status_marker = ""
+            if status == "completed":
+                status_marker = " [COMPLETED]"
+            elif status == "hidden":
+                status_marker = " [HIDDEN]"
+            print(
+                f"   {i}. {b['name']} ({b['currency']}){status_marker}\n"
+                f"      Paid: {_fmt(saved)} / {_fmt(target)}\n"
+                f"      Progress: {bar} {progress:.0f}%"
+            )
+
+    def _handle_add_bill(self):
+        form = InputHandler.get_bill_input()
+        if form is None:
+            self._show_error("Bill creation cancelled")
+            return
+        resp = self._handler.handle({"action": "add_bill", "data": form})
+        self._render_message(resp)
+
+    def _handle_bill_detail(self, name: str):
+        resp = self._handler.handle(
+            {"action": "get_bill_detail", "data": {"name": f"Bill: {name}"}}
+        )
+        if resp["status"] == "error":
+            resp = self._handler.handle(
+                {"action": "get_bill_detail", "data": {"name": name}}
+            )
+        if resp["status"] == "error":
+            self._show_error(resp["message"])
+            return
+        self._render_bill_detail(resp["data"])
+
+    def _handle_pay_bill(self, name: str):
+        bill_name = f"Bill: {name}"
+        resp = self._handler.handle(
+            {"action": "get_bill_detail", "data": {"name": bill_name}}
+        )
+        if resp["status"] == "error":
+            bill_name = name
+            resp = self._handler.handle(
+                {"action": "get_bill_detail", "data": {"name": bill_name}}
+            )
+        if resp["status"] == "error":
+            self._show_error(resp["message"])
+            return
+
+        self._render_bill_detail(resp["data"])
+        amount = InputHandler.get_amount()
+        if amount is None:
+            self._show_info("Payment cancelled")
+            return
+        description = InputHandler.get_description()
+
+        resp = self._handler.handle(
+            {
+                "action": "save_to_bill",
+                "data": {
+                    "bill_name": bill_name,
+                    "amount": amount,
+                    "description": description,
+                },
+            }
+        )
+        self._render_message(resp)
+
+    def _handle_complete_bill(self, name: str):
+        bill_name = f"Bill: {name}"
+        resp = self._handler.handle(
+            {"action": "get_bill_detail", "data": {"name": bill_name}}
+        )
+        if resp["status"] == "error":
+            bill_name = name
+        if not InputHandler.confirm(f"Mark bill '{name}' as completed?"):
+            self._show_info("Cancelled")
+            return
+        resp = self._handler.handle(
+            {"action": "complete_bill", "data": {"name": bill_name}}
+        )
+        self._render_message(resp)
+
+    def _handle_hide_bill(self, name: str):
+        bill_name = f"Bill: {name}"
+        resp = self._handler.handle(
+            {"action": "get_bill_detail", "data": {"name": bill_name}}
+        )
+        if resp["status"] == "error":
+            bill_name = name
+        resp = self._handler.handle(
+            {"action": "hide_bill", "data": {"name": bill_name}}
+        )
+        self._render_message(resp)
+
+    def _render_bill_detail(self, data: dict):
+        bill = data.get("bill", {})
+        target = bill.get("target", 0)
+        saved = bill.get("saved", 0)
+        progress = bill.get("progress", 0)
+        bar_len = 30
+        filled = int(bar_len * min(progress, 100) / 100)
+        bar = "\u2588" * filled + "\u2591" * (bar_len - filled)
+
+        self._show_header(f"Bill: {data['name']}")
+        print(f"   Status:      {bill.get('status', 'active').upper()}")
+        print(f"   Target:      {_fmt(target)} {data['currency']}")
+        print(f"   Paid:        {_fmt(saved)} {data['currency']}")
+        print(f"   Remaining:   {_fmt(bill.get('remaining', 0))} {data['currency']}")
+        print(f"   Progress:    {bar} {progress:.0f}%")
+        if bill.get("goal_description"):
+            print(f"   Description: {bill['goal_description']}")
+        if bill.get("created_at"):
+            print(f"   Created:     {bill['created_at']}")
+        if bill.get("completed_at"):
+            print(f"   Completed:   {bill['completed_at']}")
 
     #  Recurring transfer / goal save handlers
     def _handle_recurring_transfer(self):

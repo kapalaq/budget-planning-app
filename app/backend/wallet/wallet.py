@@ -46,6 +46,7 @@ class Wallet:
         currency: str = "KZT",
         description: str = "",
         is_goal_wallet: bool = False,
+        is_bill_wallet: bool = False,
         goal_target: Optional[float] = None,
         goal_description: Optional[str] = None,
     ):
@@ -56,6 +57,7 @@ class Wallet:
             :param currency: Currency of the wallet.
             :param description: Description of the wallet.
             :param is_goal_wallet: Whether this wallet is a savings goal.
+            :param is_bill_wallet: Whether this wallet is a bill (not counted in portfolio).
             :param goal_target: Target amount for the savings goal.
             :param goal_description: Description of the savings goal.
         """
@@ -75,8 +77,9 @@ class Wallet:
         self.balance: float = 0.0
         self.datetime_created: datetime = datetime.now()
 
-        # Goal fields
+        # Goal / Bill fields
         self.is_goal_wallet: bool = is_goal_wallet
+        self.is_bill_wallet: bool = is_bill_wallet
         self.goal_target: Optional[float] = goal_target
         self.goal_description: Optional[str] = goal_description
         self.goal_status: GoalStatus = GoalStatus.ACTIVE
@@ -145,8 +148,9 @@ class Wallet:
             else None
         )
 
-        # Goal fields
+        # Goal / Bill fields
         wallet.is_goal_wallet = data.get("is_goal_wallet", False)
+        wallet.is_bill_wallet = data.get("is_bill_wallet", False)
         wallet.goal_target = data.get("goal_target")
         wallet.goal_description = data.get("goal_description")
         try:
@@ -188,6 +192,7 @@ class Wallet:
             ),
             "transactions": [t.to_json() for t in self.__transactions.values()],
             "is_goal_wallet": self.is_goal_wallet,
+            "is_bill_wallet": self.is_bill_wallet,
             "goal_target": self.goal_target,
             "goal_description": self.goal_description,
             "goal_status": self.goal_status.value,

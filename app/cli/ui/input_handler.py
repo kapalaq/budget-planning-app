@@ -574,6 +574,41 @@ class InputHandler:
             "goal_description": description or name,
         }
 
+    @staticmethod
+    def get_bill_input() -> Optional[Dict]:
+        """Get all inputs for a new bill."""
+        print(f"\n{'=' * 50}")
+        print("  New Bill")
+        print("=" * 50)
+
+        name = input("Enter bill name (e.g., Rent, Electricity): ").strip()
+        if not name:
+            print("\n[!]Bill name cannot be empty")
+            return None
+
+        try:
+            target_str = input("Enter target amount: ").strip()
+            target = float(target_str)
+            if target <= 0:
+                print("\n[!]Target must be positive")
+                return None
+        except ValueError:
+            print("\n[!]Invalid amount")
+            return None
+
+        currency = input("Enter currency (default: KZT): ").strip()
+        if not currency:
+            currency = "KZT"
+
+        description = input("Enter description (optional): ").strip()
+
+        return {
+            "name": name,
+            "target": target,
+            "currency": currency,
+            "goal_description": description or name,
+        }
+
     # ============= Filter Input Methods =============
 
     @staticmethod

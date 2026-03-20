@@ -99,6 +99,15 @@ class RequestHandler:
             "hide_goal": self._hide_goal,
             "reactivate_goal": self._reactivate_goal,
             "save_to_goal": self._save_to_goal,
+            # Bills
+            "add_bill": self._add_bill,
+            "get_bills": self._get_bills,
+            "get_all_bills": self._get_all_bills,
+            "get_bill_detail": self._get_bill_detail,
+            "complete_bill": self._complete_bill,
+            "hide_bill": self._hide_bill,
+            "reactivate_bill": self._reactivate_bill,
+            "save_to_bill": self._save_to_bill,
         }
 
     #  Public entry point
@@ -179,6 +188,7 @@ class RequestHandler:
             "wallet_type": w.wallet_type.value,
             "created": w.datetime_created.strftime("%Y-%m-%d %H:%M"),
             "is_goal_wallet": w.is_goal_wallet,
+            "is_bill_wallet": w.is_bill_wallet,
         }
 
         if isinstance(w, DepositWallet):
@@ -194,10 +204,10 @@ class RequestHandler:
                 "maturity_amount": w.calculate_maturity_amount(),
             }
 
-        if w.is_goal_wallet:
+        if w.is_goal_wallet or w.is_bill_wallet:
             target = w.goal_target or 0
             progress = (w.balance / target * 100) if target > 0 else 0
-            result["goal"] = {
+            goal_data = {
                 "target": target,
                 "goal_description": w.goal_description or "",
                 "status": w.goal_status.value,
@@ -215,6 +225,8 @@ class RequestHandler:
                     else None
                 ),
             }
+            key = "bill" if w.is_bill_wallet else "goal"
+            result[key] = goal_data
 
         return result
 
@@ -328,6 +340,23 @@ class RequestHandler:
                 }
             )
 
+        # Active bills summary
+        active_bills = self._wm.get_active_bills()
+        bills_data = []
+        for b in active_bills:
+            target = b.goal_target or 0
+            progress = (b.balance / target * 100) if target > 0 else 0
+            bills_data.append(
+                {
+                    "name": b.name,
+                    "currency": b.currency,
+                    "target": target,
+                    "saved": b.balance,
+                    "progress": min(progress, 100),
+                    "remaining": max(target - b.balance, 0),
+                }
+            )
+
         return {
             "status": "success",
             "data": {
@@ -350,6 +379,7 @@ class RequestHandler:
                 "income_percentages": income_pct,
                 "expense_percentages": expense_pct,
                 "active_goals": goals_data,
+                "active_bills": bills_data,
             },
         }
 
@@ -825,6 +855,7 @@ class RequestHandler:
             )
 
         if self._wm.add_wallet(new_wallet):
+            self._wm.switch_wallet(new_wallet.name)
             return {
                 "status": "success",
                 "message": t("wallet.created", self._lang, name=new_wallet.name),
@@ -1317,3 +1348,163 @@ class RequestHandler:
                 },
             }
         return {"status": "error", "message": t("goal.save_failed", self._lang)}
+
+    # ------------------------------------------------------------------ #
+    #  Bills                                                              #
+    # ------------------------------------------------------------------ #
+
+    def _add_bill(self, data: dict) -> dict:
+        name = data.get("name", "").strip()
+        if not name:
+            return {"status": "error", "message": t("bill.name_empty", self._lang)}
+
+        target = data.get("target")
+        if target is None or target <= 0:
+            return {
+                "status": "error",
+                "message": t("bill.target_positive", self._lang),
+            }
+
+        wallet_name = f"Bill: {name}"
+        new_wallet = Wallet(
+            name=wallet_name,
+            currency=data.get("currency", "KZT"),
+            description=data.get("description", ""),
+            is_bill_wallet=True,
+            goal_target=target,
+            goal_description=data.get("goal_description", name),
+        )
+
+        if self._wm.add_wallet(new_wallet):
+            return {
+                "status": "success",
+                "message": t(
+                    "bill.created", self._lang, name=name, amount=_fmt(target)
+                ),
+                "data": self._serialize_wallet(new_wallet),
+            }
+        return {
+            "status": "error",
+            "message": t("bill.wallet_exists", self._lang, name=wallet_name),
+        }
+
+    def _get_bills(self, data: dict) -> dict:
+        filter_status = data.get("filter", "active")
+        if filter_status == "active":
+            bills = self._wm.get_active_bills()
+        elif filter_status == "completed":
+            bills = self._wm.get_completed_bills()
+        elif filter_status == "all":
+            bills = self._wm.get_all_bills()
+        else:
+            bills = self._wm.get_active_bills()
+
+        return {
+            "status": "success",
+            "data": {
+                "bills": [self._serialize_wallet(b) for b in bills],
+                "filter": filter_status,
+            },
+        }
+
+    def _get_all_bills(self, data: dict) -> dict:
+        bills = self._wm.get_all_bills()
+        return {
+            "status": "success",
+            "data": {
+                "bills": [self._serialize_wallet(b) for b in bills],
+                "filter": "all",
+            },
+        }
+
+    def _get_bill_detail(self, data: dict) -> dict:
+        name = data.get("name", "")
+        wallet = self._wm.get_wallet(name)
+        if wallet is None:
+            return {
+                "status": "error",
+                "message": t("bill.not_found", self._lang, name=name),
+            }
+        if not wallet.is_bill_wallet:
+            return {
+                "status": "error",
+                "message": t("bill.not_bill_wallet", self._lang, name=name),
+            }
+        return {"status": "success", "data": self._serialize_wallet(wallet)}
+
+    def _complete_bill(self, data: dict) -> dict:
+        name = data.get("name", "")
+        if self._wm.complete_bill(name):
+            return {
+                "status": "success",
+                "message": t("bill.completed", self._lang),
+            }
+        wallet = self._wm.get_wallet(name)
+        if wallet is None:
+            return {
+                "status": "error",
+                "message": t("bill.not_found", self._lang, name=name),
+            }
+        if not wallet.is_bill_wallet:
+            return {
+                "status": "error",
+                "message": t("bill.not_bill_wallet", self._lang, name=name),
+            }
+        return {"status": "error", "message": t("bill.not_active", self._lang)}
+
+    def _hide_bill(self, data: dict) -> dict:
+        name = data.get("name", "")
+        if self._wm.hide_bill(name):
+            return {"status": "success", "message": t("bill.hidden", self._lang)}
+        return {"status": "error", "message": t("bill.cannot_hide", self._lang)}
+
+    def _reactivate_bill(self, data: dict) -> dict:
+        name = data.get("name", "")
+        if self._wm.reactivate_bill(name):
+            return {
+                "status": "success",
+                "message": t("bill.reactivated", self._lang),
+            }
+        return {
+            "status": "error",
+            "message": t("bill.cannot_reactivate", self._lang),
+        }
+
+    def _save_to_bill(self, data: dict) -> dict:
+        """Transfer money from current wallet to a bill wallet."""
+        wallet, err = self._current_wallet_or_error()
+        if err:
+            return err
+
+        bill_name = data.get("bill_name", "")
+        amount = data.get("amount")
+        if amount is None or amount <= 0:
+            return {
+                "status": "error",
+                "message": t("common.amount_positive", self._lang),
+            }
+
+        bill_wallet = self._wm.get_wallet(bill_name)
+        if bill_wallet is None or not bill_wallet.is_bill_wallet:
+            return {
+                "status": "error",
+                "message": t("bill.not_found", self._lang, name=bill_name),
+            }
+
+        if self._wm.transfer(
+            from_wallet_name=wallet.name,
+            to_wallet_name=bill_wallet.name,
+            amount=amount,
+            description=data.get("description", f"Payment to {bill_name}"),
+        ):
+            target = bill_wallet.goal_target or 0
+            new_balance = bill_wallet.balance
+            progress = (new_balance / target * 100) if target > 0 else 0
+            return {
+                "status": "success",
+                "message": t("bill.save_success", self._lang, amount=_fmt(amount)),
+                "data": {
+                    "progress": f"{_fmt(new_balance)}/{_fmt(target)} ({progress:.0f}%)",
+                },
+            }
+        return {"status": "error", "message": t("bill.save_failed", self._lang)}

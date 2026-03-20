@@ -136,7 +136,7 @@ class WalletManager:
 
         if (
             not force
-            and wallet_to_delete.is_goal_wallet
+            and (wallet_to_delete.is_goal_wallet or wallet_to_delete.is_bill_wallet)
             and wallet_to_delete.goal_status == GoalStatus.ACTIVE
         ):
             return False
@@ -220,11 +220,15 @@ class WalletManager:
         return [w for w in self._wallets.values() if w.is_goal_wallet]
 
     def get_visible_wallets(self) -> List[Wallet]:
-        """Get wallets visible on dashboard (non-goal + active goals)."""
+        """Get wallets visible on dashboard (non-goal/non-bill + active goals).
+
+        Bills are always excluded from portfolio totals.
+        """
         return [
             w
             for w in self._wallets.values()
-            if not w.is_goal_wallet or w.goal_status == GoalStatus.ACTIVE
+            if not w.is_bill_wallet
+            and (not w.is_goal_wallet or w.goal_status == GoalStatus.ACTIVE)
         ]
 
     def complete_goal(self, wallet_name: str) -> bool:
@@ -250,6 +254,58 @@ class WalletManager:
         """Reactivate a completed or hidden goal."""
         wallet = self.get_wallet(wallet_name)
         if wallet is None or not wallet.is_goal_wallet:
+            return False
+        if wallet.goal_status == GoalStatus.ACTIVE:
+            return False
+        wallet.goal_status = GoalStatus.ACTIVE
+        wallet.goal_completed_at = None
+        return True
+
+    # ── Bill helpers ──────────────────────────────────────────────────
+
+    def get_active_bills(self) -> List[Wallet]:
+        """Get all active bill wallets."""
+        return [
+            w
+            for w in self._wallets.values()
+            if w.is_bill_wallet and w.goal_status == GoalStatus.ACTIVE
+        ]
+
+    def get_completed_bills(self) -> List[Wallet]:
+        """Get all completed bill wallets."""
+        return [
+            w
+            for w in self._wallets.values()
+            if w.is_bill_wallet and w.goal_status == GoalStatus.COMPLETED
+        ]
+
+    def get_all_bills(self) -> List[Wallet]:
+        """Get all bill wallets (including hidden)."""
+        return [w for w in self._wallets.values() if w.is_bill_wallet]
+
+    def complete_bill(self, wallet_name: str) -> bool:
+        """Mark a bill as completed."""
+        wallet = self.get_wallet(wallet_name)
+        if wallet is None or not wallet.is_bill_wallet:
+            return False
+        if wallet.goal_status != GoalStatus.ACTIVE:
+            return False
+        wallet.goal_status = GoalStatus.COMPLETED
+        wallet.goal_completed_at = datetime.now()
+        return True
+
+    def hide_bill(self, wallet_name: str) -> bool:
+        """Hide a completed bill from the main UI."""
+        wallet = self.get_wallet(wallet_name)
+        if wallet is None or not wallet.is_bill_wallet:
+            return False
+        wallet.goal_status = GoalStatus.HIDDEN
+        return True
+
+    def reactivate_bill(self, wallet_name: str) -> bool:
+        """Reactivate a completed or hidden bill."""
+        wallet = self.get_wallet(wallet_name)
+        if wallet is None or not wallet.is_bill_wallet:
             return False
         if wallet.goal_status == GoalStatus.ACTIVE:
             return False
