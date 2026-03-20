@@ -286,6 +286,26 @@ class Backend:
             return await self._post(f"/goals/{data['name']}/reactivate")
         if action == "save_to_goal":
             return await self._post("/goals/save", body=data)
+        
+        # Bills
+        if action == "get_bills":
+            return await self._get(
+                "/bills", params={"filter": data.get("filter", "active")}
+            )
+        if action == "get_all_bills":
+            return await self._get("/bills/all")
+        if action == "get_bill_detail":
+            return await self._get(f"/bills/{data['name']}")
+        if action == "add_bill":
+            return await self._post("/bills", body=data)
+        if action == "complete_bill":
+            return await self._post(f"/bills/{data['name']}/complete")
+        if action == "hide_bill":
+            return await self._post(f"/bills/{data['name']}/hide")
+        if action == "reactivate_bill":
+            return await self._post(f"/bills/{data['name']}/reactive")
+        if action == "save_to_bill":
+            return await self._post("/bills/save", body=data)
 
         # Recurring transfers
         if action == "add_recurring_transfer":
