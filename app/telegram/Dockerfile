@@ -6,7 +6,7 @@ COPY app/telegram/ ./telegram/
 RUN pip install --no-cache-dir -r telegram/requirements.txt
 
 # Shared dependencies: languages and currency service
-COPY app/languages/ ./languages/
+COPY app/languages/ ./telegram/languages/
 
 ENV PYTHONPATH=/app
 
