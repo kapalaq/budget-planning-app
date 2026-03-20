@@ -5,8 +5,8 @@ echo "==> Installing tools..."
 pip install --quiet black flake8 isort pytest bandit pip-audit
 
 echo "==> Import consistency checks..."
-cd app/backend && python -c "from app import app"
-cd ..
+cd app
+python -c "from backend.app import app"
 python -c "from cli.main import main"
 python -c "from telegram.bot import main"
 cd ..

@@ -7,6 +7,4 @@ RUN pip install --no-cache-dir -r backend/requirements.txt
 
 COPY app/languages/ ./languages/
 
-WORKDIR /app/backend
-
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "backend.app:app", "--host", "0.0.0.0", "--port", "8000"]

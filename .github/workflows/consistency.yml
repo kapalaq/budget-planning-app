@@ -53,8 +53,8 @@ jobs:
 
       - name: Check package consistency
         run: |
-          cd app/backend && python -c "from app import app"
-          cd ..
+          cd app
+          python -c "from app import app"
           python -c "from cli.main import main"
           python -c "from telegram.bot import main"
           cd ..
