@@ -5,7 +5,7 @@ WORKDIR /app
 COPY app/backend/ ./backend/
 RUN pip install --no-cache-dir -r backend/requirements.txt
 
-COPY app/languages/ ./backend/languages/
+COPY app/languages/ ./languages/
 
 WORKDIR /app/backend
 
