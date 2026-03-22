@@ -1077,7 +1077,7 @@ def bill_actions_keyboard(name: str, status: str = "active") -> InlineKeyboardMa
     return rows_to_markup(rows)
 
 
-def language_keyboard(current: str = "en-US") -> InlineKeyboardMarkup:
+def language_keyboard(current: str = "en-US", page: int = 1) -> InlineKeyboardMarkup:
     lang = get_lang()
     languages = {
         "en-US": "English (US)",
@@ -1098,7 +1098,7 @@ def language_keyboard(current: str = "en-US") -> InlineKeyboardMarkup:
         [
             InlineKeyboardButton(
                 text=f"\u2b05\ufe0f {t('common.menu', lang)}",
-                callback_data="menu_page:1",
+                callback_data=f"menu_page:{page}",
             )
         ]
     )

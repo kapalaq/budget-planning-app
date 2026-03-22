@@ -286,7 +286,7 @@ class Backend:
             return await self._post(f"/goals/{data['name']}/reactivate")
         if action == "save_to_goal":
             return await self._post("/goals/save", body=data)
-        
+
         # Bills
         if action == "get_bills":
             return await self._get(
