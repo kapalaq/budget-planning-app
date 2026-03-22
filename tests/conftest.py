@@ -54,13 +54,11 @@ def pg_test_db():
     conn.autocommit = True
     cur = conn.cursor()
     # Terminate any remaining connections
-    cur.execute(
-        f"""
+    cur.execute(f"""
         SELECT pg_terminate_backend(pid)
         FROM pg_stat_activity
         WHERE datname = '{_PG_TEST_DB}' AND pid <> pg_backend_pid()
-    """
-    )
+    """)
     cur.execute(f'DROP DATABASE IF EXISTS "{_PG_TEST_DB}"')
     cur.close()
     conn.close()
@@ -122,9 +120,7 @@ def registered_user(client):
     """Register a user and return (login, password, token, user_id)."""
     login = f"testuser_{secrets.token_hex(4)}"
     password = "testpass123"
-    resp = client.post(
-        "/auth/register", json={"login": login, "password": password}
-    )
+    resp = client.post("/auth/register", json={"login": login, "password": password})
     assert resp.status_code == 200
     data = resp.json()
     return {
@@ -149,9 +145,7 @@ def fresh_user(client):
     """
     login = f"fresh_{secrets.token_hex(4)}"
     password = "freshpass"
-    resp = client.post(
-        "/auth/register", json={"login": login, "password": password}
-    )
+    resp = client.post("/auth/register", json={"login": login, "password": password})
     assert resp.status_code == 200
     data = resp.json()
     token = data["token"]

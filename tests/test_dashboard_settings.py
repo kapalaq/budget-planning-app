@@ -53,9 +53,7 @@ class TestLanguageSettings:
 
     def test_set_language(self, client, fresh_user):
         h = fresh_user["header"]
-        resp = client.post(
-            "/settings/language", json={"language": "ru-RU"}, headers=h
-        )
+        resp = client.post("/settings/language", json={"language": "ru-RU"}, headers=h)
         assert resp.status_code == 200
         assert resp.json()["status"] == "success"
 
@@ -65,10 +63,68 @@ class TestLanguageSettings:
 
     def test_set_invalid_language(self, client, fresh_user):
         h = fresh_user["header"]
-        resp = client.post(
-            "/settings/language", json={"language": "xx-XX"}, headers=h
-        )
+        resp = client.post("/settings/language", json={"language": "xx-XX"}, headers=h)
         assert resp.status_code == 400
+
+
+class TestTimezoneSettings:
+    def test_get_timezone(self, client, auth_header):
+        resp = client.get("/settings/timezone", headers=auth_header)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "success"
+        assert "timezone" in data.get("data", data)
+
+    def test_set_timezone(self, client, fresh_user):
+        h = fresh_user["header"]
+        resp = client.post("/settings/timezone", json={"timezone": 5}, headers=h)
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "success"
+        assert "GMT+5" in resp.json()["message"]
+
+        # Verify it was set
+        resp2 = client.get("/settings/timezone", headers=h)
+        assert resp2.json()["data"]["timezone"] == 5
+
+    def test_set_negative_timezone(self, client, fresh_user):
+        h = fresh_user["header"]
+        resp = client.post("/settings/timezone", json={"timezone": -8}, headers=h)
+        assert resp.status_code == 200
+        assert resp.json()["data"]["timezone"] == -8
+
+    def test_set_invalid_timezone(self, client, fresh_user):
+        h = fresh_user["header"]
+        resp = client.post("/settings/timezone", json={"timezone": 99}, headers=h)
+        assert resp.status_code == 400
+
+    def test_timezone_affects_transaction_dates(self, client, fresh_user):
+        h = fresh_user["header"]
+        # Add a transaction
+        client.post(
+            "/transactions",
+            json={
+                "amount": 100,
+                "transaction_type": "expense",
+                "category": "Food",
+            },
+            headers=h,
+        )
+        # Get dashboard with default timezone (0)
+        resp0 = client.get("/dashboard", headers=h)
+        date0 = resp0.json()["data"]["transactions"][0]["date"]
+
+        # Set timezone to +5
+        client.post("/settings/timezone", json={"timezone": 5}, headers=h)
+        resp5 = client.get("/dashboard", headers=h)
+        date5 = resp5.json()["data"]["transactions"][0]["date"]
+
+        # Dates should differ (shifted by 5 hours)
+        assert date0 != date5
+
+    def test_default_timezone_is_zero(self, client, fresh_user):
+        h = fresh_user["header"]
+        resp = client.get("/settings/timezone", headers=h)
+        assert resp.json()["data"]["timezone"] == 0
 
 
 class TestPercentages:

@@ -52,17 +52,13 @@ class TestFilters:
 
     def test_add_filter_expense_only(self, client, fresh_user):
         h = fresh_user["header"]
-        resp = client.post(
-            "/filters", json={"filter_type": "expense_only"}, headers=h
-        )
+        resp = client.post("/filters", json={"filter_type": "expense_only"}, headers=h)
         assert resp.status_code == 200
         assert resp.json()["status"] == "success"
 
     def test_add_filter_income_only(self, client, fresh_user):
         h = fresh_user["header"]
-        resp = client.post(
-            "/filters", json={"filter_type": "income_only"}, headers=h
-        )
+        resp = client.post("/filters", json={"filter_type": "income_only"}, headers=h)
         assert resp.status_code == 200
         assert resp.json()["status"] == "success"
 
@@ -96,18 +92,14 @@ class TestFilters:
 
     def test_remove_filter(self, client, fresh_user):
         h = fresh_user["header"]
-        client.post(
-            "/filters", json={"filter_type": "expense_only"}, headers=h
-        )
+        client.post("/filters", json={"filter_type": "expense_only"}, headers=h)
         resp = client.delete("/filters/0", headers=h)
         assert resp.status_code == 200
         assert resp.json()["status"] == "success"
 
     def test_clear_filters(self, client, fresh_user):
         h = fresh_user["header"]
-        client.post(
-            "/filters", json={"filter_type": "expense_only"}, headers=h
-        )
+        client.post("/filters", json={"filter_type": "expense_only"}, headers=h)
         client.post(
             "/filters",
             json={"filter_type": "category", "categories": ["Food"]},
@@ -121,9 +113,7 @@ class TestFilters:
         h = fresh_user["header"]
         # "this_week" is not a valid preset; valid ones: today, last_week, this_month, etc.
         for preset in ["today", "last_week", "this_month", "this_year"]:
-            resp = client.post(
-                "/filters", json={"filter_type": preset}, headers=h
-            )
+            resp = client.post("/filters", json={"filter_type": preset}, headers=h)
             assert resp.status_code == 200
             assert resp.json()["status"] == "success"
             client.delete("/filters", headers=h)

@@ -99,9 +99,7 @@ class TestEditTransaction:
 
     def test_edit_nonexistent(self, client, fresh_user):
         h = fresh_user["header"]
-        resp = client.put(
-            "/transactions/999", json={"amount": 10}, headers=h
-        )
+        resp = client.put("/transactions/999", json={"amount": 10}, headers=h)
         assert resp.json()["status"] == "error"
 
 

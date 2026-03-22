@@ -150,7 +150,10 @@ def _handle(user_id: int, action: str, data: dict | None = None) -> dict:
     """Route an action to the correct per-user handler."""
     _, handler = _get_manager(user_id)
     lang = _user_store.get_language(user_id)
-    result = handler.handle({"action": action, "data": data or {}}, lang=lang)
+    tz_offset = _user_store.get_timezone(user_id)
+    result = handler.handle(
+        {"action": action, "data": data or {}}, lang=lang, tz_offset=tz_offset
+    )
     if action not in _READ_ONLY_ACTIONS:
         _dirty_users.add(user_id)
     return result
@@ -254,6 +257,30 @@ def set_language(body: Dict[str, Any], user_id: int = Depends(get_current_user))
         "status": "success",
         "message": f"Language changed to {AVAILABLE_LANGUAGES[lang]}",
         "data": {"language": lang},
+    }
+
+
+#  Timezone settings
+VALID_OFFSETS = set(range(-12, 15))
+
+
+@app.get("/settings/timezone")
+def get_timezone(user_id: int = Depends(get_current_user)):
+    tz = _user_store.get_timezone(user_id)
+    return {"status": "success", "data": {"timezone": tz}}
+
+
+@app.post("/settings/timezone")
+def set_timezone(body: Dict[str, Any], user_id: int = Depends(get_current_user)):
+    tz = body.get("timezone", 0)
+    if not isinstance(tz, int) or tz not in VALID_OFFSETS:
+        raise HTTPException(status_code=400, detail=f"Invalid timezone offset: {tz}")
+    _user_store.set_timezone(user_id, tz)
+    sign = "+" if tz >= 0 else ""
+    return {
+        "status": "success",
+        "message": f"Timezone changed to GMT{sign}{tz}",
+        "data": {"timezone": tz},
     }
 
 

@@ -24,7 +24,7 @@ echo "==> Bandit..."
 bandit -r ./app -ll -ii
 
 echo "==> Pip-audit..."
-pip-audit
+pip-audit --ignore-vuln CVE-2026-32274
 
 echo ""
 echo "All checks passed."

@@ -27,9 +27,7 @@ class TestRegister:
     def test_register_duplicate_login(self, client):
         login = f"dup_{secrets.token_hex(4)}"
         client.post("/auth/register", json={"login": login, "password": "p1"})
-        resp = client.post(
-            "/auth/register", json={"login": login, "password": "p2"}
-        )
+        resp = client.post("/auth/register", json={"login": login, "password": "p2"})
         assert resp.status_code == 409
 
     def test_register_with_telegram_id(self, client):
@@ -74,9 +72,7 @@ class TestLogin:
 
 class TestTelegramAuth:
     def test_telegram_auth_not_linked(self, client):
-        resp = client.post(
-            "/auth/telegram", json={"telegram_id": "unknown_id"}
-        )
+        resp = client.post("/auth/telegram", json={"telegram_id": "unknown_id"})
         assert resp.status_code == 404
 
     def test_telegram_auth_missing_id(self, client):
@@ -128,9 +124,7 @@ class TestUnlinkTelegram:
             json={"login": login, "password": "p", "telegram_id": tg_id},
         )
         # Unlink
-        resp = client.post(
-            "/auth/unlink-telegram", json={"telegram_id": tg_id}
-        )
+        resp = client.post("/auth/unlink-telegram", json={"telegram_id": tg_id})
         assert resp.status_code == 200
 
         # Should no longer be able to auth via telegram

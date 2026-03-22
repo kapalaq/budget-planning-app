@@ -81,12 +81,8 @@ class TestEditWallet:
 
     def test_edit_wallet_currency(self, client, fresh_user):
         h = fresh_user["header"]
-        client.post(
-            "/wallets", json={"name": "CurrTest", "currency": "KZT"}, headers=h
-        )
-        resp = client.put(
-            "/wallets/CurrTest", json={"currency": "USD"}, headers=h
-        )
+        client.post("/wallets", json={"name": "CurrTest", "currency": "KZT"}, headers=h)
+        resp = client.put("/wallets/CurrTest", json={"currency": "USD"}, headers=h)
         assert resp.status_code == 200
 
 
@@ -115,15 +111,11 @@ class TestSwitchWallet:
     def test_switch_wallet(self, client, fresh_user):
         h = fresh_user["header"]
         client.post("/wallets", json={"name": "Second"}, headers=h)
-        resp = client.post(
-            "/wallets/switch", json={"name": "Second"}, headers=h
-        )
+        resp = client.post("/wallets/switch", json={"name": "Second"}, headers=h)
         assert resp.status_code == 200
         assert resp.json()["status"] == "success"
 
     def test_switch_nonexistent(self, client, fresh_user):
         h = fresh_user["header"]
-        resp = client.post(
-            "/wallets/switch", json={"name": "Nope"}, headers=h
-        )
+        resp = client.post("/wallets/switch", json={"name": "Nope"}, headers=h)
         assert resp.json()["status"] == "error"

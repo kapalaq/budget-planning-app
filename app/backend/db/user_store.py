@@ -36,6 +36,15 @@ class UserStore:
                     WHEN duplicate_column THEN NULL;
                 END $$;
                 """)
+            # Add timezone column if missing (migration)
+            cur.execute("""
+                DO $$
+                BEGIN
+                    ALTER TABLE users ADD COLUMN timezone INTEGER DEFAULT 0;
+                EXCEPTION
+                    WHEN duplicate_column THEN NULL;
+                END $$;
+                """)
 
     # ── Authentication ───────────────────────────────────────────────
 
@@ -123,5 +132,26 @@ class UserStore:
             cur.execute(
                 "UPDATE users SET language = %s WHERE user_id = %s",
                 (language, user_id),
+            )
+            return cur.rowcount > 0
+
+    # ── Timezone preference ───────────────────────────────────────────
+
+    def get_timezone(self, user_id: int) -> int:
+        """Return the user's UTC offset in hours, defaulting to 0."""
+        with self._conn.cursor() as cur:
+            cur.execute(
+                "SELECT timezone FROM users WHERE user_id = %s",
+                (user_id,),
+            )
+            row = cur.fetchone()
+        return row[0] if row and row[0] is not None else 0
+
+    def set_timezone(self, user_id: int, tz_offset: int) -> bool:
+        """Set the user's UTC offset in hours. Returns True if updated."""
+        with self._conn.cursor() as cur:
+            cur.execute(
+                "UPDATE users SET timezone = %s WHERE user_id = %s",
+                (tz_offset, user_id),
             )
             return cur.rowcount > 0

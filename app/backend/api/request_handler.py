@@ -1,7 +1,7 @@
 """Request handler - middleground between Display (frontend) and business logic (backend)."""
 
 from collections import Counter, defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, List
 
 from languages import t
@@ -114,9 +114,10 @@ class RequestHandler:
         }
 
     #  Public entry point
-    def handle(self, request: dict, lang: str = "en-US") -> dict:
+    def handle(self, request: dict, lang: str = "en-US", tz_offset: int = 0) -> dict:
         """Route a request dict to the appropriate handler and return a response dict."""
         self._lang = lang
+        self._tz_offset = tz_offset
         action = request.get("action")
         data = request.get("data", {})
 
@@ -132,8 +133,14 @@ class RequestHandler:
     #  Serialisation helpers                                              #
     # ------------------------------------------------------------------ #
 
-    @staticmethod
-    def _serialize_transaction(tr: Transaction) -> dict:
+    def _fmt_dt(self, dt: datetime, fmt: str) -> str:
+        """Format a datetime, shifting by the user's UTC offset."""
+        offset = getattr(self, "_tz_offset", 0)
+        if offset:
+            dt = dt + timedelta(hours=offset)
+        return dt.strftime(fmt)
+
+    def _serialize_transaction(self, tr: Transaction) -> dict:
         sign = "+" if tr.transaction_type == TransactionType.INCOME else "-"
         is_transfer = isinstance(tr, Transfer)
 
@@ -144,7 +151,7 @@ class RequestHandler:
             "transaction_type": tr.transaction_type.value,
             "category": tr.category,
             "description": tr.description or "",
-            "date": tr.datetime_created.strftime("%Y-%m-%d %H:%M:%S"),
+            "date": self._fmt_dt(tr.datetime_created, "%Y-%m-%d %H:%M:%S"),
             "display": str(tr),
             "recurrence_id": getattr(tr, "recurrence_id", None),
             "is_transfer": is_transfer,
@@ -177,8 +184,7 @@ class RequestHandler:
 
         return result
 
-    @staticmethod
-    def _serialize_wallet(w: Wallet) -> dict:
+    def _serialize_wallet(self, w: Wallet) -> dict:
         result = {
             "id": w.id,
             "name": w.name,
@@ -189,7 +195,7 @@ class RequestHandler:
             "description": w.description or "",
             "transaction_count": w.transaction_count(),
             "wallet_type": w.wallet_type.value,
-            "created": w.datetime_created.strftime("%Y-%m-%d %H:%M"),
+            "created": self._fmt_dt(w.datetime_created, "%Y-%m-%d %H:%M"),
             "is_goal_wallet": w.is_goal_wallet,
             "is_bill_wallet": w.is_bill_wallet,
         }
@@ -199,7 +205,7 @@ class RequestHandler:
                 "interest_rate": w.interest_rate,
                 "term_months": w.term_months,
                 "capitalization": w.capitalization,
-                "maturity_date": w.maturity_date.strftime("%Y-%m-%d"),
+                "maturity_date": self._fmt_dt(w.maturity_date, "%Y-%m-%d"),
                 "is_matured": w.is_matured,
                 "days_until_maturity": w.days_until_maturity,
                 "principal": w.principal,
@@ -218,12 +224,12 @@ class RequestHandler:
                 "saved": w.balance,
                 "remaining": max(target - w.balance, 0),
                 "created_at": (
-                    w.goal_created_at.strftime("%Y-%m-%d %H:%M")
+                    self._fmt_dt(w.goal_created_at, "%Y-%m-%d %H:%M")
                     if w.goal_created_at
                     else None
                 ),
                 "completed_at": (
-                    w.goal_completed_at.strftime("%Y-%m-%d %H:%M")
+                    self._fmt_dt(w.goal_completed_at, "%Y-%m-%d %H:%M")
                     if w.goal_completed_at
                     else None
                 ),
@@ -233,8 +239,7 @@ class RequestHandler:
 
         return result
 
-    @staticmethod
-    def _serialize_recurring(r: RecurringTransaction) -> dict:
+    def _serialize_recurring(self, r: RecurringTransaction) -> dict:
         sign = "+" if r.transaction_type == TransactionType.INCOME else "-"
         result = {
             "id": r.id,
@@ -246,9 +251,9 @@ class RequestHandler:
             "is_active": r.is_active,
             "generated_count": r.generated_count,
             "pattern_description": r.recurrence_rule.description(),
-            "start_date": r.start_date.strftime("%Y-%m-%d"),
+            "start_date": self._fmt_dt(r.start_date, "%Y-%m-%d"),
             "last_generated": (
-                r.last_generated.strftime("%Y-%m-%d") if r.last_generated else None
+                self._fmt_dt(r.last_generated, "%Y-%m-%d") if r.last_generated else None
             ),
             "summary": r.summary_str(),
             "detail": r.detailed_str(),
@@ -1083,7 +1088,9 @@ class RequestHandler:
             return {
                 "status": "success",
                 "message": t(
-                    "recurring.date_skipped", self._lang, date=skip.strftime("%Y-%m-%d")
+                    "recurring.date_skipped",
+                    self._lang,
+                    date=self._fmt_dt(skip, "%Y-%m-%d"),
                 ),
             }
         elif action == "toggle_active":

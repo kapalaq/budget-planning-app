@@ -142,7 +142,11 @@ class TestEditRecurring:
         )
         resp = client.put(
             "/recurring/1",
-            json={"edit_action": "edit_template", "amount": 200, "description": "Updated"},
+            json={
+                "edit_action": "edit_template",
+                "amount": 200,
+                "description": "Updated",
+            },
             headers=h,
         )
         assert resp.status_code == 200

@@ -35,6 +35,8 @@ class Backend:
         self._tokens: dict[int, str] = {}
         # Cache: telegram_user_id -> language code
         self._langs: dict[int, str] = {}
+        # Cache: telegram_user_id -> UTC offset (hours)
+        self._timezones: dict[int, int] = {}
 
     async def _get_session(self) -> aiohttp.ClientSession:
         if self._session is None or self._session.closed:
@@ -84,6 +86,22 @@ class Backend:
     def set_cached_language(self, telegram_user_id: int, lang: str):
         """Update the cached language for a user."""
         self._langs[telegram_user_id] = lang
+
+    async def get_user_timezone(self, telegram_user_id: int) -> int:
+        """Return cached timezone offset or fetch from backend."""
+        if telegram_user_id in self._timezones:
+            return self._timezones[telegram_user_id]
+        try:
+            resp = await self._get("/settings/timezone")
+            tz = resp.get("data", {}).get("timezone", 0)
+        except Exception:
+            tz = 0
+        self._timezones[telegram_user_id] = tz
+        return tz
+
+    def set_cached_timezone(self, telegram_user_id: int, tz: int):
+        """Update the cached timezone for a user."""
+        self._timezones[telegram_user_id] = tz
 
     async def link_telegram(self, code: str, telegram_user_id: int) -> dict:
         """Consume a link code and bind this Telegram account."""
@@ -351,6 +369,12 @@ class Backend:
             return await self._get("/settings/language")
         if action == "set_language":
             return await self._post("/settings/language", body=data)
+
+        # Timezone settings
+        if action == "get_timezone":
+            return await self._get("/settings/timezone")
+        if action == "set_timezone":
+            return await self._post("/settings/timezone", body=data)
 
         if action == "convert_currency":
             return await self._get(

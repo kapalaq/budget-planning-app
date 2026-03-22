@@ -54,6 +54,12 @@ def main_menu(page: int = 1) -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(
+                    text=f"\U0001f552 {t('timezone.title', lang)}",
+                    callback_data=f"timezone@{page}",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
                     text=t("common.next", lang), callback_data="menu_page:2"
                 ),
             ],
@@ -117,7 +123,60 @@ def main_menu(page: int = 1) -> InlineKeyboardMarkup:
                 ),
             ],
         ]
-    else:  # page == 3
+    elif page == 3:
+        rows = [
+            [
+                InlineKeyboardButton(
+                    text=f"\U0001f45b {t('btn.wallets', lang)}",
+                    callback_data=f"wallets@{page}",
+                ),
+                InlineKeyboardButton(
+                    text=f"\U0001f4b1 {t('btn.portfolio', lang)}",
+                    callback_data=f"portfolio@{page}",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=f"\U0001f522 {t('btn.sort', lang)}",
+                    callback_data=f"wallet_sorting@{page}",
+                ),
+                InlineKeyboardButton(
+                    text=f"\u2795 {t('btn.add_wallet', lang)}",
+                    callback_data=f"add_wallet@{page}",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=f"\U0001f500 {t('btn.transfer', lang)}",
+                    callback_data=f"transfer@{page}",
+                ),
+                InlineKeyboardButton(
+                    text=f"\U0001f500\U0001f504 {t('btn.rec_transfer', lang)}",
+                    callback_data=f"recurring_transfer@{page}",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=f"\U0001f4cb {t('btn.bills', lang)}",
+                    callback_data=f"bills_menu@{page}",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("common.prev", lang), callback_data="menu_page:2"
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=f"\U0001f504 {t('common.refresh', lang)}",
+                    callback_data="menu_page:3",
+                ),
+                InlineKeyboardButton(
+                    text=t("btn.disconnect", lang), callback_data="disconnect"
+                ),
+            ],
+        ]
+    else:
         rows = [
             [
                 InlineKeyboardButton(
@@ -1144,6 +1203,63 @@ def language_keyboard(current: str = "en-US", page: int = 1) -> InlineKeyboardMa
                 )
             ]
         )
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=f"\u2b05\ufe0f {t('common.menu', lang)}",
+                callback_data=f"menu_page:{page}",
+            )
+        ]
+    )
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def timezone_keyboard(
+    current: int = 0, page: int = 1, tz_page: int = 0
+) -> InlineKeyboardMarkup:
+    lang = get_lang()
+    offsets = list(range(-12, 15))
+    page_size = 9
+    start = tz_page * page_size
+    end = start + page_size
+    page_offsets = offsets[start:end]
+
+    rows = []
+    row = []
+    for offset in page_offsets:
+        sign = "+" if offset >= 0 else ""
+        label = f"GMT{sign}{offset}"
+        marker = " \u2705" if offset == current else ""
+        row.append(
+            InlineKeyboardButton(
+                text=f"{label}{marker}",
+                callback_data=f"settz:{offset}@{page}",
+            )
+        )
+        if len(row) == 3:
+            rows.append(row)
+            row = []
+    if row:
+        rows.append(row)
+
+    nav = []
+    if tz_page > 0:
+        nav.append(
+            InlineKeyboardButton(
+                text=f"<< {t('common.prev', lang)}",
+                callback_data=f"tzpage:{tz_page - 1}@{page}",
+            )
+        )
+    if end < len(offsets):
+        nav.append(
+            InlineKeyboardButton(
+                text=f"{t('common.next', lang)} >>",
+                callback_data=f"tzpage:{tz_page + 1}@{page}",
+            )
+        )
+    if nav:
+        rows.append(nav)
+
     rows.append(
         [
             InlineKeyboardButton(
