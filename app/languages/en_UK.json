@@ -144,6 +144,7 @@
     "transaction.tg_added": "Transaction added: {amount} in {category}",
     "transaction.tg_transfer_delete_warning": "This is a transfer. Deleting will also remove the linked transaction.",
     "transaction.tg_confirm_delete": "Delete this transaction?",
+    "transaction.suggestion": "Common:",
     "category.available": "Available {type} Categories:",
     "category.add_new": "[Add new category]",
     "category.select": "Select category (number or name):",

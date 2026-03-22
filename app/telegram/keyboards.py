@@ -258,7 +258,7 @@ def amount_keyboard(
         rows.append(
             [
                 InlineKeyboardButton(
-                    text=f"\U0001f4b2 {label}",
+                    text=f"{t('transaction.suggestion', lang)} {label}",
                     callback_data=f"use_amount:{suggested}",
                 )
             ]

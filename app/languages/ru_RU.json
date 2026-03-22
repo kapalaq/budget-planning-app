@@ -144,6 +144,7 @@
     "transaction.tg_added": "Транзакция добавлена: {amount} в {category}",
     "transaction.tg_transfer_delete_warning": "Это перевод. При удалении также будет удалена связанная транзакция.",
     "transaction.tg_confirm_delete": "Удалить эту транзакцию?",
+    "transaction.suggestion": "Частое:",
     "category.available": "Доступные категории ({type}):",
     "category.add_new": "[Добавить категорию]",
     "category.select": "Выберите категорию (номер или название):",
