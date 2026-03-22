@@ -191,6 +191,8 @@ class HttpRequestHandler:
             return self._post(f"/goals/{data['name']}/reactivate")
         if action == "save_to_goal":
             return self._post("/goals/save", body=data)
+        if action == "delete_goal":
+            return self._delete(f"/goals/{data['name']}")
 
         # Bills
         if action == "get_bills":
@@ -209,6 +211,8 @@ class HttpRequestHandler:
             return self._post(f"/bills/{data['name']}/reactivate")
         if action == "save_to_bill":
             return self._post("/bills/save", body=data)
+        if action == "delete_bill":
+            return self._delete(f"/bills/{data['name']}")
 
         # Recurring transfers
         if action == "add_recurring_transfer":

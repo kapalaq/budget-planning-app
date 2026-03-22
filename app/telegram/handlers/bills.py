@@ -10,6 +10,7 @@ from telegram.keyboards import (
     bill_list_keyboard,
     bill_menu_keyboard,
     cancel_keyboard,
+    confirm_keyboard,
     parse_menu_page,
     skip_keyboard,
 )
@@ -252,5 +253,27 @@ async def cb_reactivate_bill(callback: types.CallbackQuery):
     await callback.answer()
     name = callback.data.split(":", 1)[1]
     resp = await backend.handle({"action": "reactivate_bill", "data": {"name": name}})
+    msg = resp.get("message", "Done")
+    await callback.message.edit_text(msg, reply_markup=back_to_menu(3))
+
+
+# ── Delete bill ─────────────────────────────────────────────────────
+
+
+@router.callback_query(F.data.startswith("bdel:"))
+async def cb_delete_bill(callback: types.CallbackQuery):
+    await callback.answer()
+    name = callback.data.split(":", 1)[1]
+    await callback.message.edit_text(
+        "\U0001f5d1\ufe0f " + t("bill.tg_confirm_delete", get_lang(), name=name),
+        reply_markup=confirm_keyboard("delbill", name, page=3),
+    )
+
+
+@router.callback_query(F.data.startswith("confirm_delbill:"))
+async def cb_confirm_delete_bill(callback: types.CallbackQuery):
+    await callback.answer()
+    name = callback.data.split(":", 1)[1]
+    resp = await backend.handle({"action": "delete_bill", "data": {"name": name}})
     msg = resp.get("message", "Done")
     await callback.message.edit_text(msg, reply_markup=back_to_menu(3))

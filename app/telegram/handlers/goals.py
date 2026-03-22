@@ -7,6 +7,7 @@ from telegram.backend import backend, get_lang
 from telegram.keyboards import (
     back_to_menu,
     cancel_keyboard,
+    confirm_keyboard,
     end_condition_keyboard,
     frequency_keyboard,
     goal_actions_keyboard,
@@ -254,6 +255,28 @@ async def cb_reactivate_goal(callback: types.CallbackQuery):
     await callback.answer()
     name = callback.data.split(":", 1)[1]
     resp = await backend.handle({"action": "reactivate_goal", "data": {"name": name}})
+    msg = resp.get("message", "Done")
+    await callback.message.edit_text(msg, reply_markup=back_to_menu(2))
+
+
+# ── Delete goal ─────────────────────────────────────────────────────
+
+
+@router.callback_query(F.data.startswith("gdel:"))
+async def cb_delete_goal(callback: types.CallbackQuery):
+    await callback.answer()
+    name = callback.data.split(":", 1)[1]
+    await callback.message.edit_text(
+        "\U0001f5d1\ufe0f " + t("goal.tg_confirm_delete", get_lang(), name=name),
+        reply_markup=confirm_keyboard("delgoal", name, page=2),
+    )
+
+
+@router.callback_query(F.data.startswith("confirm_delgoal:"))
+async def cb_confirm_delete_goal(callback: types.CallbackQuery):
+    await callback.answer()
+    name = callback.data.split(":", 1)[1]
+    resp = await backend.handle({"action": "delete_goal", "data": {"name": name}})
     msg = resp.get("message", "Done")
     await callback.message.edit_text(msg, reply_markup=back_to_menu(2))
 

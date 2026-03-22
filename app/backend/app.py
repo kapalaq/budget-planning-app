@@ -483,6 +483,11 @@ def save_to_goal(body: Dict[str, Any], user_id: int = Depends(get_current_user))
     return _handle(user_id, "save_to_goal", body)
 
 
+@app.delete("/goals/{name}")
+def delete_goal(name: str, user_id: int = Depends(get_current_user)):
+    return _handle(user_id, "delete_goal", {"name": name})
+
+
 #  Bills
 @app.get("/bills")
 def get_bills(filter: str = "active", user_id: int = Depends(get_current_user)):
@@ -522,6 +527,11 @@ def reactivate_bill(name: str, user_id: int = Depends(get_current_user)):
 @app.post("/bills/save")
 def save_to_bill(body: Dict[str, Any], user_id: int = Depends(get_current_user)):
     return _handle(user_id, "save_to_bill", body)
+
+
+@app.delete("/bills/{name}")
+def delete_bill(name: str, user_id: int = Depends(get_current_user)):
+    return _handle(user_id, "delete_bill", {"name": name})
 
 
 #  Recurring transfers

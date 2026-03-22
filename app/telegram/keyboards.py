@@ -941,13 +941,25 @@ def goal_actions_keyboard(name: str, status: str = "active") -> InlineKeyboardMa
                 ),
             ]
         )
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=f"\U0001f5d1\ufe0f {t('goal.tg_delete', lang)}",
+                    callback_data=f"gdel:{name}",
+                )
+            ]
+        )
     elif status == "hidden":
         rows.append(
             [
                 InlineKeyboardButton(
                     text=f"\U0001f504 {t('goal.tg_reactivate', lang)}",
                     callback_data=f"greactivate:{name}",
-                )
+                ),
+                InlineKeyboardButton(
+                    text=f"\U0001f5d1\ufe0f {t('goal.tg_delete', lang)}",
+                    callback_data=f"gdel:{name}",
+                ),
             ]
         )
     rows.append(
@@ -1057,13 +1069,25 @@ def bill_actions_keyboard(name: str, status: str = "active") -> InlineKeyboardMa
                 ),
             ]
         )
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=f"\U0001f5d1\ufe0f {t('bill.tg_delete', lang)}",
+                    callback_data=f"bdel:{name}",
+                )
+            ]
+        )
     elif status == "hidden":
         rows.append(
             [
                 InlineKeyboardButton(
                     text=f"\U0001f504 {t('bill.tg_reactivate', lang)}",
                     callback_data=f"breactivate:{name}",
-                )
+                ),
+                InlineKeyboardButton(
+                    text=f"\U0001f5d1\ufe0f {t('bill.tg_delete', lang)}",
+                    callback_data=f"bdel:{name}",
+                ),
             ]
         )
     rows.append(

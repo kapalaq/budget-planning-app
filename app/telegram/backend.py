@@ -286,6 +286,8 @@ class Backend:
             return await self._post(f"/goals/{data['name']}/reactivate")
         if action == "save_to_goal":
             return await self._post("/goals/save", body=data)
+        if action == "delete_goal":
+            return await self._delete(f"/goals/{data['name']}")
 
         # Bills
         if action == "get_bills":
@@ -306,6 +308,8 @@ class Backend:
             return await self._post(f"/bills/{data['name']}/reactive")
         if action == "save_to_bill":
             return await self._post("/bills/save", body=data)
+        if action == "delete_bill":
+            return await self._delete(f"/bills/{data['name']}")
 
         # Recurring transfers
         if action == "add_recurring_transfer":

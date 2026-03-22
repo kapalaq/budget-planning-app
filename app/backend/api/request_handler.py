@@ -99,6 +99,7 @@ class RequestHandler:
             "hide_goal": self._hide_goal,
             "reactivate_goal": self._reactivate_goal,
             "save_to_goal": self._save_to_goal,
+            "delete_goal": self._delete_goal,
             # Bills
             "add_bill": self._add_bill,
             "get_bills": self._get_bills,
@@ -108,6 +109,7 @@ class RequestHandler:
             "hide_bill": self._hide_bill,
             "reactivate_bill": self._reactivate_bill,
             "save_to_bill": self._save_to_bill,
+            "delete_bill": self._delete_bill,
         }
 
     #  Public entry point
@@ -1349,6 +1351,26 @@ class RequestHandler:
             }
         return {"status": "error", "message": t("goal.save_failed", self._lang)}
 
+    def _delete_goal(self, data: dict) -> dict:
+        name = data.get("name", "")
+        wallet = self._wm.get_wallet(name)
+        if wallet is None or not wallet.is_goal_wallet:
+            return {
+                "status": "error",
+                "message": t("goal.not_found", self._lang, name=name),
+            }
+        if wallet.goal_status == GoalStatus.ACTIVE:
+            return {
+                "status": "error",
+                "message": t("goal.cannot_delete_active", self._lang),
+            }
+        if self._wm.remove_wallet(name, force=True):
+            return {
+                "status": "success",
+                "message": t("goal.deleted", self._lang, name=name),
+            }
+        return {"status": "error", "message": t("goal.delete_failed", self._lang)}
+
     # ------------------------------------------------------------------ #
     #  Bills                                                              #
     # ------------------------------------------------------------------ #
@@ -1508,3 +1530,23 @@ class RequestHandler:
                 },
             }
         return {"status": "error", "message": t("bill.save_failed", self._lang)}
+
+    def _delete_bill(self, data: dict) -> dict:
+        name = data.get("name", "")
+        wallet = self._wm.get_wallet(name)
+        if wallet is None or not wallet.is_bill_wallet:
+            return {
+                "status": "error",
+                "message": t("bill.not_found", self._lang, name=name),
+            }
+        if wallet.goal_status == GoalStatus.ACTIVE:
+            return {
+                "status": "error",
+                "message": t("bill.cannot_delete_active", self._lang),
+            }
+        if self._wm.remove_wallet(name, force=True):
+            return {
+                "status": "success",
+                "message": t("bill.deleted", self._lang, name=name),
+            }
+        return {"status": "error", "message": t("bill.delete_failed", self._lang)}
