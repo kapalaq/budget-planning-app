@@ -248,6 +248,32 @@ def cancel_keyboard(page: int = 1) -> InlineKeyboardMarkup:
     )
 
 
+def amount_keyboard(
+    suggested: float | None = None, page: int = 1
+) -> InlineKeyboardMarkup:
+    lang = get_lang()
+    rows = []
+    if suggested is not None:
+        label = f"{suggested:.2f}".rstrip("0").rstrip(".")
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=f"\U0001f4b2 {label}",
+                    callback_data=f"use_amount:{suggested}",
+                )
+            ]
+        )
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=f"\u274c {t('common.cancel', lang)}",
+                callback_data=f"menu_page:{page}",
+            )
+        ]
+    )
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
 def skip_keyboard(page: int = 1) -> InlineKeyboardMarkup:
     lang = get_lang()
     return InlineKeyboardMarkup(

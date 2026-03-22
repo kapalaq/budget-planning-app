@@ -1,6 +1,6 @@
 """Request handler - middleground between Display (frontend) and business logic (backend)."""
 
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import datetime
 from typing import Dict, List
 
@@ -55,6 +55,7 @@ class RequestHandler:
             "process_recurring": self._process_recurring,
             # Transaction CRUD
             "get_categories": self._get_categories,
+            "suggest_amount": self._suggest_amount,
             "get_transaction": self._get_transaction,
             "add_transaction": self._add_transaction,
             "edit_transaction": self._edit_transaction,
@@ -441,6 +442,43 @@ class RequestHandler:
         tt = self._parse_transaction_type(data.get("transaction_type", "expense"))
         categories = sorted(wallet.category_manager.get_categories(tt))
         return {"status": "success", "data": {"categories": categories}}
+
+    def _suggest_amount(self, data: dict) -> dict:
+        """Return the most frequent amount for a category in the current wallet.
+
+        If tied, use the most recent transaction's amount. Returns None if no
+        transactions exist for the category.
+        """
+        wallet, err = self._current_wallet_or_error()
+        if err:
+            return err
+        category = data.get("category", "")
+        tt = self._parse_transaction_type(data.get("transaction_type", "expense"))
+
+        matching = [
+            tx
+            for tx in wallet.get_sorted_transactions()
+            if tx.category == category and tx.transaction_type == tt
+        ]
+        if not matching:
+            return {"status": "success", "data": {"suggested_amount": None}}
+
+        counts = Counter(tx.amount for tx in matching)
+        max_count = max(counts.values())
+        top_amounts = [amt for amt, cnt in counts.items() if cnt == max_count]
+
+        if len(top_amounts) == 1:
+            suggested = top_amounts[0]
+        else:
+            # Tie-break: most recent transaction among tied amounts
+            top_set = set(top_amounts)
+            recent = max(
+                (tx for tx in matching if tx.amount in top_set),
+                key=lambda tx: tx.datetime_created,
+            )
+            suggested = recent.amount
+
+        return {"status": "success", "data": {"suggested_amount": suggested}}
 
     def _get_transaction(self, data: dict) -> dict:
         wallet, err = self._current_wallet_or_error()

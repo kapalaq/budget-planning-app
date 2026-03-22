@@ -125,6 +125,7 @@ _READ_ONLY_ACTIONS = frozenset(
         "get_dashboard",
         "get_help",
         "get_categories",
+        "suggest_amount",
         "get_transaction",
         "get_transfer_context",
         "get_sorting_options",
@@ -323,6 +324,20 @@ def get_categories(
     transaction_type: str = "expense", user_id: int = Depends(get_current_user)
 ):
     return _handle(user_id, "get_categories", {"transaction_type": transaction_type})
+
+
+#  Suggest amount
+@app.get("/suggest-amount")
+def suggest_amount(
+    category: str,
+    transaction_type: str = "expense",
+    user_id: int = Depends(get_current_user),
+):
+    return _handle(
+        user_id,
+        "suggest_amount",
+        {"category": category, "transaction_type": transaction_type},
+    )
 
 
 #  Transactions

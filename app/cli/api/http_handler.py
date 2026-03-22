@@ -116,6 +116,16 @@ class HttpRequestHandler:
                 params={"transaction_type": data.get("transaction_type", "expense")},
             )
 
+        # Suggest amount
+        if action == "suggest_amount":
+            return self._get(
+                "/suggest-amount",
+                params={
+                    "category": data.get("category", ""),
+                    "transaction_type": data.get("transaction_type", "expense"),
+                },
+            )
+
         # Transactions
         if action == "get_transaction":
             return self._get(f"/transactions/{data['index']}")

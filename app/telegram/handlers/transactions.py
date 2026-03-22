@@ -5,6 +5,7 @@ from aiogram.fsm.context import FSMContext
 from languages import t
 from telegram.backend import backend, get_lang
 from telegram.keyboards import (
+    amount_keyboard,
     back_to_menu,
     cancel_keyboard,
     category_keyboard,
@@ -48,7 +49,7 @@ async def _start_add(message: types.Message, state: FSMContext, tt: str, page: i
         return
     categories = resp["data"]["categories"]
     await state.update_data(transaction_type=tt, categories=categories, menu_page=page)
-    await state.set_state(AddTransaction.amount)
+    await state.set_state(AddTransaction.category)
     lang = get_lang()
     label = (
         "\U0001f4b5 " + t("common.income", lang)
@@ -56,29 +57,30 @@ async def _start_add(message: types.Message, state: FSMContext, tt: str, page: i
         else "\U0001f4b8 " + t("common.expense", lang)
     )
     await message.edit_text(
-        t("transaction.tg_adding", lang, label=label),
-        reply_markup=cancel_keyboard(page),
+        label + " \u2014 " + t("transaction.tg_select_category", lang),
+        reply_markup=category_keyboard(categories, page=page),
     )
 
 
-@router.message(AddTransaction.amount)
-async def add_tx_amount(message: types.Message, state: FSMContext):
-    try:
-        amount = float(message.text.strip())
-        if amount <= 0:
-            raise ValueError
-    except (ValueError, AttributeError):
-        await message.answer(
-            "\u26a0\ufe0f " + t("transaction.tg_positive_number", get_lang())
-        )
-        return
-    await state.update_data(amount=amount)
+async def _prompt_amount(message, state: FSMContext, category: str):
+    """Transition to the amount step, showing a suggestion button if available."""
     data = await state.get_data()
     page = data.get("menu_page", 1)
-    await state.set_state(AddTransaction.category)
-    await message.answer(
-        "\U0001f3f7\ufe0f " + t("transaction.tg_select_category", get_lang()),
-        reply_markup=category_keyboard(data["categories"], page=page),
+    tt = data["transaction_type"]
+    resp = await backend.handle(
+        {
+            "action": "suggest_amount",
+            "data": {"category": category, "transaction_type": tt},
+        }
+    )
+    suggested = None
+    if resp.get("status") == "success":
+        suggested = resp["data"].get("suggested_amount")
+    await state.set_state(AddTransaction.amount)
+    lang = get_lang()
+    await message.edit_text(
+        t("transaction.tg_adding", lang, label=category),
+        reply_markup=amount_keyboard(suggested, page),
     )
 
 
@@ -96,11 +98,7 @@ async def add_tx_category(callback: types.CallbackQuery, state: FSMContext):
         )
         return
     await state.update_data(category=cat)
-    await state.set_state(AddTransaction.description)
-    await callback.message.edit_text(
-        "\U0001f4dd " + t("transaction.tg_enter_description", get_lang()),
-        reply_markup=skip_keyboard(page),
-    )
+    await _prompt_amount(callback.message, state, cat)
 
 
 @router.message(AddTransaction.new_category)
@@ -111,9 +109,46 @@ async def add_tx_new_cat(message: types.Message, state: FSMContext):
             "\u26a0\ufe0f " + t("transaction.tg_category_empty", get_lang())
         )
         return
+    await state.update_data(category=cat)
+    # New categories won't have a suggestion — go straight to amount prompt
     data = await state.get_data()
     page = data.get("menu_page", 1)
-    await state.update_data(category=cat)
+    await state.set_state(AddTransaction.amount)
+    lang = get_lang()
+    await message.answer(
+        t("transaction.tg_adding", lang, label=cat),
+        reply_markup=amount_keyboard(None, page),
+    )
+
+
+@router.callback_query(AddTransaction.amount, F.data.startswith("use_amount:"))
+async def add_tx_use_suggested(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer()
+    amount = float(callback.data.split(":", 1)[1])
+    await state.update_data(amount=amount)
+    data = await state.get_data()
+    page = data.get("menu_page", 1)
+    await state.set_state(AddTransaction.description)
+    await callback.message.edit_text(
+        "\U0001f4dd " + t("transaction.tg_enter_description", get_lang()),
+        reply_markup=skip_keyboard(page),
+    )
+
+
+@router.message(AddTransaction.amount)
+async def add_tx_amount(message: types.Message, state: FSMContext):
+    try:
+        amount = float(message.text.strip())
+        if amount <= 0:
+            raise ValueError
+    except (ValueError, AttributeError):
+        await message.answer(
+            "\u26a0\ufe0f " + t("transaction.tg_positive_number", get_lang())
+        )
+        return
+    await state.update_data(amount=amount)
+    data = await state.get_data()
+    page = data.get("menu_page", 1)
     await state.set_state(AddTransaction.description)
     await message.answer(
         "\U0001f4dd " + t("transaction.tg_enter_description", get_lang()),

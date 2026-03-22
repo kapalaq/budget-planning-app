@@ -288,7 +288,21 @@ class Display:
             return
         categories = resp["data"]["categories"]
 
-        form = InputHandler.get_transaction_input(tt_label, categories)
+        # Pre-fetch suggested amounts per category
+        suggested_amounts = {}
+        for cat in categories:
+            sr = self._handler.handle(
+                {
+                    "action": "suggest_amount",
+                    "data": {"category": cat, "transaction_type": tt_name},
+                }
+            )
+            if sr.get("status") == "success" and sr["data"].get("suggested_amount"):
+                suggested_amounts[cat] = sr["data"]["suggested_amount"]
+
+        form = InputHandler.get_transaction_input(
+            tt_label, categories, suggested_amounts or None
+        )
         if form is None:
             self._show_error("Transaction cancelled")
             return

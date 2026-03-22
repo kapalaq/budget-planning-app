@@ -34,10 +34,17 @@ class InputHandler:
         return input("\n> ").strip()
 
     @staticmethod
-    def get_amount() -> Optional[float]:
+    def get_amount(suggested: Optional[float] = None) -> Optional[float]:
         """Get a valid amount from user."""
         try:
-            amount_str = input("Enter amount: ").strip()
+            prompt = "Enter amount"
+            if suggested is not None:
+                fmt = f"{suggested:.2f}".rstrip("0").rstrip(".")
+                prompt += f" [Enter for {fmt}]"
+            prompt += ": "
+            amount_str = input(prompt).strip()
+            if not amount_str and suggested is not None:
+                return suggested
             amount = float(amount_str)
             if amount <= 0:
                 print("\n[!]Amount must be positive")
@@ -113,8 +120,14 @@ class InputHandler:
     def get_transaction_input(
         transaction_type_name: str,
         categories: List[str],
+        suggested_amounts: Optional[Dict[str, float]] = None,
     ) -> Optional[Dict]:
         """Get all inputs for a new transaction step by step.
+
+        Args:
+            transaction_type_name: 'Income' or 'Expense' for display.
+            categories: Sorted list of category names.
+            suggested_amounts: Optional mapping of category -> suggested amount.
 
         Returns dict with keys: amount, category, description, date (ISO str or None).
         """
@@ -122,12 +135,13 @@ class InputHandler:
         print(f"  New {transaction_type_name} Transaction")
         print("=" * 50)
 
-        amount = InputHandler.get_amount()
-        if amount is None:
-            return None
-
         category = InputHandler.get_category(categories, transaction_type_name)
         if category is None:
+            return None
+
+        suggested = suggested_amounts.get(category) if suggested_amounts else None
+        amount = InputHandler.get_amount(suggested=suggested)
+        if amount is None:
             return None
 
         description = InputHandler.get_description()

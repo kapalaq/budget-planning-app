@@ -209,6 +209,16 @@ class Backend:
                 params={"transaction_type": data.get("transaction_type", "expense")},
             )
 
+        # Suggest amount
+        if action == "suggest_amount":
+            return await self._get(
+                "/suggest-amount",
+                params={
+                    "category": data.get("category", ""),
+                    "transaction_type": data.get("transaction_type", "expense"),
+                },
+            )
+
         # Transactions
         if action == "get_transaction":
             return await self._get(f"/transactions/{data['index']}")
