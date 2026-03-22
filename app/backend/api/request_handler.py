@@ -130,47 +130,47 @@ class RequestHandler:
     # ------------------------------------------------------------------ #
 
     @staticmethod
-    def _serialize_transaction(t: Transaction) -> dict:
-        sign = "+" if t.transaction_type == TransactionType.INCOME else "-"
-        is_transfer = isinstance(t, Transfer)
+    def _serialize_transaction(tr: Transaction) -> dict:
+        sign = "+" if tr.transaction_type == TransactionType.INCOME else "-"
+        is_transfer = isinstance(tr, Transfer)
 
         result = {
-            "id": t.id,
-            "amount": t.amount,
-            "signed_amount": t.signed_amount,
-            "transaction_type": t.transaction_type.value,
-            "category": t.category,
-            "description": t.description or "",
-            "date": t.datetime_created.strftime("%Y-%m-%d %H:%M:%S"),
-            "display": str(t),
-            "recurrence_id": getattr(t, "recurrence_id", None),
+            "id": tr.id,
+            "amount": tr.amount,
+            "signed_amount": tr.signed_amount,
+            "transaction_type": tr.transaction_type.value,
+            "category": tr.category,
+            "description": tr.description or "",
+            "date": tr.datetime_created.strftime("%Y-%m-%d %H:%M:%S"),
+            "display": str(tr),
+            "recurrence_id": getattr(tr, "recurrence_id", None),
             "is_transfer": is_transfer,
             "sign": sign,
         }
 
         if is_transfer:
-            if t.transaction_type == TransactionType.EXPENSE:
-                result["from_wallet"] = t.source.name if t.source else "Unknown"
+            if tr.transaction_type == TransactionType.EXPENSE:
+                result["from_wallet"] = tr.source.name if tr.source else "Unknown"
                 result["to_wallet"] = (
-                    t.connected.source.name
-                    if t.connected and t.connected.source
+                    tr.connected.source.name
+                    if tr.connected and tr.connected.source
                     else "Unknown"
                 )
             else:
                 result["from_wallet"] = (
-                    t.connected.source.name
-                    if t.connected and t.connected.source
+                    tr.connected.source.name
+                    if tr.connected and tr.connected.source
                     else "Unknown"
                 )
-                result["to_wallet"] = t.source.name if t.source else "Unknown"
+                result["to_wallet"] = tr.source.name if tr.source else "Unknown"
 
-            result["cross_currency"] = t.cross_currency
-            if t.cross_currency and t.connected:
-                result["connected_amount"] = t.connected.amount
+            result["cross_currency"] = tr.cross_currency
+            if tr.cross_currency and tr.connected:
+                result["connected_amount"] = tr.connected.amount
                 result["connected_currency"] = (
-                    t.connected.source.currency if t.connected.source else ""
+                    tr.connected.source.currency if tr.connected.source else ""
                 )
-                result["source_currency"] = t.source.currency if t.source else ""
+                result["source_currency"] = tr.source.currency if tr.source else ""
 
         return result
 
@@ -768,9 +768,9 @@ class RequestHandler:
             expense_by_cat: Dict[str, float] = defaultdict(float)
             for tr in transactions:
                 if tr.transaction_type == TransactionType.INCOME:
-                    income_by_cat[tr.category] += t.amount
+                    income_by_cat[tr.category] += tr.amount
                 else:
-                    expense_by_cat[tr.category] += t.amount
+                    expense_by_cat[tr.category] += tr.amount
             total_income = sum(income_by_cat.values())
             total_expense = sum(expense_by_cat.values())
             income_pct = (
