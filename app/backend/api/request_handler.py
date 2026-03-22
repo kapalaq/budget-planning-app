@@ -903,6 +903,12 @@ class RequestHandler:
                 "message": t("wallet.cannot_delete_goal", self._lang),
             }
 
+        if wallet.is_bill_wallet and wallet.goal_status == GoalStatus.ACTIVE:
+            return {
+                "status": "error",
+                "message": t("bill.cannot_delete_active", self._lang),
+            }
+
         if self._wm.remove_wallet(name, force=True):
             return {
                 "status": "success",

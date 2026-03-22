@@ -469,7 +469,7 @@ async def cb_delete_wallet(callback: types.CallbackQuery):
 @router.callback_query(F.data.startswith("confirm_delw:"))
 async def cb_confirm_delete_wallet(callback: types.CallbackQuery):
     await callback.answer()
-    name = callback.data.split(":")[1]
+    name = callback.data.split(":", 1)[1]
     resp = await backend.handle({"action": "delete_wallet", "data": {"name": name}})
     msg = resp.get("message", "Done")
     await callback.message.answer(msg, reply_markup=back_to_menu(3))
