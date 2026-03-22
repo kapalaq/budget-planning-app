@@ -10,6 +10,7 @@ from telegram.keyboards import (
     bill_list_keyboard,
     bill_menu_keyboard,
     cancel_keyboard,
+    parse_menu_page,
     skip_keyboard,
 )
 from telegram.states import AddBill, PayBill
@@ -21,12 +22,13 @@ router = Router()
 # ── Bill menu ────────────────────────────────────────────────────────
 
 
-@router.callback_query(F.data == "bills_menu")
+@router.callback_query(F.data.startswith("bills_menu"))
 async def cb_bills_menu(callback: types.CallbackQuery):
     await callback.answer()
+    page = parse_menu_page(callback.data, default=3)
     await callback.message.edit_text(
         "\U0001f4cb " + t("bill.tg_title", get_lang()),
-        reply_markup=bill_menu_keyboard(),
+        reply_markup=bill_menu_keyboard(menu_page=page),
     )
 
 

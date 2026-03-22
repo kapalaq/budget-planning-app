@@ -11,6 +11,7 @@ from telegram.keyboards import (
     back_to_menu,
     date_filter_keyboard,
     filter_menu_keyboard,
+    parse_menu_page,
     type_filter_keyboard,
 )
 from telegram.states import FilterInput
@@ -28,19 +29,20 @@ async def cmd_filters(message: types.Message, state: FSMContext):
     )
 
 
-@router.callback_query(F.data == "filters")
+@router.callback_query(F.data.startswith("filters"))
 async def cb_filters(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
     await state.clear()
+    page = parse_menu_page(callback.data, default=2)
     try:
         await callback.message.edit_text(
             "\U0001f50d " + t("filter.tg_options", get_lang()),
-            reply_markup=filter_menu_keyboard(),
+            reply_markup=filter_menu_keyboard(menu_page=page),
         )
     except Exception:
         await callback.message.answer(
             "\U0001f50d " + t("filter.tg_options", get_lang()),
-            reply_markup=filter_menu_keyboard(),
+            reply_markup=filter_menu_keyboard(menu_page=page),
         )
 
 

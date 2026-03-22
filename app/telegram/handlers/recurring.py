@@ -13,6 +13,7 @@ from telegram.keyboards import (
     edit_recurring_keyboard,
     end_condition_keyboard,
     frequency_keyboard,
+    parse_menu_page,
     recurring_actions_keyboard,
     skip_keyboard,
 )
@@ -30,13 +31,14 @@ async def cmd_recurring(message: types.Message):
     await _show_recurring_list(message)
 
 
-@router.callback_query(F.data == "recurring_list")
+@router.callback_query(F.data.startswith("recurring_list"))
 async def cb_recurring_list(callback: types.CallbackQuery):
     await callback.answer()
-    await _show_recurring_list(callback.message)
+    page = parse_menu_page(callback.data, default=2)
+    await _show_recurring_list(callback.message, menu_page=page)
 
 
-async def _show_recurring_list(message: types.Message):
+async def _show_recurring_list(message: types.Message, menu_page: int = 2):
     resp = await backend.handle({"action": "get_recurring_list", "data": {}})
     items = resp["data"]["recurring_transactions"]
     text = fmt_recurring_list(items, lang=get_lang())
@@ -54,7 +56,12 @@ async def _show_recurring_list(message: types.Message):
             ]
         )
     rows.append(
-        [InlineKeyboardButton(text="\u2b05\ufe0f Menu", callback_data="menu_page:2")]
+        [
+            InlineKeyboardButton(
+                text="\u2b05\ufe0f Menu",
+                callback_data=f"menu_page:{menu_page}",
+            )
+        ]
     )
     kb = InlineKeyboardMarkup(inline_keyboard=rows)
     await message.edit_text(text, parse_mode="MarkdownV2", reply_markup=kb)
@@ -82,19 +89,23 @@ async def cb_show_recurring(callback: types.CallbackQuery):
 # ── Add recurring ────────────────────────────────────────────────────
 
 
-@router.callback_query(F.data == "add_recurring_income")
+@router.callback_query(F.data.startswith("add_recurring_income"))
 async def cb_add_rec_income(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
-    await _start_add_recurring(callback.message, state, "income")
+    page = parse_menu_page(callback.data)
+    await _start_add_recurring(callback.message, state, "income", page)
 
 
-@router.callback_query(F.data == "add_recurring_expense")
+@router.callback_query(F.data.startswith("add_recurring_expense"))
 async def cb_add_rec_expense(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
-    await _start_add_recurring(callback.message, state, "expense")
+    page = parse_menu_page(callback.data)
+    await _start_add_recurring(callback.message, state, "expense", page)
 
 
-async def _start_add_recurring(message: types.Message, state: FSMContext, tt: str):
+async def _start_add_recurring(
+    message: types.Message, state: FSMContext, tt: str, page: int = 1
+):
     await state.clear()
     resp = await backend.handle(
         {"action": "get_categories", "data": {"transaction_type": tt}}
@@ -103,7 +114,7 @@ async def _start_add_recurring(message: types.Message, state: FSMContext, tt: st
         await message.answer(resp["message"])
         return
     categories = resp["data"]["categories"]
-    await state.update_data(transaction_type=tt, categories=categories)
+    await state.update_data(transaction_type=tt, categories=categories, menu_page=page)
     await state.set_state(AddRecurring.amount)
     lang = get_lang()
     label = (
@@ -113,7 +124,7 @@ async def _start_add_recurring(message: types.Message, state: FSMContext, tt: st
     )
     await message.edit_text(
         "\U0001f504 " + t("recurring.tg_adding", lang, label=label),
-        reply_markup=cancel_keyboard(1),
+        reply_markup=cancel_keyboard(page),
     )
 
 
@@ -121,6 +132,7 @@ async def _start_add_recurring(message: types.Message, state: FSMContext, tt: st
 async def rec_skip_amount(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
     data = await state.get_data()
+    page = data.get("menu_page", 1)
     if data.get("editing_template"):
         # Keep current amount — finish template edit without amount change
         index = data.get("rec_index")
@@ -133,7 +145,7 @@ async def rec_skip_amount(callback: types.CallbackQuery, state: FSMContext):
             resp = {"message": t("transaction.tg_no_changes", get_lang())}
         await state.clear()
         msg = resp.get("message", t("common.done", get_lang()))
-        await callback.message.edit_text(msg, reply_markup=back_to_menu())
+        await callback.message.edit_text(msg, reply_markup=back_to_menu(page))
         return
     # For new recurring, amount is required — do nothing
     await callback.message.answer(
@@ -154,10 +166,11 @@ async def rec_amount(message: types.Message, state: FSMContext):
         return
     await state.update_data(amount=amount)
     data = await state.get_data()
+    page = data.get("menu_page", 1)
     await state.set_state(AddRecurring.category)
     await message.answer(
         "\U0001f3f7\ufe0f " + t("transaction.tg_select_category", get_lang()),
-        reply_markup=category_keyboard(data["categories"], page=2),
+        reply_markup=category_keyboard(data["categories"], page=page),
     )
 
 
@@ -165,18 +178,20 @@ async def rec_amount(message: types.Message, state: FSMContext):
 async def rec_category(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
     cat = callback.data.split(":", 1)[1]
+    data = await state.get_data()
+    page = data.get("menu_page", 1)
     if cat == "__new__":
         await state.set_state(AddRecurring.new_category)
         await callback.message.edit_text(
             "\u2795 " + t("transaction.tg_new_category", get_lang()),
-            reply_markup=cancel_keyboard(1),
+            reply_markup=cancel_keyboard(page),
         )
         return
     await state.update_data(category=cat)
     await state.set_state(AddRecurring.description)
     await callback.message.edit_text(
         "\U0001f4dd " + t("transaction.tg_enter_description", get_lang()),
-        reply_markup=skip_keyboard(2),
+        reply_markup=skip_keyboard(page),
     )
 
 
@@ -188,22 +203,26 @@ async def rec_new_cat(message: types.Message, state: FSMContext):
             "\u26a0\ufe0f " + t("transaction.tg_category_empty", get_lang())
         )
         return
+    data = await state.get_data()
+    page = data.get("menu_page", 1)
     await state.update_data(category=cat)
     await state.set_state(AddRecurring.description)
     await message.answer(
         "\U0001f4dd " + t("transaction.tg_enter_description", get_lang()),
-        reply_markup=skip_keyboard(2),
+        reply_markup=skip_keyboard(page),
     )
 
 
 @router.callback_query(AddRecurring.description, F.data == "skip_default")
 async def rec_skip_description(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
+    data = await state.get_data()
+    page = data.get("menu_page", 1)
     await state.update_data(description="")
     await state.set_state(AddRecurring.start_date)
     await callback.message.edit_text(
         "\U0001f4c5 " + t("recurring.tg_enter_start_date", get_lang()),
-        reply_markup=skip_keyboard(2),
+        reply_markup=skip_keyboard(page),
     )
 
 
@@ -212,22 +231,26 @@ async def rec_description(message: types.Message, state: FSMContext):
     desc = message.text.strip()
     if desc == "-" or desc.lower() == "skip":
         desc = ""
+    data = await state.get_data()
+    page = data.get("menu_page", 1)
     await state.update_data(description=desc)
     await state.set_state(AddRecurring.start_date)
     await message.answer(
         "\U0001f4c5 " + t("recurring.tg_enter_start_date", get_lang()),
-        reply_markup=skip_keyboard(2),
+        reply_markup=skip_keyboard(page),
     )
 
 
 @router.callback_query(AddRecurring.start_date, F.data == "skip_default")
 async def rec_skip_start_date(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
+    data = await state.get_data()
+    page = data.get("menu_page", 1)
     await state.update_data(start_date=None)
     await state.set_state(AddRecurring.frequency)
     await callback.message.edit_text(
         "\U0001f504 " + t("recurring.tg_select_frequency", get_lang()),
-        reply_markup=frequency_keyboard(2),
+        reply_markup=frequency_keyboard(page),
     )
 
 
@@ -235,11 +258,13 @@ async def rec_skip_start_date(callback: types.CallbackQuery, state: FSMContext):
 async def rec_start_date(message: types.Message, state: FSMContext):
     text = message.text.strip()
     date_val = None if text == "-" or text.lower() == "skip" else text
+    data = await state.get_data()
+    page = data.get("menu_page", 1)
     await state.update_data(start_date=date_val)
     await state.set_state(AddRecurring.frequency)
     await message.answer(
         "\U0001f504 " + t("recurring.tg_select_frequency", get_lang()),
-        reply_markup=frequency_keyboard(2),
+        reply_markup=frequency_keyboard(page),
     )
 
 
@@ -247,22 +272,26 @@ async def rec_start_date(message: types.Message, state: FSMContext):
 async def rec_frequency(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
     freq = callback.data.split(":")[1]
+    data = await state.get_data()
+    page = data.get("menu_page", 1)
     await state.update_data(frequency=freq)
     await state.set_state(AddRecurring.interval)
     await callback.message.edit_text(
         t("recurring.tg_enter_interval", get_lang(), freq=freq),
-        reply_markup=skip_keyboard(2),
+        reply_markup=skip_keyboard(page),
     )
 
 
 @router.callback_query(AddRecurring.interval, F.data == "skip_default")
 async def rec_skip_interval(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
+    data = await state.get_data()
+    page = data.get("menu_page", 1)
     await state.update_data(interval=1)
     await state.set_state(AddRecurring.end_condition)
     await callback.message.edit_text(
         "\U0001f3c1 " + t("recurring.tg_select_end", get_lang()),
-        reply_markup=end_condition_keyboard(2),
+        reply_markup=end_condition_keyboard(page),
     )
 
 
@@ -281,11 +310,13 @@ async def rec_interval(message: types.Message, state: FSMContext):
                 "\u26a0\ufe0f " + t("recurring.tg_positive_integer", get_lang())
             )
             return
+    data = await state.get_data()
+    page = data.get("menu_page", 1)
     await state.update_data(interval=interval)
     await state.set_state(AddRecurring.end_condition)
     await message.answer(
         "\U0001f3c1 " + t("recurring.tg_select_end", get_lang()),
-        reply_markup=end_condition_keyboard(2),
+        reply_markup=end_condition_keyboard(page),
     )
 
 
@@ -293,6 +324,8 @@ async def rec_interval(message: types.Message, state: FSMContext):
 async def rec_end_condition(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
     endc = callback.data.split(":")[1]
+    data = await state.get_data()
+    page = data.get("menu_page", 1)
     await state.update_data(end_condition=endc)
 
     if endc == "never":
@@ -301,13 +334,13 @@ async def rec_end_condition(callback: types.CallbackQuery, state: FSMContext):
         await state.set_state(AddRecurring.end_date)
         await callback.message.edit_text(
             "\U0001f4c5 " + t("recurring.tg_enter_end_date", get_lang()),
-            reply_markup=cancel_keyboard(1),
+            reply_markup=cancel_keyboard(page),
         )
     elif endc == "after_count":
         await state.set_state(AddRecurring.end_count)
         await callback.message.edit_text(
             "\U0001f522 " + t("recurring.tg_enter_count", get_lang()),
-            reply_markup=cancel_keyboard(1),
+            reply_markup=cancel_keyboard(page),
         )
 
 
@@ -335,6 +368,7 @@ async def rec_end_count(message: types.Message, state: FSMContext):
 
 async def _finish_add_recurring(message: types.Message, state: FSMContext):
     data = await state.get_data()
+    page = data.get("menu_page", 1)
     rule = {
         "frequency": data["frequency"],
         "interval": data.get("interval", 1),
@@ -356,7 +390,7 @@ async def _finish_add_recurring(message: types.Message, state: FSMContext):
     resp = await backend.handle({"action": "add_recurring", "data": form})
     await state.clear()
     msg = resp.get("message", "Done")
-    await message.answer(msg, reply_markup=back_to_menu(2))
+    await message.answer(msg, reply_markup=back_to_menu(page))
 
 
 # ── Edit recurring ───────────────────────────────────────────────────

@@ -1,10 +1,10 @@
 """Help handler."""
 
-from aiogram import Router, types
+from aiogram import F, Router, types
 from aiogram.filters import Command
 from languages import t
 from telegram.backend import get_lang
-from telegram.keyboards import back_to_menu
+from telegram.keyboards import back_to_menu, parse_menu_page
 from telegram.utils import _bold, _italic, _to_md2
 
 router = Router()
@@ -51,15 +51,16 @@ async def cmd_help(message: types.Message):
     )
 
 
-@router.callback_query(lambda c: c.data == "help")
+@router.callback_query(F.data.startswith("help"))
 async def cb_help(callback: types.CallbackQuery):
     await callback.answer()
+    page = parse_menu_page(callback.data)
     help_text = _build_help_text(get_lang())
     try:
         await callback.message.edit_text(
-            help_text, parse_mode="MarkdownV2", reply_markup=back_to_menu()
+            help_text, parse_mode="MarkdownV2", reply_markup=back_to_menu(page)
         )
     except Exception:
         await callback.message.answer(
-            help_text, parse_mode="MarkdownV2", reply_markup=back_to_menu()
+            help_text, parse_mode="MarkdownV2", reply_markup=back_to_menu(page)
         )

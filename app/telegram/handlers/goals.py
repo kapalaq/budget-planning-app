@@ -12,6 +12,7 @@ from telegram.keyboards import (
     goal_actions_keyboard,
     goal_list_keyboard,
     goal_menu_keyboard,
+    parse_menu_page,
     skip_keyboard,
 )
 from telegram.states import AddGoal, RecurringGoalSave, SaveToGoal
@@ -23,12 +24,13 @@ router = Router()
 # ── Goal menu ────────────────────────────────────────────────────────
 
 
-@router.callback_query(F.data == "goals_menu")
+@router.callback_query(F.data.startswith("goals_menu"))
 async def cb_goals_menu(callback: types.CallbackQuery):
     await callback.answer()
+    page = parse_menu_page(callback.data, default=2)
     await callback.message.edit_text(
         "\U0001f3af " + t("goal.tg_title", get_lang()),
-        reply_markup=goal_menu_keyboard(),
+        reply_markup=goal_menu_keyboard(menu_page=page),
     )
 
 

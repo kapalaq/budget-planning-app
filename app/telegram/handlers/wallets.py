@@ -11,6 +11,7 @@ from telegram.keyboards import (
     capitalization_keyboard,
     confirm_keyboard,
     edit_wallet_fields_keyboard,
+    parse_menu_page,
     skip_keyboard,
     wallet_actions_keyboard,
     wallet_list_keyboard,
@@ -53,23 +54,26 @@ async def cmd_wallets(message: types.Message):
     await _show_wallets(message)
 
 
-@router.callback_query(F.data == "wallets")
+@router.callback_query(F.data.startswith("wallets"))
 async def cb_wallets(callback: types.CallbackQuery):
     await callback.answer()
-    await _show_wallets(callback.message)
+    page = parse_menu_page(callback.data, default=3)
+    await _show_wallets(callback.message, menu_page=page)
 
 
-async def _show_wallets(message: types.Message):
+async def _show_wallets(message: types.Message, menu_page: int = 3):
     resp = await backend.handle({"action": "get_wallets", "data": {}})
     if resp["status"] == "error":
-        await message.edit_text(resp["message"], reply_markup=back_to_menu(3))
+        await message.edit_text(resp["message"], reply_markup=back_to_menu(menu_page))
         return
     text = fmt_wallets(resp["data"], lang=get_lang())
     wallets = resp["data"]["wallets"]
     await message.edit_text(
         text,
         parse_mode="MarkdownV2",
-        reply_markup=wallet_list_keyboard(wallets, action_prefix="wdet"),
+        reply_markup=wallet_list_keyboard(
+            wallets, action_prefix="wdet", menu_page=menu_page
+        ),
     )
 
 
@@ -110,14 +114,16 @@ async def cmd_add_wallet(message: types.Message, state: FSMContext):
     await _start_add_wallet(message, state)
 
 
-@router.callback_query(F.data == "add_wallet")
+@router.callback_query(F.data.startswith("add_wallet"))
 async def cb_add_wallet(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
-    await _start_add_wallet(callback.message, state)
+    page = parse_menu_page(callback.data, default=3)
+    await _start_add_wallet(callback.message, state, page)
 
 
-async def _start_add_wallet(message: types.Message, state: FSMContext):
+async def _start_add_wallet(message: types.Message, state: FSMContext, page: int = 3):
     await state.clear()
+    await state.update_data(menu_page=page)
     await state.set_state(AddWallet.wallet_type)
     await message.edit_text(
         "\U0001f45b " + t("wallet.tg_select_type", get_lang()),
@@ -129,11 +135,13 @@ async def _start_add_wallet(message: types.Message, state: FSMContext):
 async def add_wallet_type(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
     wtype = callback.data.split(":", 1)[1]
+    data = await state.get_data()
+    page = data.get("menu_page", 3)
     await state.update_data(wallet_type=wtype)
     await state.set_state(AddWallet.name)
     await callback.message.edit_text(
         "\u270f\ufe0f " + t("wallet.tg_enter_name", get_lang()),
-        reply_markup=cancel_keyboard(3),
+        reply_markup=cancel_keyboard(page),
     )
 
 
@@ -143,22 +151,26 @@ async def add_wallet_name(message: types.Message, state: FSMContext):
     if not name:
         await message.answer("\u26a0\ufe0f " + t("wallet.tg_name_empty", get_lang()))
         return
+    data = await state.get_data()
+    page = data.get("menu_page", 3)
     await state.update_data(name=name)
     await state.set_state(AddWallet.currency)
     await message.answer(
         "\U0001f4b1 " + t("wallet.tg_enter_currency", get_lang()),
-        reply_markup=skip_keyboard(3),
+        reply_markup=skip_keyboard(page),
     )
 
 
 @router.callback_query(AddWallet.currency, F.data == "skip_default")
 async def add_wallet_skip_currency(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
+    data = await state.get_data()
+    page = data.get("menu_page", 3)
     await state.update_data(currency="KZT")
     await state.set_state(AddWallet.starting_value)
     await callback.message.edit_text(
         "\U0001f4b2 " + t("wallet.tg_enter_starting", get_lang()),
-        reply_markup=skip_keyboard(3),
+        reply_markup=skip_keyboard(page),
     )
 
 
@@ -166,22 +178,26 @@ async def add_wallet_skip_currency(callback: types.CallbackQuery, state: FSMCont
 async def add_wallet_currency(message: types.Message, state: FSMContext):
     text = message.text.strip()
     currency = "KZT" if text == "-" or text.lower() == "skip" else text.upper()
+    data = await state.get_data()
+    page = data.get("menu_page", 3)
     await state.update_data(currency=currency)
     await state.set_state(AddWallet.starting_value)
     await message.answer(
         "\U0001f4b2 " + t("wallet.tg_enter_starting", get_lang()),
-        reply_markup=skip_keyboard(3),
+        reply_markup=skip_keyboard(page),
     )
 
 
 @router.callback_query(AddWallet.starting_value, F.data == "skip_default")
 async def add_wallet_skip_starting(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
+    data = await state.get_data()
+    page = data.get("menu_page", 3)
     await state.update_data(starting_value=0.0)
     await state.set_state(AddWallet.description)
     await callback.message.edit_text(
         "\U0001f4dd " + t("wallet.tg_enter_description", get_lang()),
-        reply_markup=skip_keyboard(3),
+        reply_markup=skip_keyboard(page),
     )
 
 
@@ -198,24 +214,27 @@ async def add_wallet_starting(message: types.Message, state: FSMContext):
                 "\u26a0\ufe0f " + t("wallet.tg_invalid_number", get_lang())
             )
             return
+    data = await state.get_data()
+    page = data.get("menu_page", 3)
     await state.update_data(starting_value=value)
     await state.set_state(AddWallet.description)
     await message.answer(
         "\U0001f4dd " + t("wallet.tg_enter_description", get_lang()),
-        reply_markup=skip_keyboard(3),
+        reply_markup=skip_keyboard(page),
     )
 
 
 @router.callback_query(AddWallet.description, F.data == "skip_default")
 async def add_wallet_skip_description(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
-    await state.update_data(description="")
     data = await state.get_data()
+    page = data.get("menu_page", 3)
+    await state.update_data(description="")
     if data["wallet_type"] == "deposit":
         await state.set_state(AddWallet.interest_rate)
         await callback.message.edit_text(
             "\U0001f4c8 " + t("wallet.tg_enter_rate", get_lang()),
-            reply_markup=cancel_keyboard(3),
+            reply_markup=cancel_keyboard(page),
         )
     else:
         await _finish_add_wallet(callback.message, state)
@@ -226,13 +245,14 @@ async def add_wallet_description(message: types.Message, state: FSMContext):
     desc = message.text.strip()
     if desc == "-" or desc.lower() == "skip":
         desc = ""
-    await state.update_data(description=desc)
     data = await state.get_data()
+    page = data.get("menu_page", 3)
+    await state.update_data(description=desc)
     if data["wallet_type"] == "deposit":
         await state.set_state(AddWallet.interest_rate)
         await message.answer(
             "\U0001f4c8 " + t("wallet.tg_enter_rate", get_lang()),
-            reply_markup=cancel_keyboard(3),
+            reply_markup=cancel_keyboard(page),
         )
     else:
         await _finish_add_wallet(message, state)
@@ -247,11 +267,13 @@ async def add_wallet_rate(message: types.Message, state: FSMContext):
     except (ValueError, AttributeError):
         await message.answer("\u26a0\ufe0f " + t("wallet.tg_rate_error", get_lang()))
         return
+    data = await state.get_data()
+    page = data.get("menu_page", 3)
     await state.update_data(interest_rate=rate)
     await state.set_state(AddWallet.term_months)
     await message.answer(
         "\U0001f4c5 " + t("wallet.tg_enter_term", get_lang()),
-        reply_markup=cancel_keyboard(3),
+        reply_markup=cancel_keyboard(page),
     )
 
 
@@ -284,6 +306,7 @@ async def add_wallet_cap(callback: types.CallbackQuery, state: FSMContext):
 
 async def _finish_add_wallet(message: types.Message, state: FSMContext):
     data = await state.get_data()
+    page = data.get("menu_page", 3)
     form = {
         "wallet_type": data["wallet_type"],
         "name": data["name"],
@@ -298,7 +321,7 @@ async def _finish_add_wallet(message: types.Message, state: FSMContext):
     resp = await backend.handle({"action": "add_wallet", "data": form})
     await state.clear()
     msg = resp.get("message", "Done")
-    await message.edit_text(msg, reply_markup=back_to_menu(3))
+    await message.edit_text(msg, reply_markup=back_to_menu(page))
 
 
 # ── Edit wallet ──────────────────────────────────────────────────────

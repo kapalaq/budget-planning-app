@@ -10,6 +10,7 @@ from telegram.keyboards import (
     cancel_keyboard,
     end_condition_keyboard,
     frequency_keyboard,
+    parse_menu_page,
     skip_keyboard,
     wallet_list_keyboard,
 )
@@ -23,20 +24,21 @@ async def cmd_transfer(message: types.Message, state: FSMContext):
     await _start_transfer(message, state)
 
 
-@router.callback_query(F.data == "transfer")
+@router.callback_query(F.data.startswith("transfer"))
 async def cb_transfer(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
-    await _start_transfer(callback.message, state)
+    page = parse_menu_page(callback.data, default=3)
+    await _start_transfer(callback.message, state, page)
 
 
-async def _start_transfer(message: types.Message, state: FSMContext):
+async def _start_transfer(message: types.Message, state: FSMContext, page: int = 3):
     await state.clear()
     resp = await backend.handle({"action": "get_transfer_context", "data": {}})
     if resp["status"] == "error":
         try:
-            await message.edit_text(resp["message"], reply_markup=back_to_menu(3))
+            await message.edit_text(resp["message"], reply_markup=back_to_menu(page))
         except Exception:
-            await message.answer(resp["message"], reply_markup=back_to_menu(3))
+            await message.answer(resp["message"], reply_markup=back_to_menu(page))
         return
     from_wallet = resp["data"]["from_wallet"]
     targets = resp["data"]["target_wallets"]
@@ -44,15 +46,15 @@ async def _start_transfer(message: types.Message, state: FSMContext):
         try:
             await message.edit_text(
                 "\u26a0\ufe0f " + t("transfer.tg_no_targets", get_lang()),
-                reply_markup=back_to_menu(3),
+                reply_markup=back_to_menu(page),
             )
         except Exception:
             await message.answer(
                 "\u26a0\ufe0f " + t("transfer.tg_no_targets", get_lang()),
-                reply_markup=back_to_menu(3),
+                reply_markup=back_to_menu(page),
             )
         return
-    await state.update_data(from_wallet=from_wallet, targets=targets)
+    await state.update_data(from_wallet=from_wallet, targets=targets, menu_page=page)
     await state.set_state(Transfer.target_wallet)
     try:
         await message.edit_text(
@@ -63,7 +65,9 @@ async def _start_transfer(message: types.Message, state: FSMContext):
                 name=from_wallet["name"],
                 balance=f"{from_wallet['balance']:.2f}",
             ),
-            reply_markup=wallet_list_keyboard(targets, action_prefix="xfer_to"),
+            reply_markup=wallet_list_keyboard(
+                targets, action_prefix="xfer_to", menu_page=page
+            ),
         )
     except Exception:
         await message.answer(
@@ -74,7 +78,9 @@ async def _start_transfer(message: types.Message, state: FSMContext):
                 name=from_wallet["name"],
                 balance=f"{from_wallet['balance']:.2f}",
             ),
-            reply_markup=wallet_list_keyboard(targets, action_prefix="xfer_to"),
+            reply_markup=wallet_list_keyboard(
+                targets, action_prefix="xfer_to", menu_page=page
+            ),
         )
 
 
@@ -84,6 +90,7 @@ async def transfer_target(callback: types.CallbackQuery, state: FSMContext):
     target_name = callback.data.split(":", 1)[1]
     # Find target wallet currency from stored targets
     data = await state.get_data()
+    page = data.get("menu_page", 3)
     targets = data.get("targets", [])
     target_currency = ""
     for tw in targets:
@@ -100,12 +107,12 @@ async def transfer_target(callback: types.CallbackQuery, state: FSMContext):
     try:
         await callback.message.edit_text(
             "\U0001f3af " + t("transfer.tg_target", get_lang(), name=target_name),
-            reply_markup=cancel_keyboard(3),
+            reply_markup=cancel_keyboard(page),
         )
     except Exception:
         await callback.message.answer(
             "\U0001f3af " + t("transfer.tg_target", get_lang(), name=target_name),
-            reply_markup=cancel_keyboard(3),
+            reply_markup=cancel_keyboard(page),
         )
 
 
@@ -122,6 +129,7 @@ async def transfer_amount(message: types.Message, state: FSMContext):
         return
     await state.update_data(amount=amount)
     data = await state.get_data()
+    page = data.get("menu_page", 3)
     from_cur = data.get("from_currency", "")
     target_cur = data.get("target_currency", "")
     if from_cur and target_cur and from_cur != target_cur:
@@ -134,13 +142,13 @@ async def transfer_amount(message: types.Message, state: FSMContext):
             f"\U0001f4b1 {from_cur} \u2192 {target_cur}\n"
             + t("transfer.tg_enter_received", get_lang(), currency=target_cur)
             + hint,
-            reply_markup=skip_keyboard(3),
+            reply_markup=skip_keyboard(page),
         )
     else:
         await state.set_state(Transfer.description)
         await message.answer(
             "\U0001f4dd " + t("transfer.tg_enter_description", get_lang()),
-            reply_markup=skip_keyboard(3),
+            reply_markup=skip_keyboard(page),
         )
 
 
@@ -148,6 +156,7 @@ async def transfer_amount(message: types.Message, state: FSMContext):
 async def transfer_skip_received(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
     data = await state.get_data()
+    page = data.get("menu_page", 3)
     amount = data["amount"]
     from_cur = data.get("from_currency", "")
     target_cur = data.get("target_currency", "")
@@ -158,14 +167,14 @@ async def transfer_skip_received(callback: types.CallbackQuery, state: FSMContex
             + t("transfer.tg_rate_unavailable", get_lang())
             + f"\n\U0001f4b1 {from_cur} \u2192 {target_cur}\n"
             + t("transfer.tg_enter_received", get_lang(), currency=target_cur),
-            reply_markup=skip_keyboard(3),
+            reply_markup=skip_keyboard(page),
         )
         return
     await state.update_data(received_amount=converted)
     await state.set_state(Transfer.description)
     await callback.message.edit_text(
         "\U0001f4dd " + t("transfer.tg_enter_description", get_lang()),
-        reply_markup=skip_keyboard(3),
+        reply_markup=skip_keyboard(page),
     )
 
 
@@ -180,22 +189,26 @@ async def transfer_received_amount(message: types.Message, state: FSMContext):
             "\u26a0\ufe0f " + t("transaction.tg_positive_number", get_lang())
         )
         return
+    data = await state.get_data()
+    page = data.get("menu_page", 3)
     await state.update_data(received_amount=received)
     await state.set_state(Transfer.description)
     await message.answer(
         "\U0001f4dd " + t("transfer.tg_enter_description", get_lang()),
-        reply_markup=skip_keyboard(3),
+        reply_markup=skip_keyboard(page),
     )
 
 
 @router.callback_query(Transfer.description, F.data == "skip_default")
 async def transfer_skip_description(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
+    data = await state.get_data()
+    page = data.get("menu_page", 3)
     await state.update_data(description="")
     await state.set_state(Transfer.date)
     await callback.message.edit_text(
         "\U0001f4c5 " + t("transfer.tg_enter_date", get_lang()),
-        reply_markup=skip_keyboard(3),
+        reply_markup=skip_keyboard(page),
     )
 
 
@@ -204,11 +217,13 @@ async def transfer_description(message: types.Message, state: FSMContext):
     desc = message.text.strip()
     if desc == "-" or desc.lower() == "skip":
         desc = ""
+    data = await state.get_data()
+    page = data.get("menu_page", 3)
     await state.update_data(description=desc)
     await state.set_state(Transfer.date)
     await message.answer(
         "\U0001f4c5 " + t("transfer.tg_enter_date", get_lang()),
-        reply_markup=skip_keyboard(3),
+        reply_markup=skip_keyboard(page),
     )
 
 
@@ -228,11 +243,12 @@ def _build_transfer_form(data: dict, date_val=None) -> dict:
 async def transfer_skip_date(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
     data = await state.get_data()
+    page = data.get("menu_page", 3)
     form = _build_transfer_form(data)
     resp = await backend.handle({"action": "transfer", "data": form})
     await state.clear()
     msg = resp.get("message", "Done")
-    await callback.message.edit_text(msg, reply_markup=back_to_menu(3))
+    await callback.message.edit_text(msg, reply_markup=back_to_menu(page))
 
 
 @router.message(Transfer.date)
@@ -240,41 +256,47 @@ async def transfer_date(message: types.Message, state: FSMContext):
     text = message.text.strip()
     date_val = None if text == "-" or text.lower() == "skip" else text
     data = await state.get_data()
+    page = data.get("menu_page", 3)
     form = _build_transfer_form(data, date_val)
     resp = await backend.handle({"action": "transfer", "data": form})
     await state.clear()
     msg = resp.get("message", "Done")
     try:
-        await message.edit_text(msg, reply_markup=back_to_menu(3))
+        await message.edit_text(msg, reply_markup=back_to_menu(page))
     except Exception:
-        await message.answer(msg, reply_markup=back_to_menu(3))
+        await message.answer(msg, reply_markup=back_to_menu(page))
 
 
 # ── Recurring Transfer ──────────────────────────────────────────────
 
 
-@router.callback_query(F.data == "recurring_transfer")
+@router.callback_query(F.data.startswith("recurring_transfer"))
 async def cb_recurring_transfer(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
+    page = parse_menu_page(callback.data, default=3)
     await state.clear()
     resp = await backend.handle({"action": "get_transfer_context", "data": {}})
     if resp["status"] == "error":
-        await callback.message.edit_text(resp["message"], reply_markup=back_to_menu(3))
+        await callback.message.edit_text(
+            resp["message"], reply_markup=back_to_menu(page)
+        )
         return
     targets = resp["data"]["target_wallets"]
     from_wallet = resp["data"]["from_wallet"]
     if not targets:
         await callback.message.edit_text(
-            "\u26a0\ufe0f No target wallets available.",
-            reply_markup=back_to_menu(3),
+            "\u26a0\ufe0f" + t("transfer.no_wallets", get_lang()),
+            reply_markup=back_to_menu(page),
         )
         return
-    await state.update_data(from_wallet=from_wallet, targets=targets)
+    await state.update_data(from_wallet=from_wallet, targets=targets, menu_page=page)
     await state.set_state(RecurringTransfer.target_wallet)
     await callback.message.edit_text(
         "\U0001f504 "
         + t("transfer.tg_recurring_from", get_lang(), name=from_wallet["name"]),
-        reply_markup=wallet_list_keyboard(targets, action_prefix="rxfer_to"),
+        reply_markup=wallet_list_keyboard(
+            targets, action_prefix="rxfer_to", menu_page=page
+        ),
     )
 
 
@@ -283,6 +305,7 @@ async def rec_transfer_target(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
     target_name = callback.data.split(":", 1)[1]
     data = await state.get_data()
+    page = data.get("menu_page", 3)
     targets = data.get("targets", [])
     target_currency = ""
     for tw in targets:
@@ -297,8 +320,8 @@ async def rec_transfer_target(callback: types.CallbackQuery, state: FSMContext):
     )
     await state.set_state(RecurringTransfer.amount)
     await callback.message.edit_text(
-        f"\U0001f3af Target: {target_name}\n\U0001f4b2 Enter amount:",
-        reply_markup=cancel_keyboard(3),
+        t("transfer.tg_target", get_lang()).format(target_name),
+        reply_markup=cancel_keyboard(page),
     )
 
 
@@ -315,6 +338,7 @@ async def rec_transfer_amount(message: types.Message, state: FSMContext):
         return
     await state.update_data(amount=amount)
     data = await state.get_data()
+    page = data.get("menu_page", 3)
     from_cur = data.get("from_currency", "")
     target_cur = data.get("target_currency", "")
     if from_cur and target_cur and from_cur != target_cur:
@@ -327,13 +351,13 @@ async def rec_transfer_amount(message: types.Message, state: FSMContext):
             f"\U0001f4b1 {from_cur} \u2192 {target_cur}\n"
             + t("transfer.tg_enter_received", get_lang(), currency=target_cur)
             + hint,
-            reply_markup=skip_keyboard(3),
+            reply_markup=skip_keyboard(page),
         )
     else:
         await state.set_state(RecurringTransfer.description)
         await message.answer(
             "\U0001f4dd " + t("transfer.tg_enter_description", get_lang()),
-            reply_markup=skip_keyboard(3),
+            reply_markup=skip_keyboard(page),
         )
 
 
@@ -341,6 +365,7 @@ async def rec_transfer_amount(message: types.Message, state: FSMContext):
 async def rec_transfer_skip_received(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
     data = await state.get_data()
+    page = data.get("menu_page", 3)
     amount = data["amount"]
     from_cur = data.get("from_currency", "")
     target_cur = data.get("target_currency", "")
@@ -351,14 +376,14 @@ async def rec_transfer_skip_received(callback: types.CallbackQuery, state: FSMCo
             + t("transfer.tg_rate_unavailable", get_lang())
             + f"\n\U0001f4b1 {from_cur} \u2192 {target_cur}\n"
             + t("transfer.tg_enter_received", get_lang(), currency=target_cur),
-            reply_markup=skip_keyboard(3),
+            reply_markup=skip_keyboard(page),
         )
         return
     await state.update_data(received_amount=converted)
     await state.set_state(RecurringTransfer.description)
     await callback.message.edit_text(
         "\U0001f4dd " + t("transfer.tg_enter_description", get_lang()),
-        reply_markup=skip_keyboard(3),
+        reply_markup=skip_keyboard(page),
     )
 
 
@@ -373,22 +398,26 @@ async def rec_transfer_received_amount(message: types.Message, state: FSMContext
             "\u26a0\ufe0f " + t("transaction.tg_positive_number", get_lang())
         )
         return
+    data = await state.get_data()
+    page = data.get("menu_page", 3)
     await state.update_data(received_amount=received)
     await state.set_state(RecurringTransfer.description)
     await message.answer(
         "\U0001f4dd " + t("transfer.tg_enter_description", get_lang()),
-        reply_markup=skip_keyboard(3),
+        reply_markup=skip_keyboard(page),
     )
 
 
 @router.callback_query(RecurringTransfer.description, F.data == "skip_default")
 async def rec_transfer_skip_desc(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
+    data = await state.get_data()
+    page = data.get("menu_page", 3)
     await state.update_data(description="")
     await state.set_state(RecurringTransfer.start_date)
     await callback.message.edit_text(
         "\U0001f4c5 " + t("recurring.tg_enter_start_date", get_lang()),
-        reply_markup=skip_keyboard(3),
+        reply_markup=skip_keyboard(page),
     )
 
 
@@ -397,22 +426,26 @@ async def rec_transfer_description(message: types.Message, state: FSMContext):
     desc = message.text.strip()
     if desc == "-" or desc.lower() == "skip":
         desc = ""
+    data = await state.get_data()
+    page = data.get("menu_page", 3)
     await state.update_data(description=desc)
     await state.set_state(RecurringTransfer.start_date)
     await message.answer(
         "\U0001f4c5 " + t("recurring.tg_enter_start_date", get_lang()),
-        reply_markup=skip_keyboard(3),
+        reply_markup=skip_keyboard(page),
     )
 
 
 @router.callback_query(RecurringTransfer.start_date, F.data == "skip_default")
 async def rec_transfer_skip_start(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
+    data = await state.get_data()
+    page = data.get("menu_page", 3)
     await state.update_data(start_date=None)
     await state.set_state(RecurringTransfer.frequency)
     await callback.message.edit_text(
         "\U0001f504 " + t("recurring.tg_select_frequency", get_lang()),
-        reply_markup=frequency_keyboard(3),
+        reply_markup=frequency_keyboard(page),
     )
 
 
@@ -420,11 +453,13 @@ async def rec_transfer_skip_start(callback: types.CallbackQuery, state: FSMConte
 async def rec_transfer_start_date(message: types.Message, state: FSMContext):
     text = message.text.strip()
     date_val = None if text == "-" or text.lower() == "skip" else text
+    data = await state.get_data()
+    page = data.get("menu_page", 3)
     await state.update_data(start_date=date_val)
     await state.set_state(RecurringTransfer.frequency)
     await message.answer(
         "\U0001f504 " + t("recurring.tg_select_frequency", get_lang()),
-        reply_markup=frequency_keyboard(3),
+        reply_markup=frequency_keyboard(page),
     )
 
 
@@ -432,22 +467,26 @@ async def rec_transfer_start_date(message: types.Message, state: FSMContext):
 async def rec_transfer_frequency(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
     freq = callback.data.split(":")[1]
+    data = await state.get_data()
+    page = data.get("menu_page", 3)
     await state.update_data(frequency=freq)
     await state.set_state(RecurringTransfer.interval)
     await callback.message.edit_text(
         t("transfer.tg_enter_interval", get_lang(), freq=freq),
-        reply_markup=skip_keyboard(3),
+        reply_markup=skip_keyboard(page),
     )
 
 
 @router.callback_query(RecurringTransfer.interval, F.data == "skip_default")
 async def rec_transfer_skip_interval(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
+    data = await state.get_data()
+    page = data.get("menu_page", 3)
     await state.update_data(interval=1)
     await state.set_state(RecurringTransfer.end_condition)
     await callback.message.edit_text(
         "\U0001f3c1 " + t("recurring.tg_select_end", get_lang()),
-        reply_markup=end_condition_keyboard(3),
+        reply_markup=end_condition_keyboard(page),
     )
 
 
@@ -466,11 +505,13 @@ async def rec_transfer_interval(message: types.Message, state: FSMContext):
                 "\u26a0\ufe0f " + t("recurring.tg_positive_integer", get_lang())
             )
             return
+    data = await state.get_data()
+    page = data.get("menu_page", 3)
     await state.update_data(interval=interval)
     await state.set_state(RecurringTransfer.end_condition)
     await message.answer(
         "\U0001f3c1 " + t("recurring.tg_select_end", get_lang()),
-        reply_markup=end_condition_keyboard(3),
+        reply_markup=end_condition_keyboard(page),
     )
 
 
@@ -478,6 +519,8 @@ async def rec_transfer_interval(message: types.Message, state: FSMContext):
 async def rec_transfer_end_condition(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
     endc = callback.data.split(":")[1]
+    data = await state.get_data()
+    page = data.get("menu_page", 3)
     await state.update_data(end_condition=endc)
     if endc == "never":
         await _finish_recurring_transfer(callback.message, state)
@@ -485,13 +528,13 @@ async def rec_transfer_end_condition(callback: types.CallbackQuery, state: FSMCo
         await state.set_state(RecurringTransfer.end_date)
         await callback.message.edit_text(
             "\U0001f4c5 " + t("recurring.tg_enter_end_date", get_lang()),
-            reply_markup=cancel_keyboard(3),
+            reply_markup=cancel_keyboard(page),
         )
     elif endc == "after_count":
         await state.set_state(RecurringTransfer.end_count)
         await callback.message.edit_text(
             "\U0001f522 " + t("recurring.tg_enter_count", get_lang()),
-            reply_markup=cancel_keyboard(3),
+            reply_markup=cancel_keyboard(page),
         )
 
 
@@ -518,6 +561,7 @@ async def rec_transfer_end_count(message: types.Message, state: FSMContext):
 
 async def _finish_recurring_transfer(message: types.Message, state: FSMContext):
     data = await state.get_data()
+    page = data.get("menu_page", 3)
     rule = {
         "frequency": data["frequency"],
         "interval": data.get("interval", 1),
@@ -540,4 +584,4 @@ async def _finish_recurring_transfer(message: types.Message, state: FSMContext):
     resp = await backend.handle({"action": "add_recurring_transfer", "data": form})
     await state.clear()
     msg = resp.get("message", "Done")
-    await message.answer(msg, reply_markup=back_to_menu(3))
+    await message.answer(msg, reply_markup=back_to_menu(page))

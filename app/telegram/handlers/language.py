@@ -3,14 +3,15 @@
 from aiogram import F, Router, types
 from languages import t
 from telegram.backend import backend, get_lang
-from telegram.keyboards import back_to_menu, language_keyboard
+from telegram.keyboards import back_to_menu, language_keyboard, parse_menu_page
 
 router = Router()
 
 
-@router.callback_query(F.data == "language")
+@router.callback_query(F.data.startswith("language"))
 async def cb_language(callback: types.CallbackQuery):
     await callback.answer()
+    page = parse_menu_page(callback.data)
     lang = get_lang()
     resp = await backend.handle({"action": "get_language", "data": {}})
     current = resp.get("data", {}).get("language", "en-US")

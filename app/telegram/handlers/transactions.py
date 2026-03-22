@@ -10,6 +10,7 @@ from telegram.keyboards import (
     category_keyboard,
     confirm_keyboard,
     edit_transaction_fields_keyboard,
+    parse_menu_page,
     skip_keyboard,
     transaction_actions_keyboard,
     transaction_list_keyboard,
@@ -23,19 +24,21 @@ router = Router()
 # ── Add transaction ──────────────────────────────────────────────────
 
 
-@router.callback_query(F.data == "add_income")
+@router.callback_query(F.data.startswith("add_income"))
 async def cb_add_income(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
-    await _start_add(callback.message, state, "income")
+    page = parse_menu_page(callback.data)
+    await _start_add(callback.message, state, "income", page)
 
 
-@router.callback_query(F.data == "add_expense")
+@router.callback_query(F.data.startswith("add_expense"))
 async def cb_add_expense(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
-    await _start_add(callback.message, state, "expense")
+    page = parse_menu_page(callback.data)
+    await _start_add(callback.message, state, "expense", page)
 
 
-async def _start_add(message: types.Message, state: FSMContext, tt: str):
+async def _start_add(message: types.Message, state: FSMContext, tt: str, page: int = 1):
     await state.clear()
     resp = await backend.handle(
         {"action": "get_categories", "data": {"transaction_type": tt}}
@@ -44,7 +47,7 @@ async def _start_add(message: types.Message, state: FSMContext, tt: str):
         await message.edit_text(resp["message"])
         return
     categories = resp["data"]["categories"]
-    await state.update_data(transaction_type=tt, categories=categories)
+    await state.update_data(transaction_type=tt, categories=categories, menu_page=page)
     await state.set_state(AddTransaction.amount)
     lang = get_lang()
     label = (
@@ -54,7 +57,7 @@ async def _start_add(message: types.Message, state: FSMContext, tt: str):
     )
     await message.edit_text(
         t("transaction.tg_adding", lang, label=label),
-        reply_markup=cancel_keyboard(1),
+        reply_markup=cancel_keyboard(page),
     )
 
 
@@ -71,10 +74,11 @@ async def add_tx_amount(message: types.Message, state: FSMContext):
         return
     await state.update_data(amount=amount)
     data = await state.get_data()
+    page = data.get("menu_page", 1)
     await state.set_state(AddTransaction.category)
     await message.answer(
         "\U0001f3f7\ufe0f " + t("transaction.tg_select_category", get_lang()),
-        reply_markup=category_keyboard(data["categories"], page=2),
+        reply_markup=category_keyboard(data["categories"], page=page),
     )
 
 
@@ -82,18 +86,20 @@ async def add_tx_amount(message: types.Message, state: FSMContext):
 async def add_tx_category(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
     cat = callback.data.split(":", 1)[1]
+    data = await state.get_data()
+    page = data.get("menu_page", 1)
     if cat == "__new__":
         await state.set_state(AddTransaction.new_category)
         await callback.message.edit_text(
             "\u2795 " + t("transaction.tg_new_category", get_lang()),
-            reply_markup=cancel_keyboard(1),
+            reply_markup=cancel_keyboard(page),
         )
         return
     await state.update_data(category=cat)
     await state.set_state(AddTransaction.description)
     await callback.message.edit_text(
         "\U0001f4dd " + t("transaction.tg_enter_description", get_lang()),
-        reply_markup=skip_keyboard(2),
+        reply_markup=skip_keyboard(page),
     )
 
 
@@ -105,22 +111,26 @@ async def add_tx_new_cat(message: types.Message, state: FSMContext):
             "\u26a0\ufe0f " + t("transaction.tg_category_empty", get_lang())
         )
         return
+    data = await state.get_data()
+    page = data.get("menu_page", 1)
     await state.update_data(category=cat)
     await state.set_state(AddTransaction.description)
     await message.answer(
         "\U0001f4dd " + t("transaction.tg_enter_description", get_lang()),
-        reply_markup=skip_keyboard(2),
+        reply_markup=skip_keyboard(page),
     )
 
 
 @router.callback_query(AddTransaction.description, F.data == "skip_default")
 async def add_tx_skip_description(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
+    data = await state.get_data()
+    page = data.get("menu_page", 1)
     await state.update_data(description="")
     await state.set_state(AddTransaction.date)
     await callback.message.edit_text(
         "\U0001f4c5 " + t("transaction.tg_enter_date", get_lang()),
-        reply_markup=skip_keyboard(2),
+        reply_markup=skip_keyboard(page),
     )
 
 
@@ -129,11 +139,13 @@ async def add_tx_description(message: types.Message, state: FSMContext):
     desc = message.text.strip()
     if desc == "-" or desc.lower() == "skip":
         desc = ""
+    data = await state.get_data()
+    page = data.get("menu_page", 1)
     await state.update_data(description=desc)
     await state.set_state(AddTransaction.date)
     await message.answer(
         "\U0001f4c5 " + t("transaction.tg_enter_date", get_lang()),
-        reply_markup=skip_keyboard(2),
+        reply_markup=skip_keyboard(page),
     )
 
 
@@ -141,6 +153,7 @@ async def add_tx_description(message: types.Message, state: FSMContext):
 async def add_tx_skip_date(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
     data = await state.get_data()
+    page = data.get("menu_page", 1)
     form = {
         "transaction_type": data["transaction_type"],
         "amount": data["amount"],
@@ -159,10 +172,12 @@ async def add_tx_skip_date(callback: types.CallbackQuery, state: FSMContext):
                 amount=f"{data['amount']:.2f}",
                 category=data["category"],
             ),
-            reply_markup=back_to_menu(2),
+            reply_markup=back_to_menu(page),
         )
     else:
-        await callback.message.edit_text(resp["message"], reply_markup=back_to_menu(2))
+        await callback.message.edit_text(
+            resp["message"], reply_markup=back_to_menu(page)
+        )
 
 
 @router.message(AddTransaction.date)
@@ -170,6 +185,7 @@ async def add_tx_date(message: types.Message, state: FSMContext):
     text = message.text.strip()
     date_val = None if text == "-" or text.lower() == "skip" else text
     data = await state.get_data()
+    page = data.get("menu_page", 1)
     form = {
         "transaction_type": data["transaction_type"],
         "amount": data["amount"],
@@ -188,10 +204,10 @@ async def add_tx_date(message: types.Message, state: FSMContext):
                 amount=f"{data['amount']:.2f}",
                 category=data["category"],
             ),
-            reply_markup=back_to_menu(2),
+            reply_markup=back_to_menu(page),
         )
     else:
-        await message.answer(resp["message"], reply_markup=back_to_menu(2))
+        await message.answer(resp["message"], reply_markup=back_to_menu(page))
 
 
 # ── Transaction list pickers (from paginated menu) ───────────────────
@@ -204,22 +220,23 @@ async def _fetch_transactions():
     return resp["data"].get("transactions", []), None
 
 
-@router.callback_query(F.data == "tx_list_show")
+@router.callback_query(F.data.startswith("tx_list_show"))
 async def cb_tx_list_show(callback: types.CallbackQuery):
     await callback.answer()
+    page = parse_menu_page(callback.data, default=2)
     transactions, err = await _fetch_transactions()
     if err:
-        await callback.message.edit_text(err, reply_markup=back_to_menu(2))
+        await callback.message.edit_text(err, reply_markup=back_to_menu(page))
         return
     if not transactions:
         await callback.message.edit_text(
             "\U0001f4ed " + t("transaction.tg_no_transactions", get_lang()),
-            reply_markup=back_to_menu(2),
+            reply_markup=back_to_menu(page),
         )
         return
     await callback.message.edit_text(
         "\U0001f4cb " + t("transaction.tg_select_to_view", get_lang()),
-        reply_markup=transaction_list_keyboard(transactions, "show_tx"),
+        reply_markup=transaction_list_keyboard(transactions, "show_tx", menu_page=page),
     )
 
 
@@ -229,13 +246,16 @@ async def cb_tx_page(callback: types.CallbackQuery):
     parts = callback.data.split(":")
     action_prefix = parts[1]
     page = int(parts[2])
+    menu_page = int(parts[3]) if len(parts) > 3 else 2
     transactions, err = await _fetch_transactions()
     if err:
-        await callback.message.answer(err, reply_markup=back_to_menu(2))
+        await callback.message.answer(err, reply_markup=back_to_menu(menu_page))
         return
     try:
         await callback.message.edit_reply_markup(
-            reply_markup=transaction_list_keyboard(transactions, action_prefix, page),
+            reply_markup=transaction_list_keyboard(
+                transactions, action_prefix, page, menu_page=menu_page
+            ),
         )
     except Exception:
         pass
