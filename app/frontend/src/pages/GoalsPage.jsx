@@ -37,7 +37,7 @@ export default function GoalsPage() {
     e.preventDefault()
     setSaving(true)
     try {
-      await api.addGoal({ ...newGoal, target_amount: parseFloat(newGoal.target_amount) })
+      await api.addGoal({ ...newGoal, target: parseFloat(newGoal.target_amount) })
       success('Goal created')
       setShowAdd(false)
       setNewGoal({ name: '', target_amount: '', currency: 'USD', description: '' })
@@ -50,7 +50,7 @@ export default function GoalsPage() {
     e.preventDefault()
     setSaving(true)
     try {
-      await api.saveToGoal({ name: showSave, amount: parseFloat(saveAmount) })
+      await api.saveToGoal({ goal_name: showSave, amount: parseFloat(saveAmount) })
       success(`Saved to ${showSave}`)
       setShowSave(null)
       setSaveAmount('')
@@ -119,51 +119,56 @@ export default function GoalsPage() {
           <EmptyState icon={Target} title="No goals" description="Create a savings goal to start tracking" />
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
-            {goals.map((g) => (
-              <div key={g.name} className="goal-card">
-                <div className="goal-header">
-                  <div className="goal-name">{g.name}</div>
-                  <div style={{ display: 'flex', gap: 4 }}>
-                    <span className={`badge ${g.status === 'active' ? 'active' : g.status === 'completed' ? 'income' : 'inactive'}`}>
-                      {g.status}
-                    </span>
+            {goals.map((g) => {
+              const gd = g.goal || {}
+              const status = gd.status || 'active'
+              const displayName = g.name.replace(/^Goal:\s*/, '')
+              return (
+                <div key={g.name} className="goal-card">
+                  <div className="goal-header">
+                    <div className="goal-name">{displayName}</div>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      <span className={`badge ${status === 'active' ? 'active' : status === 'completed' ? 'income' : 'inactive'}`}>
+                        {status}
+                      </span>
+                    </div>
+                  </div>
+                  {g.description && <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: 8 }}>{g.description}</div>}
+                  <div className="progress-bar" style={{ marginBottom: 8 }}>
+                    <div className={`fill ${gd.progress >= 100 ? 'complete' : gd.progress >= 75 ? 'warning' : ''}`} style={{ width: `${Math.min(gd.progress || 0, 100)}%` }} />
+                  </div>
+                  <div className="goal-amounts">
+                    <span>{formatAmount(gd.saved, g.currency)} saved</span>
+                    <span>{formatAmount(gd.target, g.currency)} target</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                    {status === 'active' && (
+                      <>
+                        <button className="btn btn-primary btn-sm" onClick={() => { setShowSave(g.name); setSaveAmount('') }}>
+                          <DollarSign size={14} /> Save
+                        </button>
+                        <button className="btn btn-secondary btn-sm" onClick={() => handleComplete(g.name)}>
+                          <CheckCircle size={14} /> Complete
+                        </button>
+                        <button className="btn btn-ghost btn-sm" onClick={() => handleHide(g.name)} title="Hide (allows deletion)">
+                          <EyeOff size={14} />
+                        </button>
+                      </>
+                    )}
+                    {status === 'hidden' && (
+                      <button className="btn btn-secondary btn-sm" onClick={() => handleReactivate(g.name)}>
+                        <RotateCcw size={14} /> Reactivate
+                      </button>
+                    )}
+                    {status !== 'active' && (
+                      <button className="btn btn-ghost btn-sm" onClick={() => setDeleteTarget(g.name)}>
+                        <Trash2 size={14} />
+                      </button>
+                    )}
                   </div>
                 </div>
-                {g.description && <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: 8 }}>{g.description}</div>}
-                <div className="progress-bar" style={{ marginBottom: 8 }}>
-                  <div className={`fill ${g.progress >= 100 ? 'complete' : g.progress >= 75 ? 'warning' : ''}`} style={{ width: `${Math.min(g.progress, 100)}%` }} />
-                </div>
-                <div className="goal-amounts">
-                  <span>{formatAmount(g.saved, g.currency)} saved</span>
-                  <span>{formatAmount(g.target, g.currency)} target</span>
-                </div>
-                <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                  {g.status === 'active' && (
-                    <>
-                      <button className="btn btn-primary btn-sm" onClick={() => { setShowSave(g.name); setSaveAmount('') }}>
-                        <DollarSign size={14} /> Save
-                      </button>
-                      <button className="btn btn-secondary btn-sm" onClick={() => handleComplete(g.name)}>
-                        <CheckCircle size={14} /> Complete
-                      </button>
-                      <button className="btn btn-ghost btn-sm" onClick={() => handleHide(g.name)} title="Hide (allows deletion)">
-                        <EyeOff size={14} />
-                      </button>
-                    </>
-                  )}
-                  {g.status === 'hidden' && (
-                    <button className="btn btn-secondary btn-sm" onClick={() => handleReactivate(g.name)}>
-                      <RotateCcw size={14} /> Reactivate
-                    </button>
-                  )}
-                  {g.status !== 'active' && (
-                    <button className="btn btn-ghost btn-sm" onClick={() => setDeleteTarget(g.name)}>
-                      <Trash2 size={14} />
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>

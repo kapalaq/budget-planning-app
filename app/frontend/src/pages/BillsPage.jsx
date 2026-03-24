@@ -37,7 +37,7 @@ export default function BillsPage() {
     e.preventDefault()
     setSaving(true)
     try {
-      await api.addBill({ ...newBill, target_amount: parseFloat(newBill.target_amount) })
+      await api.addBill({ ...newBill, target: parseFloat(newBill.target_amount) })
       success('Bill created')
       setShowAdd(false)
       setNewBill({ name: '', target_amount: '', currency: 'USD', description: '' })
@@ -50,7 +50,7 @@ export default function BillsPage() {
     e.preventDefault()
     setSaving(true)
     try {
-      await api.saveToBill({ name: showSave, amount: parseFloat(saveAmount) })
+      await api.saveToBill({ bill_name: showSave, amount: parseFloat(saveAmount) })
       success(`Saved to ${showSave}`)
       setShowSave(null)
       setSaveAmount('')
@@ -119,49 +119,54 @@ export default function BillsPage() {
           <EmptyState icon={Receipt} title="No bills" description="Add a bill to start tracking" />
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
-            {bills.map((b) => (
-              <div key={b.name} className="goal-card">
-                <div className="goal-header">
-                  <div className="goal-name">{b.name}</div>
-                  <span className={`badge ${b.status === 'active' ? 'active' : b.status === 'completed' ? 'income' : 'inactive'}`}>
-                    {b.status}
-                  </span>
-                </div>
-                {b.description && <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: 8 }}>{b.description}</div>}
-                <div className="progress-bar" style={{ marginBottom: 8 }}>
-                  <div className={`fill ${b.progress >= 100 ? 'complete' : b.progress >= 75 ? 'warning' : ''}`} style={{ width: `${Math.min(b.progress, 100)}%` }} />
-                </div>
-                <div className="goal-amounts">
-                  <span>{formatAmount(b.saved, b.currency)} saved</span>
-                  <span>{formatAmount(b.target, b.currency)} due</span>
-                </div>
-                <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                  {b.status === 'active' && (
-                    <>
-                      <button className="btn btn-primary btn-sm" onClick={() => { setShowSave(b.name); setSaveAmount('') }}>
-                        <DollarSign size={14} /> Pay
+            {bills.map((b) => {
+              const bd = b.bill || {}
+              const status = bd.status || 'active'
+              const displayName = b.name.replace(/^Bill:\s*/, '')
+              return (
+                <div key={b.name} className="goal-card">
+                  <div className="goal-header">
+                    <div className="goal-name">{displayName}</div>
+                    <span className={`badge ${status === 'active' ? 'active' : status === 'completed' ? 'income' : 'inactive'}`}>
+                      {status}
+                    </span>
+                  </div>
+                  {b.description && <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: 8 }}>{b.description}</div>}
+                  <div className="progress-bar" style={{ marginBottom: 8 }}>
+                    <div className={`fill ${bd.progress >= 100 ? 'complete' : bd.progress >= 75 ? 'warning' : ''}`} style={{ width: `${Math.min(bd.progress || 0, 100)}%` }} />
+                  </div>
+                  <div className="goal-amounts">
+                    <span>{formatAmount(bd.saved, b.currency)} saved</span>
+                    <span>{formatAmount(bd.target, b.currency)} due</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                    {status === 'active' && (
+                      <>
+                        <button className="btn btn-primary btn-sm" onClick={() => { setShowSave(b.name); setSaveAmount('') }}>
+                          <DollarSign size={14} /> Pay
+                        </button>
+                        <button className="btn btn-secondary btn-sm" onClick={() => handleComplete(b.name)}>
+                          <CheckCircle size={14} /> Complete
+                        </button>
+                        <button className="btn btn-ghost btn-sm" onClick={() => handleHide(b.name)} title="Hide (allows deletion)">
+                          <EyeOff size={14} />
+                        </button>
+                      </>
+                    )}
+                    {status === 'hidden' && (
+                      <button className="btn btn-secondary btn-sm" onClick={() => handleReactivate(b.name)}>
+                        <RotateCcw size={14} /> Reactivate
                       </button>
-                      <button className="btn btn-secondary btn-sm" onClick={() => handleComplete(b.name)}>
-                        <CheckCircle size={14} /> Complete
+                    )}
+                    {status !== 'active' && (
+                      <button className="btn btn-ghost btn-sm" onClick={() => setDeleteTarget(b.name)}>
+                        <Trash2 size={14} />
                       </button>
-                      <button className="btn btn-ghost btn-sm" onClick={() => handleHide(b.name)} title="Hide (allows deletion)">
-                        <EyeOff size={14} />
-                      </button>
-                    </>
-                  )}
-                  {b.status === 'hidden' && (
-                    <button className="btn btn-secondary btn-sm" onClick={() => handleReactivate(b.name)}>
-                      <RotateCcw size={14} /> Reactivate
-                    </button>
-                  )}
-                  {b.status !== 'active' && (
-                    <button className="btn btn-ghost btn-sm" onClick={() => setDeleteTarget(b.name)}>
-                      <Trash2 size={14} />
-                    </button>
-                  )}
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>

@@ -22,7 +22,7 @@ export default function TransactionsPage() {
   const [editTx, setEditTx] = useState(null)
   const [deleteTx, setDeleteTx] = useState(null)
   const [transferCtx, setTransferCtx] = useState(null)
-  const [transferData, setTransferData] = useState({ to_wallet: '', amount: '' })
+  const [transferData, setTransferData] = useState({ to_wallet: '', amount: '', received_amount: '' })
   const [transferLoading, setTransferLoading] = useState(false)
   const { toasts, success, error: showError } = useToast()
 
@@ -50,8 +50,9 @@ export default function TransactionsPage() {
 
   const handleEdit = async (txData) => {
     try {
-      const idx = data.transactions.findIndex((t) => t.id === editTx.id) + 1
-      if (idx === -1) return
+      const foundIdx = data.transactions.findIndex((t) => t.id === editTx.id)
+      if (foundIdx === -1) return
+      const idx = foundIdx + 1
       await api.editTransaction(idx, txData)
       success('Transaction updated')
       setEditTx(null)
@@ -61,8 +62,9 @@ export default function TransactionsPage() {
 
   const handleDelete = async () => {
     try {
-      const idx = data.transactions.findIndex((t) => t.id === deleteTx.id) + 1
-      if (idx === -1) return
+      const foundIdx = data.transactions.findIndex((t) => t.id === deleteTx.id)
+      if (foundIdx === -1) return
+      const idx = foundIdx + 1
       await api.deleteTransaction(idx)
       success('Transaction deleted')
       setDeleteTx(null)
@@ -73,8 +75,13 @@ export default function TransactionsPage() {
   const openTransfer = async () => {
     try {
       const res = await api.getTransferContext()
-      setTransferCtx(res.data)
-      setTransferData({ to_wallet: '', amount: '' })
+      const d = res.data
+      setTransferCtx({
+        current_wallet: d.from_wallet?.name || '',
+        currency: d.from_wallet?.currency || '',
+        target_wallets: d.target_wallets || [],
+      })
+      setTransferData({ to_wallet: '', amount: '', received_amount: '' })
       setShowTransfer(true)
     } catch (err) { showError(err.message) }
   }
@@ -83,10 +90,14 @@ export default function TransactionsPage() {
     e.preventDefault()
     setTransferLoading(true)
     try {
-      await api.transfer({
-        to_wallet: transferData.to_wallet,
+      const transferPayload = {
+        target_wallet_name: transferData.to_wallet,
         amount: parseFloat(transferData.amount),
-      })
+      }
+      if (transferData.received_amount) {
+        transferPayload.received_amount = parseFloat(transferData.received_amount)
+      }
+      await api.transfer(transferPayload)
       success('Transfer completed')
       setShowTransfer(false)
       load()
@@ -195,32 +206,43 @@ export default function TransactionsPage() {
         <ConfirmDialog title="Delete Transaction" message={`Delete ${deleteTx.category} (${formatAmount(deleteTx.amount, '')})?`} onConfirm={handleDelete} onCancel={() => setDeleteTx(null)} danger />
       )}
 
-      {showTransfer && transferCtx && (
-        <Modal title="Transfer" onClose={() => setShowTransfer(false)}>
-          <form onSubmit={handleTransfer}>
-            <div style={{ padding: '10px 14px', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-sm)', marginBottom: 16, fontSize: '0.85rem' }}>
-              From: <strong>{transferCtx.current_wallet}</strong> ({transferCtx.currency})
-            </div>
-            <div className="form-group">
-              <label>To Wallet</label>
-              <select className="form-input" value={transferData.to_wallet} onChange={(e) => setTransferData({ ...transferData, to_wallet: e.target.value })} required>
-                <option value="">Select wallet</option>
-                {(transferCtx.available_wallets || []).map((w) => (
-                  <option key={w} value={w}>{w}</option>
-                ))}
-              </select>
-            </div>
-            <div className="form-group">
-              <label>Amount</label>
-              <input type="number" step="0.01" min="0" className="form-input" value={transferData.amount} onChange={(e) => setTransferData({ ...transferData, amount: e.target.value })} required />
-            </div>
-            <div className="modal-actions">
-              <button type="button" className="btn btn-secondary" onClick={() => setShowTransfer(false)}>Cancel</button>
-              <button type="submit" className="btn btn-primary" disabled={transferLoading}>{transferLoading ? 'Sending...' : 'Transfer'}</button>
-            </div>
-          </form>
-        </Modal>
-      )}
+      {showTransfer && transferCtx && (() => {
+        const selectedTarget = transferCtx.target_wallets.find((w) => w.name === transferData.to_wallet)
+        const targetCurrency = selectedTarget?.currency || ''
+        const isCrossCurrency = targetCurrency && transferCtx.currency && targetCurrency !== transferCtx.currency
+        return (
+          <Modal title="Transfer" onClose={() => setShowTransfer(false)}>
+            <form onSubmit={handleTransfer}>
+              <div style={{ padding: '10px 14px', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-sm)', marginBottom: 16, fontSize: '0.85rem' }}>
+                From: <strong>{transferCtx.current_wallet}</strong> ({transferCtx.currency})
+              </div>
+              <div className="form-group">
+                <label>To Wallet</label>
+                <select className="form-input" value={transferData.to_wallet} onChange={(e) => setTransferData({ ...transferData, to_wallet: e.target.value, received_amount: '' })} required>
+                  <option value="">Select wallet</option>
+                  {transferCtx.target_wallets.map((w) => (
+                    <option key={w.name} value={w.name}>{w.name} ({w.currency})</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Amount ({transferCtx.currency})</label>
+                <input type="number" step="0.01" min="0" className="form-input" value={transferData.amount} onChange={(e) => setTransferData({ ...transferData, amount: e.target.value })} required />
+              </div>
+              {isCrossCurrency && (
+                <div className="form-group">
+                  <label>Received Amount ({targetCurrency})</label>
+                  <input type="number" step="0.01" min="0" className="form-input" value={transferData.received_amount} onChange={(e) => setTransferData({ ...transferData, received_amount: e.target.value })} placeholder={`Amount in ${targetCurrency}`} />
+                </div>
+              )}
+              <div className="modal-actions">
+                <button type="button" className="btn btn-secondary" onClick={() => setShowTransfer(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={transferLoading}>{transferLoading ? 'Sending...' : 'Transfer'}</button>
+              </div>
+            </form>
+          </Modal>
+        )
+      })()}
     </>
   )
 }

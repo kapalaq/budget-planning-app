@@ -8,6 +8,8 @@ import {
   Target,
   Receipt,
   Repeat,
+  PieChart,
+  HelpCircle,
   Settings,
   LogOut,
   TreePine,
@@ -22,6 +24,8 @@ const navItems = [
   { to: '/goals', icon: Target, label: 'Goals' },
   { to: '/bills', icon: Receipt, label: 'Bills' },
   { to: '/recurring', icon: Repeat, label: 'Recurring' },
+  { to: '/portfolio', icon: PieChart, label: 'Portfolio' },
+  { to: '/help', icon: HelpCircle, label: 'Help' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ]
 

@@ -38,6 +38,7 @@ async function request(method, path, body = null, { auth = true, params = {} } =
 
   const json = await res.json();
   if (!res.ok) throw new Error(json.detail || json.message || 'Request failed');
+  if (json.status === 'error') throw new Error(json.message || 'Operation failed');
   return json;
 }
 
@@ -49,6 +50,7 @@ const api = {
   // Dashboard
   getDashboard: () => request('GET', '/dashboard'),
   getPortfolio: () => request('GET', '/portfolio'),
+  getHelp: () => request('GET', '/help'),
 
   // Transactions
   getTransaction: (index) => request('GET', `/transactions/${index}`),
@@ -92,6 +94,8 @@ const api = {
   editRecurring: (index, data) => request('PUT', `/recurring/${index}`, data),
   deleteRecurring: (index, option = 1) => request('DELETE', `/recurring/${index}`, null, { params: { delete_option: option } }),
   processRecurring: () => request('POST', '/recurring/process'),
+  addRecurringTransfer: (data) => request('POST', '/recurring/transfer', data),
+  addRecurringGoalSave: (data) => request('POST', '/recurring/goal-save', data),
 
   // Goals
   getGoals: (filter = 'active') => request('GET', '/goals', null, { params: { filter } }),
@@ -114,6 +118,9 @@ const api = {
   hideBill: (name) => request('POST', `/bills/${encodeURIComponent(name)}/hide`),
   reactivateBill: (name) => request('POST', `/bills/${encodeURIComponent(name)}/reactivate`),
   deleteBill: (name) => request('DELETE', `/bills/${encodeURIComponent(name)}`),
+
+  // Telegram
+  generateLinkCode: () => request('POST', '/auth/link-code'),
 
   // Settings
   getLanguage: () => request('GET', '/settings/language'),

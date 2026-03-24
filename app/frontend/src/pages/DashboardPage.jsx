@@ -14,7 +14,8 @@ import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
 } from 'recharts'
 
-const COLORS = ['#5cb870', '#4a9e5c', '#3a7d49', '#2d6b3a', '#c7a035', '#5a8dc7', '#c75454', '#8b6fcf', '#cf6f8b', '#6fcfb8']
+const EXPENSE_COLORS = ['#e06c75', '#d19a66', '#c678dd', '#e5c07b', '#56b6c2', '#61afef', '#be5046', '#98c379', '#c7a035', '#5a8dc7']
+const INCOME_COLORS = ['#56b6c2', '#61afef', '#98c379', '#c678dd', '#d19a66', '#e5c07b', '#5cb870', '#5a8dc7', '#6fcfb8', '#8b6fcf']
 
 function formatAmount(amount, currency) {
   return `${Number(amount).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} ${currency || ''}`
@@ -56,8 +57,9 @@ export default function DashboardPage() {
   const handleEditTransaction = async (txData) => {
     try {
       const txList = data.transactions
-      const idx = txList.findIndex((t) => t.id === editTx.id) + 1
-      if (idx === -1) return
+      const foundIdx = txList.findIndex((t) => t.id === editTx.id)
+      if (foundIdx === -1) return
+      const idx = foundIdx + 1
       await api.editTransaction(idx, txData)
       success('Transaction updated')
       setEditTx(null)
@@ -70,8 +72,9 @@ export default function DashboardPage() {
   const handleDeleteTransaction = async () => {
     try {
       const txList = data.transactions
-      const idx = txList.findIndex((t) => t.id === deleteTx.id) + 1
-      if (idx === -1) return
+      const foundIdx = txList.findIndex((t) => t.id === deleteTx.id)
+      if (foundIdx === -1) return
+      const idx = foundIdx + 1
       await api.deleteTransaction(idx)
       success('Transaction deleted')
       setDeleteTx(null)
@@ -142,7 +145,7 @@ export default function DashboardPage() {
                         dataKey="value"
                       >
                         {expenseChartData.map((_, i) => (
-                          <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                          <Cell key={i} fill={EXPENSE_COLORS[i % EXPENSE_COLORS.length]} />
                         ))}
                       </Pie>
                       <Tooltip
@@ -160,7 +163,7 @@ export default function DashboardPage() {
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
                   {expenseChartData.map((item, i) => (
                     <span key={item.name} style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <span style={{ width: 8, height: 8, borderRadius: 2, background: COLORS[i % COLORS.length], display: 'inline-block' }} />
+                      <span style={{ width: 8, height: 8, borderRadius: 2, background: EXPENSE_COLORS[i % EXPENSE_COLORS.length], display: 'inline-block' }} />
                       {item.name}
                     </span>
                   ))}
@@ -183,7 +186,7 @@ export default function DashboardPage() {
                         dataKey="value"
                       >
                         {incomeChartData.map((_, i) => (
-                          <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                          <Cell key={i} fill={INCOME_COLORS[i % INCOME_COLORS.length]} />
                         ))}
                       </Pie>
                       <Tooltip
@@ -201,7 +204,7 @@ export default function DashboardPage() {
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
                   {incomeChartData.map((item, i) => (
                     <span key={item.name} style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <span style={{ width: 8, height: 8, borderRadius: 2, background: COLORS[i % COLORS.length], display: 'inline-block' }} />
+                      <span style={{ width: 8, height: 8, borderRadius: 2, background: INCOME_COLORS[i % INCOME_COLORS.length], display: 'inline-block' }} />
                       {item.name}
                     </span>
                   ))}

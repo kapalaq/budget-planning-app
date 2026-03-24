@@ -8,6 +8,8 @@ import WalletsPage from './pages/WalletsPage'
 import GoalsPage from './pages/GoalsPage'
 import BillsPage from './pages/BillsPage'
 import RecurringPage from './pages/RecurringPage'
+import PortfolioPage from './pages/PortfolioPage'
+import HelpPage from './pages/HelpPage'
 import SettingsPage from './pages/SettingsPage'
 
 function ProtectedRoute({ children }) {
@@ -34,6 +36,8 @@ export default function App() {
         <Route path="goals" element={<GoalsPage />} />
         <Route path="bills" element={<BillsPage />} />
         <Route path="recurring" element={<RecurringPage />} />
+        <Route path="portfolio" element={<PortfolioPage />} />
+        <Route path="help" element={<HelpPage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
