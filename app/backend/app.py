@@ -20,6 +20,7 @@ from db.session_manager import SessionManager
 from db.storage import MongoStorage
 from db.user_store import UserStore
 from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from wallet.wallet import Wallet
 from wallet.wallet_manager import WalletManager
 
@@ -105,6 +106,14 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Budget Planner API", lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 # Auth dependency
