@@ -5,7 +5,7 @@ import ToastContainer from '../components/Toast'
 import Modal from '../components/Modal'
 import ConfirmDialog from '../components/ConfirmDialog'
 import EmptyState from '../components/EmptyState'
-import { Wallet, Plus, Trash2, Check, CreditCard } from 'lucide-react'
+import { Wallet, Plus, Trash2, Check, CreditCard, ArrowUpDown } from 'lucide-react'
 
 function formatAmount(amount, currency) {
   return `${Number(amount).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} ${currency || ''}`
@@ -14,18 +14,22 @@ function formatAmount(amount, currency) {
 export default function WalletsPage() {
   const [wallets, setWallets] = useState([])
   const [currentWallet, setCurrentWallet] = useState('')
+  const [sortingStrategy, setSortingStrategy] = useState('')
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [newWallet, setNewWallet] = useState({ name: '', currency: 'USD', description: '' })
   const [saving, setSaving] = useState(false)
+  const [showSortModal, setShowSortModal] = useState(false)
+  const [sortOptions, setSortOptions] = useState(null)
   const { toasts, success, error: showError } = useToast()
 
   const load = useCallback(async () => {
     try {
       const res = await api.getWallets()
       setWallets(res.data?.wallets || [])
-      setCurrentWallet(res.data?.current_wallet || '')
+      setCurrentWallet(res.data?.current_wallet_name || res.data?.current_wallet || '')
+      setSortingStrategy(res.data?.sorting_strategy || '')
     } catch (err) { showError(err.message) }
     finally { setLoading(false) }
   }, [showError])
@@ -62,6 +66,23 @@ export default function WalletsPage() {
     } catch (err) { showError(err.message) }
   }
 
+  const openSortModal = async () => {
+    try {
+      const res = await api.getWalletSortingOptions()
+      setSortOptions(res.data?.options || {})
+      setShowSortModal(true)
+    } catch (err) { showError(err.message) }
+  }
+
+  const handleSetSorting = async (key) => {
+    try {
+      await api.setWalletSorting({ strategy_key: key })
+      success('Sorting updated')
+      setShowSortModal(false)
+      load()
+    } catch (err) { showError(err.message) }
+  }
+
   if (loading) return <div className="loading-page"><div className="spinner" /></div>
 
   return (
@@ -69,10 +90,18 @@ export default function WalletsPage() {
       <ToastContainer toasts={toasts} />
       <div className="page-header">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2>Wallets</h2>
-          <button className="btn btn-primary" onClick={() => setShowAdd(true)}>
-            <Plus size={18} /> Add Wallet
-          </button>
+          <div>
+            <h2>Wallets</h2>
+            {sortingStrategy && <p>Sorted: {sortingStrategy}</p>}
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn btn-secondary btn-sm" onClick={openSortModal}>
+              <ArrowUpDown size={14} /> Sort
+            </button>
+            <button className="btn btn-primary" onClick={() => setShowAdd(true)}>
+              <Plus size={18} /> Add Wallet
+            </button>
+          </div>
         </div>
       </div>
       <div className="page-content fade-in">
@@ -135,6 +164,27 @@ export default function WalletsPage() {
 
       {deleteTarget && (
         <ConfirmDialog title="Delete Wallet" message={`Delete "${deleteTarget}" and all its transactions?`} onConfirm={handleDelete} onCancel={() => setDeleteTarget(null)} danger />
+      )}
+
+      {showSortModal && sortOptions && (
+        <Modal title="Sort Wallets" onClose={() => setShowSortModal(false)}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {Object.entries(sortOptions).map(([key, name]) => (
+              <button
+                key={key}
+                className={`btn ${sortingStrategy === name ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ justifyContent: 'flex-start' }}
+                onClick={() => handleSetSorting(key)}
+              >
+                {sortingStrategy === name && <span style={{ marginRight: 6 }}>&#10003;</span>}
+                {name}
+              </button>
+            ))}
+          </div>
+          <div className="modal-actions" style={{ marginTop: 16 }}>
+            <button className="btn btn-secondary" onClick={() => setShowSortModal(false)}>Close</button>
+          </div>
+        </Modal>
       )}
     </>
   )

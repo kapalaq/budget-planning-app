@@ -77,6 +77,8 @@ const api = {
   // Sorting
   getSortingOptions: () => request('GET', '/sorting'),
   setSorting: (data) => request('POST', '/sorting', data),
+  getWalletSortingOptions: () => request('GET', '/sorting/wallets'),
+  setWalletSorting: (data) => request('POST', '/sorting/wallets', data),
 
   // Filters
   getActiveFilters: () => request('GET', '/filters'),
