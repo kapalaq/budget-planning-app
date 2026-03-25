@@ -5,6 +5,7 @@ import ToastContainer from '../components/Toast'
 import Modal from '../components/Modal'
 import ConfirmDialog from '../components/ConfirmDialog'
 import EmptyState from '../components/EmptyState'
+import AmountInput from '../components/AmountInput'
 import { Receipt, Plus, Trash2, DollarSign, CheckCircle, EyeOff, RotateCcw } from 'lucide-react'
 
 function formatAmount(amount, currency) {
@@ -180,7 +181,7 @@ export default function BillsPage() {
             </div>
             <div className="form-group">
               <label>Amount Due</label>
-              <input type="number" step="0.01" min="0" className="form-input" value={newBill.target_amount} onChange={(e) => setNewBill({ ...newBill, target_amount: e.target.value })} required />
+              <AmountInput value={newBill.target_amount} onChange={(v) => setNewBill({ ...newBill, target_amount: v })} required />
             </div>
             <div className="form-group">
               <label>Currency</label>
@@ -205,7 +206,7 @@ export default function BillsPage() {
           <form onSubmit={handleSave}>
             <div className="form-group">
               <label>Amount</label>
-              <input type="number" step="0.01" min="0" className="form-input" value={saveAmount} onChange={(e) => setSaveAmount(e.target.value)} required autoFocus />
+              <AmountInput value={saveAmount} onChange={setSaveAmount} required autoFocus />
             </div>
             <div className="modal-actions">
               <button type="button" className="btn btn-secondary" onClick={() => setShowSave(null)}>Cancel</button>

@@ -6,6 +6,7 @@ import Modal from '../components/Modal'
 import TransactionForm from '../components/TransactionForm'
 import EmptyState from '../components/EmptyState'
 import ConfirmDialog from '../components/ConfirmDialog'
+import AmountInput from '../components/AmountInput'
 import {
   Plus, Trash2, Edit3, ArrowLeftRight, Send, Filter, X, ArrowUpDown, Search,
 } from 'lucide-react'
@@ -322,12 +323,12 @@ export default function TransactionsPage() {
               </div>
               <div className="form-group">
                 <label>Amount ({transferCtx.currency})</label>
-                <input type="number" step="0.01" min="0" className="form-input" value={transferData.amount} onChange={(e) => setTransferData({ ...transferData, amount: e.target.value })} required />
+                <AmountInput value={transferData.amount} onChange={(v) => setTransferData({ ...transferData, amount: v })} required />
               </div>
               {isCrossCurrency && (
                 <div className="form-group">
                   <label>Received Amount ({targetCurrency})</label>
-                  <input type="number" step="0.01" min="0" className="form-input" value={transferData.received_amount} onChange={(e) => setTransferData({ ...transferData, received_amount: e.target.value })} placeholder={`Amount in ${targetCurrency}`} />
+                  <AmountInput value={transferData.received_amount} onChange={(v) => setTransferData({ ...transferData, received_amount: v })} placeholder={`Amount in ${targetCurrency}`} />
                 </div>
               )}
               <div className="modal-actions">

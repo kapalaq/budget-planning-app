@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import api from '../api/client'
+import AmountInput from './AmountInput'
 
 export default function TransactionForm({ 
   type = 'expense', 
@@ -62,14 +63,9 @@ export default function TransactionForm({
 
       <div className="form-group">
         <label>Amount</label>
-        <input
-          type="number"
-          step="0.01"
-          min="0"
-          className="form-input"
+        <AmountInput
           value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          placeholder="0.00"
+          onChange={setAmount}
           autoFocus
           required
         />

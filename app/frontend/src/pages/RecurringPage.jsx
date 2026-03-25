@@ -5,6 +5,7 @@ import ToastContainer from '../components/Toast'
 import Modal from '../components/Modal'
 import ConfirmDialog from '../components/ConfirmDialog'
 import EmptyState from '../components/EmptyState'
+import AmountInput from '../components/AmountInput'
 import { Repeat, Trash2, Plus, Send } from 'lucide-react'
 
 const FREQUENCIES = [
@@ -237,7 +238,7 @@ export default function RecurringPage() {
             </div>
             <div className="form-group">
               <label>Amount</label>
-              <input type="number" step="0.01" min="0" className="form-input" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} required />
+              <AmountInput value={form.amount} onChange={(v) => setForm({ ...form, amount: v })} required />
             </div>
             <div className="form-group">
               <label>Description (optional)</label>
@@ -267,7 +268,7 @@ export default function RecurringPage() {
             </div>
             <div className="form-group">
               <label>Amount</label>
-              <input type="number" step="0.01" min="0" className="form-input" value={transferForm.amount} onChange={(e) => setTransferForm({ ...transferForm, amount: e.target.value })} required />
+              <AmountInput value={transferForm.amount} onChange={(v) => setTransferForm({ ...transferForm, amount: v })} required />
             </div>
             <div className="form-group">
               <label>Description (optional)</label>
