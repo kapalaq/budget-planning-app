@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState } from 'react'
 
 function evaluate(expr) {
   try {
@@ -15,19 +15,6 @@ function evaluate(expr) {
 export default function Calculator({ value, onChange, onClose }) {
   const [expression, setExpression] = useState(value ? String(value) : '')
   const [justEvaluated, setJustEvaluated] = useState(false)
-  const calcRef = useRef(null)
-
-  const stableOnClose = useCallback(() => onClose?.(), [onClose])
-
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (calcRef.current && !calcRef.current.contains(e.target)) {
-        stableOnClose()
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [stableOnClose])
 
   const result = evaluate(expression)
   const hasOperator = /[+\-*/]/.test(expression.replace(/^-/, ''))
@@ -119,7 +106,7 @@ export default function Calculator({ value, onChange, onClose }) {
   }
 
   return (
-    <div className="calculator" ref={calcRef}>
+    <>
       <div className="calc-display">
         <div className="calc-expression">{expression || '0'}</div>
         {hasOperator && result !== 'Error' && result !== '' && (
@@ -142,11 +129,11 @@ export default function Calculator({ value, onChange, onClose }) {
       <button type="button" className="calc-apply" onClick={() => {
         if (result !== 'Error' && result !== '') {
           onChange(String(result))
-          stableOnClose()
+          onClose?.()
         }
       }}>
         Apply Result
       </button>
-    </div>
+    </>
   )
 }

@@ -332,10 +332,8 @@ select.form-input {
 }
 
 .calculator {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
-  z-index: 1000;
+  position: fixed;
+  z-index: 10000;
   width: 260px;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
