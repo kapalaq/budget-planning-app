@@ -214,23 +214,88 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Goals summary */}
-        {data.active_goals?.length > 0 && (
-          <div className="card" style={{ marginBottom: 24 }}>
-            <div className="card-title">Active Goals</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12, marginTop: 12 }}>
-              {data.active_goals.map((g) => (
-                <div key={g.name} style={{ padding: 12, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-sm)' }}>
-                  <div style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: 4 }}>{g.name}</div>
-                  <div className="progress-bar" style={{ marginBottom: 6 }}>
-                    <div className="fill" style={{ width: `${Math.min(g.progress, 100)}%` }} />
-                  </div>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                    {formatAmount(g.saved, g.currency)} / {formatAmount(g.target, g.currency)} ({g.progress.toFixed(0)}%)
-                  </div>
+        {/* Goals and Bills summaries */}
+        {(data.active_goals?.length > 0 || data.active_bills?.length > 0) && (
+          <div className="two-col" style={{ marginBottom: 24 }}>
+
+            {/* Left Goals Block */}
+            {data.active_bills?.length > 0 && (
+              <div className="card">
+                <div className="card-title">Active Bills</div>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+                    gap: 12,
+                    marginTop: 12,
+                  }}
+                >
+                  {data.active_bills.map((g) => (
+                    <div
+                      key={g.name}
+                      style={{
+                        padding: 12,
+                        background: 'var(--bg-tertiary)',
+                        borderRadius: 'var(--radius-sm)',
+                      }}
+                    >
+                      <div style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: 4 }}>
+                        {g.name}
+                      </div>
+                      <div className="progress-bar" style={{ marginBottom: 6 }}>
+                        <div
+                          className="fill"
+                          style={{ width: `${Math.min(g.progress, 100)}%` }}
+                        />
+                      </div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                        {formatAmount(g.saved, g.currency)} / {formatAmount(g.target, g.currency)} ({g.progress.toFixed(0)}%)
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </div>
+            )}
+
+            {/* Right Goals Block */}
+            {data.active_goals?.length > 0 && (
+              <div className="card">
+                <div className="card-title">Active Goals</div>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+                    gap: 12,
+                    marginTop: 12,
+                  }}
+                >
+                  {data.active_goals.map((g) => (
+                    <div
+                      key={`${g.name}-duplicate`}
+                      style={{
+                        padding: 12,
+                        background: 'var(--bg-tertiary)',
+                        borderRadius: 'var(--radius-sm)',
+                      }}
+                    >
+                      <div style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: 4 }}>
+                        {g.name}
+                      </div>
+                      <div className="progress-bar" style={{ marginBottom: 6 }}>
+                        <div
+                          className="fill"
+                          style={{ width: `${Math.min(g.progress, 100)}%` }}
+                        />
+                      </div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                        {formatAmount(g.saved, g.currency)} / {formatAmount(g.target, g.currency)} ({g.progress.toFixed(0)}%)
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
           </div>
         )}
 
