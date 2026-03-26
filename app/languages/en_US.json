@@ -634,5 +634,12 @@
     "help.tg_percentages_desc": "Percentages - Shows income/outcome proportional (%) breakdown by categories.",
     "help.tg_bottom": "Bottom buttons:",
     "help.tg_refresh_desc": "Refresh - Refresh dashboard (main page)",
-    "help.tg_logout_desc": "Logout - Log out from your current session."
+    "help.tg_logout_desc": "Logout - Log out from your current session.",
+    "chart_categories.title": "Chart Categories",
+    "chart_categories.select": "Toggle categories to show/hide on charts:",
+    "chart_categories.expenses": "Expense categories:",
+    "chart_categories.income": "Income categories:",
+    "chart_categories.no_data": "No category data available. Add some transactions first.",
+    "chart_categories.updated": "Chart category visibility updated.",
+    "btn.chart_categories": "Chart Filter"
 }

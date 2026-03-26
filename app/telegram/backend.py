@@ -376,6 +376,12 @@ class Backend:
         if action == "set_timezone":
             return await self._post("/settings/timezone", body=data)
 
+        # Hidden chart categories
+        if action == "get_hidden_chart_categories":
+            return await self._get("/settings/hidden-chart-categories")
+        if action == "set_hidden_chart_categories":
+            return await self._post("/settings/hidden-chart-categories", body=data)
+
         if action == "convert_currency":
             return await self._get(
                 "/currency/convert",

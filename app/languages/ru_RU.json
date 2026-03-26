@@ -634,5 +634,12 @@
     "help.tg_percentages_desc": "Проценты - Процентное соотношение доходов/расходов по категориям.",
     "help.tg_bottom": "Нижние кнопки:",
     "help.tg_refresh_desc": "Обновить - Обновить панель (главная страница)",
-    "help.tg_logout_desc": "Выход - Выйти из текущей сессии."
+    "help.tg_logout_desc": "Выход - Выйти из текущей сессии.",
+    "chart_categories.title": "Категории графиков",
+    "chart_categories.select": "Переключите категории для отображения/скрытия на графиках:",
+    "chart_categories.expenses": "Категории расходов:",
+    "chart_categories.income": "Категории доходов:",
+    "chart_categories.no_data": "Нет данных по категориям. Сначала добавьте транзакции.",
+    "chart_categories.updated": "Видимость категорий обновлена.",
+    "btn.chart_categories": "Фильтр графиков"
 }

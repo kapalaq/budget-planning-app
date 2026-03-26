@@ -129,6 +129,10 @@ const api = {
   setLanguage: (language) => request('POST', '/settings/language', { language }),
   getTimezone: () => request('GET', '/settings/timezone'),
   setTimezone: (timezone) => request('POST', '/settings/timezone', { timezone }),
+  getHiddenChartCategories: () => request('GET', '/settings/hidden-chart-categories'),
+  setHiddenChartCategories: (data) => request('POST', '/settings/hidden-chart-categories', data),
+  getCategoryColors: () => request('GET', '/settings/category-colors'),
+  setCategoryColors: (data) => request('POST', '/settings/category-colors', data),
 
   // Currency
   convert: (amount, from, to) => request('GET', '/currency/convert', null, { params: { amount, from_currency: from, to_currency: to } }),

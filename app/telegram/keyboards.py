@@ -57,6 +57,10 @@ def main_menu(page: int = 1) -> InlineKeyboardMarkup:
                     text=f"\U0001f552 {t('timezone.title', lang)}",
                     callback_data=f"timezone@{page}",
                 ),
+                InlineKeyboardButton(
+                    text=f"\U0001f4ca {t('btn.chart_categories', lang)}",
+                    callback_data=f"chart_categories@{page}",
+                ),
             ],
             [
                 InlineKeyboardButton(
@@ -1259,6 +1263,76 @@ def timezone_keyboard(
         )
     if nav:
         rows.append(nav)
+
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=f"\u2b05\ufe0f {t('common.menu', lang)}",
+                callback_data=f"menu_page:{page}",
+            )
+        ]
+    )
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def chart_categories_keyboard(
+    categories: dict,
+    hidden: dict,
+    page: int = 1,
+) -> InlineKeyboardMarkup:
+    """Build a keyboard to toggle chart category visibility.
+
+    *categories* has keys ``expense`` and ``income``, each a list of
+    category names.  *hidden* has the same structure — categories that
+    are currently hidden.
+    """
+    lang = get_lang()
+    rows: list[list[InlineKeyboardButton]] = []
+
+    expense_cats = categories.get("expense", [])
+    income_cats = categories.get("income", [])
+    hidden_expense = hidden.get("expense", [])
+    hidden_income = hidden.get("income", [])
+
+    if expense_cats:
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=f"--- {t('chart_categories.expenses', lang)} ---",
+                    callback_data="noop",
+                )
+            ]
+        )
+        for cat in expense_cats:
+            icon = "\u2b1c" if cat in hidden_expense else "\u2705"
+            rows.append(
+                [
+                    InlineKeyboardButton(
+                        text=f"{icon} {cat}",
+                        callback_data=f"chtog:expense:{cat}@{page}",
+                    )
+                ]
+            )
+
+    if income_cats:
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=f"--- {t('chart_categories.income', lang)} ---",
+                    callback_data="noop",
+                )
+            ]
+        )
+        for cat in income_cats:
+            icon = "\u2b1c" if cat in hidden_income else "\u2705"
+            rows.append(
+                [
+                    InlineKeyboardButton(
+                        text=f"{icon} {cat}",
+                        callback_data=f"chtog:income:{cat}@{page}",
+                    )
+                ]
+            )
 
     rows.append(
         [

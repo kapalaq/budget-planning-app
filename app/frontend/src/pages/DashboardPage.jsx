@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import api from '../api/client'
 import { useToast } from '../hooks/useToast'
 import ToastContainer from '../components/Toast'
@@ -9,7 +9,7 @@ import EmptyState from '../components/EmptyState'
 import ConfirmDialog from '../components/ConfirmDialog'
 import {
   TrendingUp, TrendingDown, DollarSign, Plus, Trash2, Edit3,
-  ArrowLeftRight, LayoutDashboard,
+  ArrowLeftRight, LayoutDashboard, Eye, EyeOff,
 } from 'lucide-react'
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
@@ -17,6 +17,19 @@ import {
 
 const EXPENSE_COLORS = ['#e06c75', '#d19a66', '#c678dd', '#e5c07b', '#56b6c2', '#61afef', '#be5046', '#98c379', '#c7a035', '#5a8dc7']
 const INCOME_COLORS = ['#56b6c2', '#61afef', '#98c379', '#c678dd', '#d19a66', '#e5c07b', '#5cb870', '#5a8dc7', '#6fcfb8', '#8b6fcf']
+
+function assignCategoryColors(categories, palette, existingMap) {
+  const colorMap = { ...existingMap }
+  const usedColors = new Set(Object.values(colorMap))
+  for (const name of categories) {
+    if (!colorMap[name]) {
+      const available = palette.find(c => !usedColors.has(c))
+      colorMap[name] = available || palette[Object.keys(colorMap).length % palette.length]
+      usedColors.add(colorMap[name])
+    }
+  }
+  return colorMap
+}
 
 function formatAmount(amount, currency) {
   return `${Number(amount).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} ${currency || ''}`
@@ -28,6 +41,8 @@ export default function DashboardPage() {
   const [showAddTx, setShowAddTx] = useState(false)
   const [editTx, setEditTx] = useState(null)
   const [deleteTx, setDeleteTx] = useState(null)
+  const [hiddenCategories, setHiddenCategories] = useState({ expense: [], income: [] })
+  const [categoryColors, setCategoryColors] = useState({ expense: {}, income: {} })
   const { toasts, success, error: showError } = useToast()
 
   const loadDashboard = useCallback(async () => {
@@ -43,6 +58,32 @@ export default function DashboardPage() {
   }, [showError])
 
   useEffect(() => { loadDashboard() }, [loadDashboard])
+
+  const savedColorsRef = useRef(categoryColors)
+  useEffect(() => { savedColorsRef.current = categoryColors }, [categoryColors])
+
+  useEffect(() => {
+    api.getHiddenChartCategories().then(res => {
+      setHiddenCategories({ expense: [], income: [], ...res.data })
+    }).catch(() => {})
+    api.getCategoryColors().then(res => {
+      setCategoryColors({ expense: {}, income: {}, ...res.data })
+    }).catch(() => {})
+  }, [])
+
+  const toggleCategory = async (type, category) => {
+    const current = hiddenCategories[type] || []
+    const updated = current.includes(category)
+      ? current.filter(c => c !== category)
+      : [...current, category]
+    const next = { ...hiddenCategories, [type]: updated }
+    setHiddenCategories(next)
+    try {
+      await api.setHiddenChartCategories(next)
+    } catch (err) {
+      showError(err.message)
+    }
+  }
 
   const handleAddTransaction = async (txData) => {
     try {
@@ -120,8 +161,24 @@ export default function DashboardPage() {
 
   if (!data) return null
 
-  const expenseChartData = Object.entries(data.expense_by_category || {}).map(([name, value]) => ({ name, value }))
-  const incomeChartData = Object.entries(data.income_by_category || {}).map(([name, value]) => ({ name, value }))
+  const allExpenseData = Object.entries(data.expense_by_category || {}).map(([name, value]) => ({ name, value }))
+  const allIncomeData = Object.entries(data.income_by_category || {}).map(([name, value]) => ({ name, value }))
+  const expenseChartData = allExpenseData.filter(d => !(hiddenCategories.expense || []).includes(d.name))
+  const incomeChartData = allIncomeData.filter(d => !(hiddenCategories.income || []).includes(d.name))
+
+  const expenseColorMap = assignCategoryColors(allExpenseData.map(d => d.name), EXPENSE_COLORS, categoryColors.expense || {})
+  const incomeColorMap = assignCategoryColors(allIncomeData.map(d => d.name), INCOME_COLORS, categoryColors.income || {})
+
+  const hasNewExpenseColors = Object.keys(expenseColorMap).length > Object.keys(categoryColors.expense || {}).length
+  const hasNewIncomeColors = Object.keys(incomeColorMap).length > Object.keys(categoryColors.income || {}).length
+  if (hasNewExpenseColors || hasNewIncomeColors) {
+    const updated = { expense: expenseColorMap, income: incomeColorMap }
+    if (JSON.stringify(updated) !== JSON.stringify(savedColorsRef.current)) {
+      savedColorsRef.current = updated
+      setCategoryColors(updated)
+      api.setCategoryColors(updated).catch(() => {})
+    }
+  }
 
   return (
     <>
@@ -157,9 +214,9 @@ export default function DashboardPage() {
         </div>
 
         {/* Charts */}
-        {(expenseChartData.length > 0 || incomeChartData.length > 0) && (
+        {(allExpenseData.length > 0 || allIncomeData.length > 0) && (
           <div className="two-col" style={{ marginBottom: 24 }}>
-            {expenseChartData.length > 0 && (
+            {allExpenseData.length > 0 && (
               <div className="card">
                 <div className="card-title">Expenses by Category</div>
                 <div className="chart-container" style={{ height: 250 }}>
@@ -174,8 +231,8 @@ export default function DashboardPage() {
                         paddingAngle={3}
                         dataKey="value"
                       >
-                        {expenseChartData.map((_, i) => (
-                          <Cell key={i} fill={EXPENSE_COLORS[i % EXPENSE_COLORS.length]} />
+                        {expenseChartData.map((entry) => (
+                          <Cell key={entry.name} fill={expenseColorMap[entry.name] || EXPENSE_COLORS[0]} />
                         ))}
                       </Pie>
                       <Tooltip
@@ -190,17 +247,33 @@ export default function DashboardPage() {
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
-                  {expenseChartData.map((item, i) => (
-                    <span key={item.name} style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <span style={{ width: 8, height: 8, borderRadius: 2, background: EXPENSE_COLORS[i % EXPENSE_COLORS.length], display: 'inline-block' }} />
-                      {item.name}
-                    </span>
-                  ))}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                  {allExpenseData.map((item) => {
+                    const hidden = (hiddenCategories.expense || []).includes(item.name)
+                    return (
+                      <button
+                        key={item.name}
+                        onClick={() => toggleCategory('expense', item.name)}
+                        style={{
+                          fontSize: '0.75rem',
+                          color: hidden ? 'var(--text-muted)' : 'var(--text-secondary)',
+                          display: 'flex', alignItems: 'center', gap: 4,
+                          background: 'none', border: 'none', cursor: 'pointer',
+                          opacity: hidden ? 0.45 : 1, padding: '2px 4px', borderRadius: 4,
+                          textDecoration: hidden ? 'line-through' : 'none',
+                        }}
+                        title={hidden ? 'Show in chart' : 'Hide from chart'}
+                      >
+                        <span style={{ width: 8, height: 8, borderRadius: 2, background: expenseColorMap[item.name] || EXPENSE_COLORS[0], display: 'inline-block' }} />
+                        {item.name}
+                        {hidden ? <EyeOff size={10} /> : <Eye size={10} />}
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
             )}
-            {incomeChartData.length > 0 && (
+            {allIncomeData.length > 0 && (
               <div className="card">
                 <div className="card-title">Income by Category</div>
                 <div className="chart-container" style={{ height: 250 }}>
@@ -215,8 +288,8 @@ export default function DashboardPage() {
                         paddingAngle={3}
                         dataKey="value"
                       >
-                        {incomeChartData.map((_, i) => (
-                          <Cell key={i} fill={INCOME_COLORS[i % INCOME_COLORS.length]} />
+                        {incomeChartData.map((entry) => (
+                          <Cell key={entry.name} fill={incomeColorMap[entry.name] || INCOME_COLORS[0]} />
                         ))}
                       </Pie>
                       <Tooltip
@@ -231,13 +304,29 @@ export default function DashboardPage() {
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
-                  {incomeChartData.map((item, i) => (
-                    <span key={item.name} style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <span style={{ width: 8, height: 8, borderRadius: 2, background: INCOME_COLORS[i % INCOME_COLORS.length], display: 'inline-block' }} />
-                      {item.name}
-                    </span>
-                  ))}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                  {allIncomeData.map((item) => {
+                    const hidden = (hiddenCategories.income || []).includes(item.name)
+                    return (
+                      <button
+                        key={item.name}
+                        onClick={() => toggleCategory('income', item.name)}
+                        style={{
+                          fontSize: '0.75rem',
+                          color: hidden ? 'var(--text-muted)' : 'var(--text-secondary)',
+                          display: 'flex', alignItems: 'center', gap: 4,
+                          background: 'none', border: 'none', cursor: 'pointer',
+                          opacity: hidden ? 0.45 : 1, padding: '2px 4px', borderRadius: 4,
+                          textDecoration: hidden ? 'line-through' : 'none',
+                        }}
+                        title={hidden ? 'Show in chart' : 'Hide from chart'}
+                      >
+                        <span style={{ width: 8, height: 8, borderRadius: 2, background: incomeColorMap[item.name] || INCOME_COLORS[0], display: 'inline-block' }} />
+                        {item.name}
+                        {hidden ? <EyeOff size={10} /> : <Eye size={10} />}
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
             )}

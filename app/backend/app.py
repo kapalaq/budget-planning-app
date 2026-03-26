@@ -18,6 +18,7 @@ from data.mongo import get_mongo_db
 from data.postgres import get_postgres_conn
 from db.session_manager import SessionManager
 from db.storage import MongoStorage
+from db.user_preferences import UserPreferences
 from db.user_store import UserStore
 from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -35,6 +36,7 @@ _user_handlers: dict[int, RequestHandler] = {}
 _dirty_users: set[int] = set()
 _storage: MongoStorage | None = None
 _user_store: UserStore | None = None
+_user_prefs: UserPreferences | None = None
 _session_manager: SessionManager | None = None
 
 AUTOSAVE_INTERVAL = 60  # seconds (5 minutes)
@@ -78,7 +80,7 @@ async def _autosave_loop():
 # Entry point
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global _storage, _user_store, _session_manager
+    global _storage, _user_store, _user_prefs, _session_manager
 
     # PostgreSQL for user authentication
     postgres_dsn = os.getenv(
@@ -94,6 +96,7 @@ async def lifespan(app: FastAPI):
     mongo_db = get_mongo_db(mongo_uri, mongo_db_name)
     _session_manager = SessionManager(mongo_db)
     _storage = MongoStorage(mongo_db)
+    _user_prefs = UserPreferences(mongo_db)
 
     autosave_task = asyncio.create_task(_autosave_loop())
 
@@ -158,8 +161,8 @@ _READ_ONLY_ACTIONS = frozenset(
 def _handle(user_id: int, action: str, data: dict | None = None) -> dict:
     """Route an action to the correct per-user handler."""
     _, handler = _get_manager(user_id)
-    lang = _user_store.get_language(user_id)
-    tz_offset = _user_store.get_timezone(user_id)
+    lang = _user_prefs.get_language(user_id)
+    tz_offset = _user_prefs.get_timezone(user_id)
     result = handler.handle(
         {"action": action, "data": data or {}}, lang=lang, tz_offset=tz_offset
     )
@@ -250,7 +253,7 @@ def health_check():
 #  Language settings
 @app.get("/settings/language")
 def get_language(user_id: int = Depends(get_current_user)):
-    lang = _user_store.get_language(user_id)
+    lang = _user_prefs.get_language(user_id)
     return {"status": "success", "data": {"language": lang}}
 
 
@@ -261,7 +264,7 @@ def set_language(body: Dict[str, Any], user_id: int = Depends(get_current_user))
 
     if lang not in AVAILABLE_LANGUAGES:
         raise HTTPException(status_code=400, detail=f"Unsupported language: {lang}")
-    _user_store.set_language(user_id, lang)
+    _user_prefs.set_language(user_id, lang)
     return {
         "status": "success",
         "message": f"Language changed to {AVAILABLE_LANGUAGES[lang]}",
@@ -275,7 +278,7 @@ VALID_OFFSETS = set(range(-12, 15))
 
 @app.get("/settings/timezone")
 def get_timezone(user_id: int = Depends(get_current_user)):
-    tz = _user_store.get_timezone(user_id)
+    tz = _user_prefs.get_timezone(user_id)
     return {"status": "success", "data": {"timezone": tz}}
 
 
@@ -284,13 +287,43 @@ def set_timezone(body: Dict[str, Any], user_id: int = Depends(get_current_user))
     tz = body.get("timezone", 0)
     if not isinstance(tz, int) or tz not in VALID_OFFSETS:
         raise HTTPException(status_code=400, detail=f"Invalid timezone offset: {tz}")
-    _user_store.set_timezone(user_id, tz)
+    _user_prefs.set_timezone(user_id, tz)
     sign = "+" if tz >= 0 else ""
     return {
         "status": "success",
         "message": f"Timezone changed to GMT{sign}{tz}",
         "data": {"timezone": tz},
     }
+
+
+#  Hidden chart categories
+@app.get("/settings/hidden-chart-categories")
+def get_hidden_chart_categories(user_id: int = Depends(get_current_user)):
+    data = _user_prefs.get_hidden_chart_categories(user_id)
+    return {"status": "success", "data": data}
+
+
+@app.post("/settings/hidden-chart-categories")
+def set_hidden_chart_categories(
+    body: Dict[str, Any], user_id: int = Depends(get_current_user)
+):
+    _user_prefs.set_hidden_chart_categories(user_id, body)
+    return {"status": "success", "message": "Chart category visibility updated"}
+
+
+#  Category colors
+@app.get("/settings/category-colors")
+def get_category_colors(user_id: int = Depends(get_current_user)):
+    data = _user_prefs.get_category_colors(user_id)
+    return {"status": "success", "data": data}
+
+
+@app.post("/settings/category-colors")
+def set_category_colors(
+    body: Dict[str, Any], user_id: int = Depends(get_current_user)
+):
+    _user_prefs.set_category_colors(user_id, body)
+    return {"status": "success", "message": "Category colors updated"}
 
 
 #  Dashboard / General
