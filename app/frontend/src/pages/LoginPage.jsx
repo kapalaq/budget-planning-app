@@ -47,8 +47,8 @@ export default function LoginPage() {
         background: 'var(--bg-secondary)',
         border: '1px solid var(--border)',
         borderRadius: 'var(--radius-lg)',
-        padding: 40,
-        width: '100%',
+        padding: 'clamp(20px, 5vw, 40px)',
+        width: '92%',
         maxWidth: 400,
         boxShadow: 'var(--shadow-lg)',
       }}>

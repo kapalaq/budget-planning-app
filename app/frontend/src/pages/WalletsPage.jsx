@@ -89,12 +89,12 @@ export default function WalletsPage() {
     <>
       <ToastContainer toasts={toasts} />
       <div className="page-header">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="page-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <h2>Wallets</h2>
             {sortingStrategy && <p>Sorted: {sortingStrategy}</p>}
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div className="page-header-actions" style={{ display: 'flex', gap: 8 }}>
             <button className="btn btn-secondary btn-sm" onClick={openSortModal}>
               <ArrowUpDown size={14} /> Sort
             </button>
@@ -108,7 +108,7 @@ export default function WalletsPage() {
         {wallets.length === 0 ? (
           <EmptyState icon={CreditCard} title="No wallets" description="Create your first wallet" />
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(280px, 100%), 1fr))', gap: 16 }}>
             {wallets.map((w) => (
               <div key={w.name} className={`wallet-card ${w.name === currentWallet ? 'active' : ''}`} onClick={() => handleSwitch(w.name)}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>

@@ -99,9 +99,9 @@ export default function GoalsPage() {
     <>
       <ToastContainer toasts={toasts} />
       <div className="page-header">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="page-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h2>Savings Goals</h2>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div className="page-header-actions" style={{ display: 'flex', gap: 8 }}>
             <div className="type-tabs">
               {['active', 'all'].map((f) => (
                 <button key={f} className={`type-tab ${filter === f ? 'active' : ''}`} onClick={() => setFilter(f)}>
@@ -119,7 +119,7 @@ export default function GoalsPage() {
         {goals.length === 0 ? (
           <EmptyState icon={Target} title="No goals" description="Create a savings goal to start tracking" />
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(300px, 100%), 1fr))', gap: 16 }}>
             {goals.map((g) => {
               const gd = g.goal || {}
               const status = gd.status || 'active'
@@ -142,7 +142,7 @@ export default function GoalsPage() {
                     <span>{formatAmount(gd.saved, g.currency)} saved</span>
                     <span>{formatAmount(gd.target, g.currency)} target</span>
                   </div>
-                  <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
                     {status === 'active' && (
                       <>
                         <button className="btn btn-primary btn-sm" onClick={() => { setShowSave(g.name); setSaveAmount('') }}>

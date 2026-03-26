@@ -96,3 +96,15 @@ input, select, textarea { font-family: inherit; outline: none; }
 .toast.success { background: var(--income-bg); border: 1px solid var(--income); }
 .toast.error { background: var(--expense-bg); border: 1px solid var(--expense); }
 .toast.info { background: var(--transfer-bg); border: 1px solid var(--transfer); }
+
+@media (max-width: 600px) {
+  .toast-container {
+    top: 12px;
+    right: 12px;
+    left: 12px;
+  }
+  .toast {
+    max-width: 100%;
+    font-size: 0.85rem;
+  }
+}

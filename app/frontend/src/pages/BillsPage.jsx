@@ -99,9 +99,9 @@ export default function BillsPage() {
     <>
       <ToastContainer toasts={toasts} />
       <div className="page-header">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="page-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h2>Bills</h2>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div className="page-header-actions" style={{ display: 'flex', gap: 8 }}>
             <div className="type-tabs">
               {['active', 'all'].map((f) => (
                 <button key={f} className={`type-tab ${filter === f ? 'active' : ''}`} onClick={() => setFilter(f)}>
@@ -119,7 +119,7 @@ export default function BillsPage() {
         {bills.length === 0 ? (
           <EmptyState icon={Receipt} title="No bills" description="Add a bill to start tracking" />
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(300px, 100%), 1fr))', gap: 16 }}>
             {bills.map((b) => {
               const bd = b.bill || {}
               const status = bd.status || 'active'
@@ -140,7 +140,7 @@ export default function BillsPage() {
                     <span>{formatAmount(bd.saved, b.currency)} saved</span>
                     <span>{formatAmount(bd.target, b.currency)} due</span>
                   </div>
-                  <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
                     {status === 'active' && (
                       <>
                         <button className="btn btn-primary btn-sm" onClick={() => { setShowSave(b.name); setSaveAmount('') }}>

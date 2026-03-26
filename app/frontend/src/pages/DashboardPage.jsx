@@ -187,7 +187,7 @@ export default function DashboardPage() {
       <ToastContainer toasts={toasts} />
 
       <div className="page-header">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="page-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <h2>{data.wallet_name}</h2>
             <p>{data.currency} wallet</p>
@@ -346,7 +346,7 @@ export default function DashboardPage() {
                 <div
                   style={{
                     display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
                     gap: 12,
                     marginTop: 12,
                   }}
@@ -390,7 +390,7 @@ export default function DashboardPage() {
                 <div
                   style={{
                     display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
                     gap: 12,
                     marginTop: 12,
                   }}

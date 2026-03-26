@@ -170,14 +170,14 @@ export default function RecurringPage() {
     <>
       <ToastContainer toasts={toasts} />
       <div className="page-header">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2>Recurring Transactions</h2>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn btn-secondary" onClick={openAddTransfer}>
-              <Send size={16} /> Recurring Transfer
+        <div className="page-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h2>Recurring</h2>
+          <div className="page-header-actions" style={{ display: 'flex', gap: 8 }}>
+            <button className="btn btn-secondary btn-sm" onClick={openAddTransfer}>
+              <Send size={14} /> Transfer
             </button>
-            <button className="btn btn-primary" onClick={openAdd}>
-              <Plus size={18} /> Add Recurring
+            <button className="btn btn-primary btn-sm" onClick={openAdd}>
+              <Plus size={16} /> Add
             </button>
           </div>
         </div>

@@ -237,15 +237,15 @@ export default function TransactionsPage() {
     <>
       <ToastContainer toasts={toasts} />
       <div className="page-header">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="page-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <h2>Transactions</h2>
             <p>{data.wallet_name} - {data.currency}{data.sorting_strategy ? ` · Sorted: ${data.sorting_strategy}` : ''}</p>
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div className="page-header-actions" style={{ display: 'flex', gap: 8 }}>
             {data.has_filters && (
               <button className="btn btn-secondary btn-sm" onClick={handleClearFilters}>
-                <X size={14} /> Clear Filters
+                <X size={14} /> Clear
               </button>
             )}
             <button className="btn btn-secondary btn-sm" onClick={openFilterModal}>
@@ -254,11 +254,11 @@ export default function TransactionsPage() {
             <button className="btn btn-secondary btn-sm" onClick={openSortModal}>
               <ArrowUpDown size={14} /> Sort
             </button>
-            <button className="btn btn-secondary" onClick={openTransfer}>
-              <Send size={16} /> Transfer
+            <button className="btn btn-secondary btn-sm" onClick={openTransfer}>
+              <Send size={14} /> Transfer
             </button>
-            <button className="btn btn-primary" onClick={() => setShowAddTx(true)}>
-              <Plus size={18} /> Add
+            <button className="btn btn-primary btn-sm" onClick={() => setShowAddTx(true)}>
+              <Plus size={16} /> Add
             </button>
           </div>
         </div>

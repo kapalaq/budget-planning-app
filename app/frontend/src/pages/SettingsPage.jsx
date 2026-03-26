@@ -72,7 +72,7 @@ export default function SettingsPage() {
       <ToastContainer toasts={toasts} />
       <div className="page-header"><h2>Settings</h2></div>
       <div className="page-content fade-in">
-        <div style={{ maxWidth: 500, display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <div style={{ maxWidth: 500, width: '100%', display: 'flex', flexDirection: 'column', gap: 20 }}>
           <div className="card">
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
               <Globe size={20} style={{ color: 'var(--accent)' }} />

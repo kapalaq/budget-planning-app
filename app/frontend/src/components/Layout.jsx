@@ -45,6 +45,7 @@ export default function Layout() {
         {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
       </button>
 
+      <div className={`sidebar-backdrop ${sidebarOpen ? 'open' : ''}`} onClick={() => setSidebarOpen(false)} />
       <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
           <h1>

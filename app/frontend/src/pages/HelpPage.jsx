@@ -74,7 +74,7 @@ export default function HelpPage() {
         </p>
       </div>
 
-      <div className="page-content fade-in" style={{ maxWidth: 800 }}>
+      <div className="page-content fade-in" style={{ maxWidth: 800, width: '100%' }}>
 
         {/* Getting Started */}
         <Section icon={LogIn} title="Getting Started" defaultOpen={true}>
