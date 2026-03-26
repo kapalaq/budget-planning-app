@@ -4,6 +4,7 @@ import { useToast } from '../hooks/useToast'
 import ToastContainer from '../components/Toast'
 import Modal from '../components/Modal'
 import TransactionForm from '../components/TransactionForm'
+import TransferEditForm from '../components/TransferEditForm'
 import EmptyState from '../components/EmptyState'
 import ConfirmDialog from '../components/ConfirmDialog'
 import {
@@ -66,6 +67,35 @@ export default function DashboardPage() {
       loadDashboard()
     } catch (err) {
       showError(err.message)
+    }
+  }
+
+  const handleEditTransfer = async (txData) => {
+    try {
+      const txList = data.transactions
+      const foundIdx = txList.findIndex((t) => t.id === editTx.id)
+      if (foundIdx === -1) return
+      const idx = foundIdx + 1
+      if (txData.wallets_changed) {
+        const currentWallet = data.wallet_name
+        await api.deleteTransaction(idx)
+        await api.switchWallet(txData.from_wallet)
+        await api.transfer({
+          target_wallet_name: txData.to_wallet,
+          amount: txData.amount,
+          description: txData.description,
+        })
+        if (currentWallet) await api.switchWallet(currentWallet)
+        success('Transfer updated')
+      } else {
+        await api.editTransaction(idx, { amount: txData.amount, description: txData.description })
+        success('Transfer updated')
+      }
+    } catch (err) {
+      showError(err.message)
+    } finally {
+      setEditTx(null)
+      loadDashboard()
     }
   }
 
@@ -333,12 +363,21 @@ export default function DashboardPage() {
                   </div>
                   <div className="transaction-date">{tx.date.split(' ')[0]}</div>
                   <div style={{ display: 'flex', gap: 4 }}>
-                    {!tx.is_transfer && (
+                    {!tx.is_transfer ? (
                       <>
                         <button className="btn-icon" onClick={() => setEditTx(tx)} title="Edit">
                           <Edit3 size={14} />
                         </button>
                         <button className="btn-icon" onClick={() => setDeleteTx(tx)} title="Delete">
+                          <Trash2 size={14} />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button className="btn-icon" onClick={() => setEditTx(tx)} title="Edit Transfer">
+                          <Edit3 size={14} />
+                        </button>
+                        <button className="btn-icon" onClick={() => setDeleteTx(tx)} title="Delete Transfer">
                           <Trash2 size={14} />
                         </button>
                       </>
@@ -359,12 +398,23 @@ export default function DashboardPage() {
       )}
 
       {/* Edit modal */}
-      {editTx && (
+      {editTx && !editTx.is_transfer && (
         <Modal title="Edit Transaction" onClose={() => setEditTx(null)}>
           <TransactionForm
             type={editTx.transaction_type}
             initial={editTx}
             onSubmit={handleEditTransaction}
+            onCancel={() => setEditTx(null)}
+            isEdit={true}
+          />
+        </Modal>
+      )}
+
+      {editTx && editTx.is_transfer && (
+        <Modal title="Edit Transfer" onClose={() => setEditTx(null)}>
+          <TransferEditForm
+            initial={editTx}
+            onSubmit={handleEditTransfer}
             onCancel={() => setEditTx(null)}
           />
         </Modal>

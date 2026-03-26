@@ -47,7 +47,7 @@ export default function TransactionForm({
           type="button"
           disabled={isEdit}
           className={`type-tab ${txType === 'expense' ? 'active' : ''}`}
-          onClick={() => setTxType('expense')}
+          onClick={() => { if (!isEdit) setTxType('expense') }}
         >
           Expense
         </button>
@@ -55,7 +55,7 @@ export default function TransactionForm({
           type="button"
           disabled={isEdit}
           className={`type-tab ${txType === 'income' ? 'active' : ''}`}
-          onClick={() => setTxType('income')}
+          onClick={() => { if (!isEdit) setTxType('income') }}
         >
           Income
         </button>
