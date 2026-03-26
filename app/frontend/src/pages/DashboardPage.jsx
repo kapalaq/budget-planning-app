@@ -7,6 +7,7 @@ import TransactionForm from '../components/TransactionForm'
 import TransferEditForm from '../components/TransferEditForm'
 import EmptyState from '../components/EmptyState'
 import ConfirmDialog from '../components/ConfirmDialog'
+import { useNavigate } from 'react-router-dom'
 import {
   TrendingUp, TrendingDown, DollarSign, Plus, Trash2, Edit3,
   ArrowLeftRight, LayoutDashboard, Eye, EyeOff,
@@ -44,6 +45,7 @@ export default function DashboardPage() {
   const [hiddenCategories, setHiddenCategories] = useState({ expense: [], income: [] })
   const [categoryColors, setCategoryColors] = useState({ expense: {}, income: {} })
   const { toasts, success, error: showError } = useToast()
+  const navigate = useNavigate()
 
   const loadDashboard = useCallback(async () => {
     try {
@@ -352,11 +354,16 @@ export default function DashboardPage() {
                   {data.active_bills.map((g) => (
                     <div
                       key={g.name}
+                      onClick={() => navigate('/bills')}
                       style={{
                         padding: 12,
                         background: 'var(--bg-tertiary)',
                         borderRadius: 'var(--radius-sm)',
+                        cursor: 'pointer',
+                        transition: 'background 0.15s',
                       }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-hover)'}
+                      onMouseLeave={(e) => e.currentTarget.style.background = 'var(--bg-tertiary)'}
                     >
                       <div style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: 4 }}>
                         {g.name}
@@ -391,11 +398,16 @@ export default function DashboardPage() {
                   {data.active_goals.map((g) => (
                     <div
                       key={`${g.name}-duplicate`}
+                      onClick={() => navigate('/goals')}
                       style={{
                         padding: 12,
                         background: 'var(--bg-tertiary)',
                         borderRadius: 'var(--radius-sm)',
+                        cursor: 'pointer',
+                        transition: 'background 0.15s',
                       }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-hover)'}
+                      onMouseLeave={(e) => e.currentTarget.style.background = 'var(--bg-tertiary)'}
                     >
                       <div style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: 4 }}>
                         {g.name}
