@@ -319,9 +319,7 @@ def get_category_colors(user_id: int = Depends(get_current_user)):
 
 
 @app.post("/settings/category-colors")
-def set_category_colors(
-    body: Dict[str, Any], user_id: int = Depends(get_current_user)
-):
+def set_category_colors(body: Dict[str, Any], user_id: int = Depends(get_current_user)):
     _user_prefs.set_category_colors(user_id, body)
     return {"status": "success", "message": "Category colors updated"}
 

@@ -9,9 +9,20 @@ export default function TransactionForm({
   onCancel, 
   isEdit = false
 }) {
+  const formatDateForInput = (dateStr) => {
+    if (!dateStr) return ''
+    try {
+      const d = new Date(dateStr.replace(' ', 'T'))
+      if (isNaN(d)) return ''
+      const pad = (n) => String(n).padStart(2, '0')
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+    } catch { return '' }
+  }
+
   const [amount, setAmount] = useState(initial.amount || '')
   const [category, setCategory] = useState(initial.category || '')
   const [description, setDescription] = useState(initial.description || '')
+  const [date, setDate] = useState(formatDateForInput(initial.date))
   const [categories, setCategories] = useState([])
   const [txType, setTxType] = useState(type)
   const [loading, setLoading] = useState(false)
@@ -29,12 +40,16 @@ export default function TransactionForm({
     if (!amount || !category) return
     setLoading(true)
     try {
-      await onSubmit({
+      const payload = {
         amount: parseFloat(amount),
         category,
         description,
         transaction_type: txType === 'income' ? '+' : '-',
-      })
+      }
+      if (date) {
+        payload.date = date.replace('T', ' ') + ':00'
+      }
+      await onSubmit(payload)
     } finally {
       setLoading(false)
     }
@@ -84,6 +99,16 @@ export default function TransactionForm({
             <option key={c} value={c}>{c}</option>
           ))}
         </select>
+      </div>
+
+      <div className="form-group">
+        <label>Date & Time</label>
+        <input
+          type="datetime-local"
+          className="form-input"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+        />
       </div>
 
       <div className="form-group">

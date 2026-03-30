@@ -74,9 +74,9 @@ export default function RecurringPage() {
   const [saving, setSaving] = useState(false)
   const { toasts, success, error: showError } = useToast()
 
-  const defaultForm = { transaction_type: '-', category: '', amount: '', description: '', recurrence_rule: { frequency: 'monthly', interval: 1, weekdays: [] } }
+  const defaultForm = { transaction_type: '-', category: '', amount: '', description: '', start_date: '', recurrence_rule: { frequency: 'monthly', interval: 1, weekdays: [] } }
   const [form, setForm] = useState(defaultForm)
-  const defaultTransferForm = { target_wallet_name: '', amount: '', description: '', recurrence_rule: { frequency: 'monthly', interval: 1, weekdays: [] } }
+  const defaultTransferForm = { target_wallet_name: '', amount: '', description: '', start_date: '', recurrence_rule: { frequency: 'monthly', interval: 1, weekdays: [] } }
   const [transferForm, setTransferForm] = useState(defaultTransferForm)
 
   const load = useCallback(async () => {
@@ -119,13 +119,17 @@ export default function RecurringPage() {
     e.preventDefault()
     setSaving(true)
     try {
-      await api.addRecurring({
+      const recurringPayload = {
         transaction_type: form.transaction_type,
         category: form.category,
         amount: parseFloat(form.amount),
         description: form.description,
         recurrence_rule: form.recurrence_rule,
-      })
+      }
+      if (form.start_date) {
+        recurringPayload.start_date = form.start_date.replace('T', ' ') + ':00'
+      }
+      await api.addRecurring(recurringPayload)
       success('Recurring transaction created')
       setShowAdd(false)
       load()
@@ -151,12 +155,16 @@ export default function RecurringPage() {
     e.preventDefault()
     setSaving(true)
     try {
-      await api.addRecurringTransfer({
+      const transferPayload = {
         target_wallet_name: transferForm.target_wallet_name,
         amount: parseFloat(transferForm.amount),
         description: transferForm.description,
         recurrence_rule: transferForm.recurrence_rule,
-      })
+      }
+      if (transferForm.start_date) {
+        transferPayload.start_date = transferForm.start_date.replace('T', ' ') + ':00'
+      }
+      await api.addRecurringTransfer(transferPayload)
       success('Recurring transfer created')
       setShowAddTransfer(false)
       load()
@@ -241,6 +249,10 @@ export default function RecurringPage() {
               <AmountInput value={form.amount} onChange={(v) => setForm({ ...form, amount: v })} required />
             </div>
             <div className="form-group">
+              <label>Start Date & Time</label>
+              <input type="datetime-local" className="form-input" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} />
+            </div>
+            <div className="form-group">
               <label>Description (optional)</label>
               <input className="form-input" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
             </div>
@@ -269,6 +281,10 @@ export default function RecurringPage() {
             <div className="form-group">
               <label>Amount</label>
               <AmountInput value={transferForm.amount} onChange={(v) => setTransferForm({ ...transferForm, amount: v })} required />
+            </div>
+            <div className="form-group">
+              <label>Start Date & Time</label>
+              <input type="datetime-local" className="form-input" value={transferForm.start_date} onChange={(e) => setTransferForm({ ...transferForm, start_date: e.target.value })} />
             </div>
             <div className="form-group">
               <label>Description (optional)</label>

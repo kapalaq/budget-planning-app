@@ -4,11 +4,22 @@ import AmountInput from './AmountInput'
 import t from '../i18n'
 
 export default function TransferEditForm({ initial = {}, onSubmit, onCancel }) {
+  const formatDateForInput = (dateStr) => {
+    if (!dateStr) return ''
+    try {
+      const d = new Date(dateStr.replace(' ', 'T'))
+      if (isNaN(d)) return ''
+      const pad = (n) => String(n).padStart(2, '0')
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+    } catch { return '' }
+  }
+
   const [wallets, setWallets] = useState([])
   const [fromWallet, setFromWallet] = useState(initial.from_wallet || '')
   const [toWallet, setToWallet] = useState(initial.to_wallet || '')
   const [amount, setAmount] = useState(initial.amount || '')
   const [description, setDescription] = useState(initial.description || '')
+  const [date, setDate] = useState(formatDateForInput(initial.date))
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -26,13 +37,17 @@ export default function TransferEditForm({ initial = {}, onSubmit, onCancel }) {
     if (!amount || !fromWallet || !toWallet) return
     setLoading(true)
     try {
-      await onSubmit({
+      const payload = {
         amount: parseFloat(amount),
         description,
         from_wallet: fromWallet,
         to_wallet: toWallet,
         wallets_changed: walletsChanged,
-      })
+      }
+      if (date) {
+        payload.date = date.replace('T', ' ') + ':00'
+      }
+      await onSubmit(payload)
     } finally {
       setLoading(false)
     }
@@ -86,6 +101,16 @@ export default function TransferEditForm({ initial = {}, onSubmit, onCancel }) {
           onChange={setAmount}
           autoFocus
           required
+        />
+      </div>
+
+      <div className="form-group">
+        <label>Date & Time</label>
+        <input
+          type="datetime-local"
+          className="form-input"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
         />
       </div>
 

@@ -42,7 +42,7 @@ export default function TransactionsPage() {
   const [editTx, setEditTx] = useState(null)
   const [deleteTx, setDeleteTx] = useState(null)
   const [transferCtx, setTransferCtx] = useState(null)
-  const [transferData, setTransferData] = useState({ to_wallet: '', amount: '', received_amount: '' })
+  const [transferData, setTransferData] = useState({ to_wallet: '', amount: '', received_amount: '', date: '' })
   const [transferLoading, setTransferLoading] = useState(false)
   const [showFilterModal, setShowFilterModal] = useState(false)
   const [showSortModal, setShowSortModal] = useState(false)
@@ -148,6 +148,9 @@ export default function TransactionsPage() {
       }
       if (transferData.received_amount) {
         transferPayload.received_amount = parseFloat(transferData.received_amount)
+      }
+      if (transferData.date) {
+        transferPayload.date = transferData.date.replace('T', ' ') + ':00'
       }
       await api.transfer(transferPayload)
       success('Transfer completed')
@@ -370,6 +373,10 @@ export default function TransactionsPage() {
                   <AmountInput value={transferData.received_amount} onChange={(v) => setTransferData({ ...transferData, received_amount: v })} placeholder={`Amount in ${targetCurrency}`} />
                 </div>
               )}
+              <div className="form-group">
+                <label>Date & Time</label>
+                <input type="datetime-local" className="form-input" value={transferData.date} onChange={(e) => setTransferData({ ...transferData, date: e.target.value })} />
+              </div>
               <div className="modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowTransfer(false)}>Cancel</button>
                 <button type="submit" className="btn btn-primary" disabled={transferLoading}>{transferLoading ? 'Sending...' : 'Transfer'}</button>
