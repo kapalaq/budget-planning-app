@@ -298,7 +298,7 @@ export default function TransactionsPage() {
                   <div className={`transaction-amount ${tx.is_transfer ? 'transfer' : tx.transaction_type}`}>
                     {tx.sign}{formatAmount(tx.amount, '')}
                   </div>
-                  <div className="transaction-date">{tx.date.split(' ')[0]}</div>
+                  <div className="transaction-date">{(() => { const [d, t] = tx.date.split(' '); const [y, m, day] = d.split('-'); return `${m}/${day} ${(t || '').slice(0, 5)}`; })()}</div>
                   <div style={{ display: 'flex', gap: 4 }}>
                     {!tx.is_transfer ? (
                       <>
