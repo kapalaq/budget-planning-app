@@ -1043,11 +1043,10 @@ class RequestHandler:
 
         scheduler = self._wm.recurrence_scheduler
         scheduler.add_recurring(recurring)
-        count = scheduler.process_due_transactions()
 
         return {
             "status": "success",
-            "message": t("recurring.created", self._lang, count=count),
+            "message": t("recurring.created", self._lang),
         }
 
     def _get_recurring_list(self, data: dict) -> dict:
@@ -1208,11 +1207,10 @@ class RequestHandler:
 
         scheduler = self._wm.recurrence_scheduler
         scheduler.add_recurring(recurring)
-        count = scheduler.process_due_transactions()
 
         return {
             "status": "success",
-            "message": t("recurring.created", self._lang, count=count),
+            "message": t("recurring.created", self._lang),
         }
 
     def _add_recurring_goal_save(self, data: dict) -> dict:
@@ -1257,11 +1255,10 @@ class RequestHandler:
 
         scheduler = self._wm.recurrence_scheduler
         scheduler.add_recurring(recurring)
-        count = scheduler.process_due_transactions()
 
         return {
             "status": "success",
-            "message": t("recurring.created", self._lang, count=count),
+            "message": t("recurring.created", self._lang),
         }
 
     # ------------------------------------------------------------------ #

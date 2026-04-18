@@ -82,7 +82,7 @@ export default function RecurringPage() {
   const load = useCallback(async () => {
     try {
       const res = await api.getRecurringList()
-      setItems(res.data?.recurring || [])
+      setItems(res.data?.recurring_transactions || [])
     } catch (err) { showError(err.message) }
     finally { setLoading(false) }
   }, [showError])

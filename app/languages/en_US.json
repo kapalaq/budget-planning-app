@@ -489,7 +489,7 @@
     "bill.delete_failed": "Failed to delete bill",
     "bill.cannot_delete_active": "Cannot delete an active bill. Complete or hide it first.",
     "btn.bills": "Bills",
-    "recurring.created": "Recurring transaction created! ({count} transaction(s) generated)",
+    "recurring.created": "Recurring transaction created!",
     "recurring.template_updated": "Recurring transaction template updated!",
     "recurring.date_skipped": "Date {date} will be skipped",
     "recurring.paused": "Recurring transaction paused",
