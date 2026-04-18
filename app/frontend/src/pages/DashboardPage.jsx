@@ -203,7 +203,7 @@ export default function DashboardPage() {
         <div className="stats-grid">
           <div className="stat-card">
             <div className="label"><DollarSign size={14} style={{ display: 'inline', verticalAlign: 'middle' }} /> Balance</div>
-            <div className="value">{formatAmount(data.balance, data.currency)}</div>
+            <div className="value">{formatAmount(data.overall_balance, data.currency)}</div>
           </div>
           <div className="stat-card">
             <div className="label"><TrendingUp size={14} style={{ display: 'inline', verticalAlign: 'middle' }} /> Income</div>
@@ -213,6 +213,12 @@ export default function DashboardPage() {
             <div className="label"><TrendingDown size={14} style={{ display: 'inline', verticalAlign: 'middle' }} /> Expenses</div>
             <div className="value expense">{formatAmount(data.total_expense, data.currency)}</div>
           </div>
+          {data.has_filters && (
+            <div className="stat-card">
+              <div className="label" style={{ color: 'var(--warning)' }}>Filtered Net</div>
+              <div className={`value ${data.balance >= 0 ? 'income' : 'expense'}`}>{formatAmount(data.balance, data.currency)}</div>
+            </div>
+          )}
         </div>
 
         {/* Charts */}

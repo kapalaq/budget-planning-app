@@ -127,7 +127,8 @@ export default function RecurringPage() {
         recurrence_rule: form.recurrence_rule,
       }
       if (form.start_date) {
-        recurringPayload.start_date = form.start_date.replace('T', ' ') + ':00'
+        const parts = form.start_date.replace('T', ' ')
+        recurringPayload.start_date = parts.length <= 16 ? parts + ':00' : parts
       }
       await api.addRecurring(recurringPayload)
       success('Recurring transaction created')
@@ -162,7 +163,8 @@ export default function RecurringPage() {
         recurrence_rule: transferForm.recurrence_rule,
       }
       if (transferForm.start_date) {
-        transferPayload.start_date = transferForm.start_date.replace('T', ' ') + ':00'
+        const parts2 = transferForm.start_date.replace('T', ' ')
+        transferPayload.start_date = parts2.length <= 16 ? parts2 + ':00' : parts2
       }
       await api.addRecurringTransfer(transferPayload)
       success('Recurring transfer created')

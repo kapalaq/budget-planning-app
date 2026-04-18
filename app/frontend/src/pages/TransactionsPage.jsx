@@ -150,7 +150,8 @@ export default function TransactionsPage() {
         transferPayload.received_amount = parseFloat(transferData.received_amount)
       }
       if (transferData.date) {
-        transferPayload.date = transferData.date.replace('T', ' ') + ':00'
+        const parts = transferData.date.replace('T', ' ')
+        transferPayload.date = parts.length <= 16 ? parts + ':00' : parts
       }
       await api.transfer(transferPayload)
       success('Transfer completed')

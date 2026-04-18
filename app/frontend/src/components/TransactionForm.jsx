@@ -47,7 +47,8 @@ export default function TransactionForm({
         transaction_type: txType === 'income' ? '+' : '-',
       }
       if (date) {
-        payload.date = date.replace('T', ' ') + ':00'
+        const parts = date.replace('T', ' ')
+        payload.date = parts.length <= 16 ? parts + ':00' : parts
       }
       await onSubmit(payload)
     } finally {

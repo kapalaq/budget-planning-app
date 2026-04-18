@@ -1,7 +1,7 @@
 """Request handler - middleground between Display (frontend) and business logic (backend)."""
 
 from collections import Counter, defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone as _tz
 from typing import Dict, List
 
 from languages import t
@@ -139,6 +139,19 @@ class RequestHandler:
         if offset:
             dt = dt + timedelta(hours=offset)
         return dt.strftime(fmt)
+
+    def _parse_user_dt(self, date_str: str) -> datetime:
+        """Parse a datetime string sent by the frontend (user's local time)
+        and convert it to UTC by subtracting the user's timezone offset."""
+        dt = datetime.fromisoformat(date_str)
+        offset = getattr(self, "_tz_offset", 0)
+        if offset:
+            dt = dt - timedelta(hours=offset)
+        return dt
+
+    def _now_utc(self) -> datetime:
+        """Return current UTC time as a naive datetime."""
+        return datetime.now(_tz.utc).replace(tzinfo=None)
 
     def _serialize_transaction(self, tr: Transaction) -> dict:
         sign = "+" if tr.transaction_type == TransactionType.INCOME else "-"
@@ -510,9 +523,9 @@ class RequestHandler:
 
         date = data.get("date")
         if isinstance(date, str):
-            date = datetime.fromisoformat(date)
+            date = self._parse_user_dt(date)
         elif date is None:
-            date = datetime.now()
+            date = self._now_utc()
 
         transaction = Transaction(
             amount=data["amount"],
@@ -536,7 +549,7 @@ class RequestHandler:
 
         date = data.get("date")
         if isinstance(date, str):
-            date = datetime.fromisoformat(date)
+            date = self._parse_user_dt(date)
         elif date is None:
             date = transaction.datetime_created
 
@@ -608,7 +621,7 @@ class RequestHandler:
 
         date = data.get("date")
         if isinstance(date, str):
-            date = datetime.fromisoformat(date)
+            date = self._parse_user_dt(date)
 
         received_amount = data.get("received_amount")
         if received_amount is not None:
@@ -707,9 +720,9 @@ class RequestHandler:
             start = data.get("start_date")
             end = data.get("end_date")
             if isinstance(start, str):
-                start = datetime.fromisoformat(start)
+                start = self._parse_user_dt(start)
             if isinstance(end, str):
-                end = datetime.fromisoformat(end)
+                end = self._parse_user_dt(end)
             return DateRangeFilter(start_date=start, end_date=end)
         elif ft == "income_only":
             return IncomeOnlyFilter(
@@ -973,7 +986,7 @@ class RequestHandler:
 
     #  Recurring CRUD
     @staticmethod
-    def _build_recurrence_rule(rule_data: dict) -> RecurrenceRule:
+    def _build_recurrence_rule(self, rule_data: dict) -> RecurrenceRule:
         """Build a RecurrenceRule from a dict."""
         freq = Frequency(rule_data["frequency"])
         weekdays = set()
@@ -996,7 +1009,7 @@ class RequestHandler:
         if end == "on_date":
             rule.end_condition = EndCondition.ON_DATE
             ed = rule_data["end_date"]
-            rule.end_date = datetime.fromisoformat(ed) if isinstance(ed, str) else ed
+            rule.end_date = self._parse_user_dt(ed) if isinstance(ed, str) else ed
         elif end == "after_count":
             rule.end_condition = EndCondition.AFTER_COUNT
             rule.max_occurrences = rule_data["max_occurrences"]
@@ -1012,9 +1025,9 @@ class RequestHandler:
 
         start_date = data.get("start_date")
         if isinstance(start_date, str):
-            start_date = datetime.fromisoformat(start_date)
+            start_date = self._parse_user_dt(start_date)
         elif start_date is None:
-            start_date = datetime.now()
+            start_date = self._now_utc()
 
         rule = self._build_recurrence_rule(data["recurrence_rule"])
 
@@ -1083,7 +1096,7 @@ class RequestHandler:
         elif action == "skip_date":
             skip = data["date"]
             if isinstance(skip, str):
-                skip = datetime.fromisoformat(skip)
+                skip = self._parse_user_dt(skip)
             recurring.exceptions.add(skip)
             return {
                 "status": "success",
@@ -1171,9 +1184,9 @@ class RequestHandler:
 
         start_date = data.get("start_date")
         if isinstance(start_date, str):
-            start_date = datetime.fromisoformat(start_date)
+            start_date = self._parse_user_dt(start_date)
         elif start_date is None:
-            start_date = datetime.now()
+            start_date = self._now_utc()
 
         rule = self._build_recurrence_rule(data["recurrence_rule"])
 
@@ -1225,9 +1238,9 @@ class RequestHandler:
 
         start_date = data.get("start_date")
         if isinstance(start_date, str):
-            start_date = datetime.fromisoformat(start_date)
+            start_date = self._parse_user_dt(start_date)
         elif start_date is None:
-            start_date = datetime.now()
+            start_date = self._now_utc()
 
         rule = self._build_recurrence_rule(data["recurrence_rule"])
 
