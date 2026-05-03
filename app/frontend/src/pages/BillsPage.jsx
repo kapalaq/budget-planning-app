@@ -6,7 +6,7 @@ import Modal from '../components/Modal'
 import ConfirmDialog from '../components/ConfirmDialog'
 import EmptyState from '../components/EmptyState'
 import AmountInput from '../components/AmountInput'
-import { Receipt, Plus, Trash2, DollarSign, CheckCircle, EyeOff, RotateCcw } from 'lucide-react'
+import { Receipt, Plus, Trash2, PiggyBank, ShoppingCart, CheckCircle, EyeOff, RotateCcw } from 'lucide-react'
 
 function formatAmount(amount, currency) {
   return `${Number(amount).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} ${currency || ''}`
@@ -16,10 +16,12 @@ export default function BillsPage() {
   const [bills, setBills] = useState([])
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
-  const [showSave, setShowSave] = useState(null)
+  const [showReserve, setShowReserve] = useState(null)
+  const [showSpend, setShowSpend] = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [newBill, setNewBill] = useState({ name: '', target_amount: '', currency: 'USD', description: '' })
-  const [saveAmount, setSaveAmount] = useState('')
+  const [reserveAmount, setReserveAmount] = useState('')
+  const [spendForm, setSpendForm] = useState({ amount: '', category: '', description: '' })
   const [saving, setSaving] = useState(false)
   const [filter, setFilter] = useState('active')
   const { toasts, success, error: showError } = useToast()
@@ -47,14 +49,32 @@ export default function BillsPage() {
     finally { setSaving(false) }
   }
 
-  const handleSave = async (e) => {
+  const handleReserve = async (e) => {
     e.preventDefault()
     setSaving(true)
     try {
-      await api.saveToBill({ bill_name: showSave, amount: parseFloat(saveAmount) })
-      success(`Saved to ${showSave}`)
-      setShowSave(null)
-      setSaveAmount('')
+      await api.saveToBill({ bill_name: showReserve, amount: parseFloat(reserveAmount) })
+      success(`Reserved for ${showReserve}`)
+      setShowReserve(null)
+      setReserveAmount('')
+      load()
+    } catch (err) { showError(err.message) }
+    finally { setSaving(false) }
+  }
+
+  const handleSpend = async (e) => {
+    e.preventDefault()
+    setSaving(true)
+    try {
+      await api.spendFromBill({
+        bill_name: showSpend,
+        amount: parseFloat(spendForm.amount),
+        category: spendForm.category || 'Bill Payment',
+        description: spendForm.description,
+      })
+      success(`Payment recorded for ${showSpend}`)
+      setShowSpend(null)
+      setSpendForm({ amount: '', category: '', description: '' })
       load()
     } catch (err) { showError(err.message) }
     finally { setSaving(false) }
@@ -124,6 +144,9 @@ export default function BillsPage() {
               const bd = b.bill || {}
               const status = bd.status || 'active'
               const displayName = b.name.replace(/^Bill:\s*/, '')
+              const reserved = bd.reserved ?? bd.saved ?? 0
+              const spent = bd.spent ?? 0
+              const totalReserved = bd.saved ?? 0
               return (
                 <div key={b.name} className="goal-card">
                   <div className="goal-header">
@@ -136,15 +159,22 @@ export default function BillsPage() {
                   <div className="progress-bar" style={{ marginBottom: 8 }}>
                     <div className={`fill ${bd.progress >= 100 ? 'complete' : bd.progress >= 75 ? 'warning' : ''}`} style={{ width: `${Math.min(bd.progress || 0, 100)}%` }} />
                   </div>
-                  <div className="goal-amounts">
-                    <span>{formatAmount(bd.saved, b.currency)} saved</span>
+                  <div className="goal-amounts" style={{ marginBottom: 4 }}>
+                    <span>{formatAmount(totalReserved, b.currency)} reserved</span>
                     <span>{formatAmount(bd.target, b.currency)} due</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: 12, fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                    <span>Available: {formatAmount(reserved, b.currency)}</span>
+                    {spent > 0 && <span>Paid: {formatAmount(spent, b.currency)}</span>}
                   </div>
                   <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
                     {status === 'active' && (
                       <>
-                        <button className="btn btn-primary btn-sm" onClick={() => { setShowSave(b.name); setSaveAmount('') }}>
-                          <DollarSign size={14} /> Pay
+                        <button className="btn btn-primary btn-sm" onClick={() => { setShowReserve(b.name); setReserveAmount('') }}>
+                          <PiggyBank size={14} /> Reserve
+                        </button>
+                        <button className="btn btn-secondary btn-sm" onClick={() => { setShowSpend(b.name); setSpendForm({ amount: '', category: '', description: '' }) }}>
+                          <ShoppingCart size={14} /> Pay
                         </button>
                         <button className="btn btn-secondary btn-sm" onClick={() => handleComplete(b.name)}>
                           <CheckCircle size={14} /> Complete
@@ -201,16 +231,45 @@ export default function BillsPage() {
         </Modal>
       )}
 
-      {showSave && (
-        <Modal title={`Pay ${showSave}`} onClose={() => setShowSave(null)}>
-          <form onSubmit={handleSave}>
+      {showReserve && (
+        <Modal title={`Reserve money for ${showReserve.replace(/^Bill:\s*/, '')}`} onClose={() => setShowReserve(null)}>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: 12 }}>
+            Set aside money from your active wallet to cover this bill.
+          </p>
+          <form onSubmit={handleReserve}>
             <div className="form-group">
               <label>Amount</label>
-              <AmountInput value={saveAmount} onChange={setSaveAmount} required autoFocus />
+              <AmountInput value={reserveAmount} onChange={setReserveAmount} required autoFocus />
             </div>
             <div className="modal-actions">
-              <button type="button" className="btn btn-secondary" onClick={() => setShowSave(null)}>Cancel</button>
-              <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Paying...' : 'Pay'}</button>
+              <button type="button" className="btn btn-secondary" onClick={() => setShowReserve(null)}>Cancel</button>
+              <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Reserving...' : 'Reserve'}</button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {showSpend && (
+        <Modal title={`Pay from ${showSpend.replace(/^Bill:\s*/, '')}`} onClose={() => setShowSpend(null)}>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: 12 }}>
+            Record a payment using this bill&apos;s reserved funds. If not enough is reserved, the shortfall is automatically pulled from your active wallet.
+          </p>
+          <form onSubmit={handleSpend}>
+            <div className="form-group">
+              <label>Amount</label>
+              <AmountInput value={spendForm.amount} onChange={(v) => setSpendForm({ ...spendForm, amount: v })} required autoFocus />
+            </div>
+            <div className="form-group">
+              <label>Category</label>
+              <input className="form-input" placeholder="e.g. Rent, Utilities, Insurance" value={spendForm.category} onChange={(e) => setSpendForm({ ...spendForm, category: e.target.value })} />
+            </div>
+            <div className="form-group">
+              <label>Description (optional)</label>
+              <input className="form-input" value={spendForm.description} onChange={(e) => setSpendForm({ ...spendForm, description: e.target.value })} />
+            </div>
+            <div className="modal-actions">
+              <button type="button" className="btn btn-secondary" onClick={() => setShowSpend(null)}>Cancel</button>
+              <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving...' : 'Record Payment'}</button>
             </div>
           </form>
         </Modal>

@@ -565,6 +565,11 @@ def save_to_goal(body: Dict[str, Any], user_id: int = Depends(get_current_user))
     return _handle(user_id, "save_to_goal", body)
 
 
+@app.post("/goals/spend")
+def spend_from_goal(body: Dict[str, Any], user_id: int = Depends(get_current_user)):
+    return _handle(user_id, "spend_from_goal", body)
+
+
 @app.delete("/goals/{name}")
 def delete_goal(name: str, user_id: int = Depends(get_current_user)):
     return _handle(user_id, "delete_goal", {"name": name})
@@ -609,6 +614,11 @@ def reactivate_bill(name: str, user_id: int = Depends(get_current_user)):
 @app.post("/bills/save")
 def save_to_bill(body: Dict[str, Any], user_id: int = Depends(get_current_user)):
     return _handle(user_id, "save_to_bill", body)
+
+
+@app.post("/bills/spend")
+def spend_from_bill(body: Dict[str, Any], user_id: int = Depends(get_current_user)):
+    return _handle(user_id, "spend_from_bill", body)
 
 
 @app.delete("/bills/{name}")

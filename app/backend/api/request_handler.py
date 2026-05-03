@@ -100,6 +100,7 @@ class RequestHandler:
             "hide_goal": self._hide_goal,
             "reactivate_goal": self._reactivate_goal,
             "save_to_goal": self._save_to_goal,
+            "spend_from_goal": self._spend_from_goal,
             "delete_goal": self._delete_goal,
             # Bills
             "add_bill": self._add_bill,
@@ -110,6 +111,7 @@ class RequestHandler:
             "hide_bill": self._hide_bill,
             "reactivate_bill": self._reactivate_bill,
             "save_to_bill": self._save_to_bill,
+            "spend_from_bill": self._spend_from_bill,
             "delete_bill": self._delete_bill,
         }
 
@@ -228,14 +230,20 @@ class RequestHandler:
 
         if w.is_goal_wallet or w.is_bill_wallet:
             target = w.goal_target or 0
-            progress = (w.balance / target * 100) if target > 0 else 0
+            # total_income = all reservations (transfers in); balance = what's still available
+            total_reserved = w.total_income
+            reserved = w.balance
+            spent = w.total_expense
+            progress = (total_reserved / target * 100) if target > 0 else 0
             goal_data = {
                 "target": target,
                 "goal_description": w.goal_description or "",
                 "status": w.goal_status.value,
                 "progress": min(progress, 100),
-                "saved": w.balance,
-                "remaining": max(target - w.balance, 0),
+                "saved": total_reserved,
+                "reserved": reserved,
+                "spent": spent,
+                "remaining": max(target - total_reserved, 0),
                 "created_at": (
                     self._fmt_dt(w.goal_created_at, "%Y-%m-%d %H:%M")
                     if w.goal_created_at
@@ -1611,3 +1619,93 @@ class RequestHandler:
                 "message": t("bill.deleted", self._lang, name=name),
             }
         return {"status": "error", "message": t("bill.delete_failed", self._lang)}
+
+    def _spend_from_goal(self, data: dict) -> dict:
+        """Add expense to a goal wallet, auto-topping up from active wallet if reserved is insufficient."""
+        wallet, err = self._current_wallet_or_error()
+        if err:
+            return err
+
+        goal_name = data.get("goal_name", "")
+        amount = data.get("amount")
+        if amount is None or amount <= 0:
+            return {"status": "error", "message": t("common.amount_positive", self._lang)}
+
+        goal_wallet = self._wm.get_wallet(goal_name)
+        if goal_wallet is None or not goal_wallet.is_goal_wallet:
+            return {"status": "error", "message": t("goal.not_found", self._lang, name=goal_name)}
+
+        shortfall = amount - goal_wallet.balance
+        if shortfall > 0:
+            if not self._wm.transfer(
+                from_wallet_name=wallet.name,
+                to_wallet_name=goal_wallet.name,
+                amount=shortfall,
+                description=f"Auto-reserve for {goal_name}",
+            ):
+                return {"status": "error", "message": t("goal.save_failed", self._lang)}
+
+        date = data.get("date")
+        if isinstance(date, str):
+            date = self._parse_user_dt(date)
+        elif date is None:
+            date = self._now_utc()
+
+        transaction = Transaction(
+            amount=amount,
+            transaction_type=TransactionType.EXPENSE,
+            category=data.get("category", "Goal Expense"),
+            description=data.get("description", ""),
+            datetime_created=date,
+        )
+        goal_wallet.add_transaction(transaction)
+        return {
+            "status": "success",
+            "message": t("transaction.added", self._lang),
+            "data": self._serialize_wallet(goal_wallet),
+        }
+
+    def _spend_from_bill(self, data: dict) -> dict:
+        """Add expense to a bill wallet, auto-topping up from active wallet if reserved is insufficient."""
+        wallet, err = self._current_wallet_or_error()
+        if err:
+            return err
+
+        bill_name = data.get("bill_name", "")
+        amount = data.get("amount")
+        if amount is None or amount <= 0:
+            return {"status": "error", "message": t("common.amount_positive", self._lang)}
+
+        bill_wallet = self._wm.get_wallet(bill_name)
+        if bill_wallet is None or not bill_wallet.is_bill_wallet:
+            return {"status": "error", "message": t("bill.not_found", self._lang, name=bill_name)}
+
+        shortfall = amount - bill_wallet.balance
+        if shortfall > 0:
+            if not self._wm.transfer(
+                from_wallet_name=wallet.name,
+                to_wallet_name=bill_wallet.name,
+                amount=shortfall,
+                description=f"Auto-reserve for {bill_name}",
+            ):
+                return {"status": "error", "message": t("bill.save_failed", self._lang)}
+
+        date = data.get("date")
+        if isinstance(date, str):
+            date = self._parse_user_dt(date)
+        elif date is None:
+            date = self._now_utc()
+
+        transaction = Transaction(
+            amount=amount,
+            transaction_type=TransactionType.EXPENSE,
+            category=data.get("category", "Bill Payment"),
+            description=data.get("description", ""),
+            datetime_created=date,
+        )
+        bill_wallet.add_transaction(transaction)
+        return {
+            "status": "success",
+            "message": t("transaction.added", self._lang),
+            "data": self._serialize_wallet(bill_wallet),
+        }
