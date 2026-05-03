@@ -1622,10 +1622,6 @@ class RequestHandler:
 
     def _spend_from_goal(self, data: dict) -> dict:
         """Add expense to a goal wallet, auto-topping up from active wallet if reserved is insufficient."""
-        wallet, err = self._current_wallet_or_error()
-        if err:
-            return err
-
         goal_name = data.get("goal_name", "")
         amount = data.get("amount")
         if amount is None or amount <= 0:
@@ -1637,6 +1633,11 @@ class RequestHandler:
 
         shortfall = amount - goal_wallet.balance
         if shortfall > 0:
+            wallet, err = self._current_wallet_or_error()
+            if err:
+                return err
+            if wallet.name.lower() == goal_wallet.name.lower():
+                return {"status": "error", "message": t("goal.save_failed", self._lang)}
             if not self._wm.transfer(
                 from_wallet_name=wallet.name,
                 to_wallet_name=goal_wallet.name,
@@ -1667,10 +1668,6 @@ class RequestHandler:
 
     def _spend_from_bill(self, data: dict) -> dict:
         """Add expense to a bill wallet, auto-topping up from active wallet if reserved is insufficient."""
-        wallet, err = self._current_wallet_or_error()
-        if err:
-            return err
-
         bill_name = data.get("bill_name", "")
         amount = data.get("amount")
         if amount is None or amount <= 0:
@@ -1682,6 +1679,11 @@ class RequestHandler:
 
         shortfall = amount - bill_wallet.balance
         if shortfall > 0:
+            wallet, err = self._current_wallet_or_error()
+            if err:
+                return err
+            if wallet.name.lower() == bill_wallet.name.lower():
+                return {"status": "error", "message": t("bill.save_failed", self._lang)}
             if not self._wm.transfer(
                 from_wallet_name=wallet.name,
                 to_wallet_name=bill_wallet.name,
