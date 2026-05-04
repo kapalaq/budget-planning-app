@@ -101,6 +101,7 @@ class RequestHandler:
             "reactivate_goal": self._reactivate_goal,
             "save_to_goal": self._save_to_goal,
             "spend_from_goal": self._spend_from_goal,
+            "convert_goal_to_bill": self._convert_goal_to_bill,
             "delete_goal": self._delete_goal,
             # Bills
             "add_bill": self._add_bill,
@@ -112,6 +113,7 @@ class RequestHandler:
             "reactivate_bill": self._reactivate_bill,
             "save_to_bill": self._save_to_bill,
             "spend_from_bill": self._spend_from_bill,
+            "convert_bill_to_goal": self._convert_bill_to_goal,
             "delete_bill": self._delete_bill,
         }
 
@@ -1710,4 +1712,50 @@ class RequestHandler:
             "status": "success",
             "message": t("transaction.added", self._lang),
             "data": self._serialize_wallet(bill_wallet),
+        }
+
+    def _convert_goal_to_bill(self, data: dict) -> dict:
+        """Convert a goal wallet into a bill wallet (flips flags and renames prefix)."""
+        name = data.get("name", "")
+        wallet = self._wm.get_wallet(name)
+        if wallet is None or not wallet.is_goal_wallet:
+            return {"status": "error", "message": t("goal.not_found", self._lang, name=name)}
+
+        display_name = name.removeprefix("Goal: ").removeprefix("goal: ")
+        new_name = f"Bill: {display_name}"
+
+        if self._wm.get_wallet(new_name) is not None:
+            return {"status": "error", "message": t("bill.wallet_exists", self._lang, name=new_name)}
+
+        wallet.is_goal_wallet = False
+        wallet.is_bill_wallet = True
+        self._wm.update_wallet(old_name=name, new_name=new_name)
+
+        return {
+            "status": "success",
+            "message": f"Converted to bill: {display_name}",
+            "data": self._serialize_wallet(wallet),
+        }
+
+    def _convert_bill_to_goal(self, data: dict) -> dict:
+        """Convert a bill wallet into a goal wallet (flips flags and renames prefix)."""
+        name = data.get("name", "")
+        wallet = self._wm.get_wallet(name)
+        if wallet is None or not wallet.is_bill_wallet:
+            return {"status": "error", "message": t("bill.not_found", self._lang, name=name)}
+
+        display_name = name.removeprefix("Bill: ").removeprefix("bill: ")
+        new_name = f"Goal: {display_name}"
+
+        if self._wm.get_wallet(new_name) is not None:
+            return {"status": "error", "message": t("goal.wallet_exists", self._lang, name=new_name)}
+
+        wallet.is_bill_wallet = False
+        wallet.is_goal_wallet = True
+        self._wm.update_wallet(old_name=name, new_name=new_name)
+
+        return {
+            "status": "success",
+            "message": f"Converted to goal: {display_name}",
+            "data": self._serialize_wallet(wallet),
         }

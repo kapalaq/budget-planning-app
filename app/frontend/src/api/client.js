@@ -109,6 +109,7 @@ const api = {
   completeGoal: (name) => request('POST', `/goals/${encodeURIComponent(name)}/complete`),
   hideGoal: (name) => request('POST', `/goals/${encodeURIComponent(name)}/hide`),
   reactivateGoal: (name) => request('POST', `/goals/${encodeURIComponent(name)}/reactivate`),
+  convertGoalToBill: (name) => request('POST', `/goals/${encodeURIComponent(name)}/convert-to-bill`),
   deleteGoal: (name) => request('DELETE', `/goals/${encodeURIComponent(name)}`),
 
   // Bills
@@ -121,6 +122,7 @@ const api = {
   completeBill: (name) => request('POST', `/bills/${encodeURIComponent(name)}/complete`),
   hideBill: (name) => request('POST', `/bills/${encodeURIComponent(name)}/hide`),
   reactivateBill: (name) => request('POST', `/bills/${encodeURIComponent(name)}/reactivate`),
+  convertBillToGoal: (name) => request('POST', `/bills/${encodeURIComponent(name)}/convert-to-goal`),
   deleteBill: (name) => request('DELETE', `/bills/${encodeURIComponent(name)}`),
 
   // Telegram

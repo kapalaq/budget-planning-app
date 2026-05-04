@@ -6,7 +6,7 @@ import Modal from '../components/Modal'
 import ConfirmDialog from '../components/ConfirmDialog'
 import EmptyState from '../components/EmptyState'
 import AmountInput from '../components/AmountInput'
-import { Receipt, Plus, Trash2, PiggyBank, ShoppingCart, CheckCircle, EyeOff, RotateCcw } from 'lucide-react'
+import { Receipt, Plus, Trash2, PiggyBank, ShoppingCart, CheckCircle, EyeOff, RotateCcw, ArrowLeftRight } from 'lucide-react'
 
 function formatAmount(amount, currency) {
   return `${Number(amount).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} ${currency || ''}`
@@ -104,6 +104,14 @@ export default function BillsPage() {
     } catch (err) { showError(err.message) }
   }
 
+  const handleConvertToGoal = async (name) => {
+    try {
+      await api.convertBillToGoal(name)
+      success(`Converted to goal`)
+      load()
+    } catch (err) { showError(err.message) }
+  }
+
   const handleDelete = async () => {
     try {
       await api.deleteBill(deleteTarget)
@@ -178,6 +186,9 @@ export default function BillsPage() {
                         </button>
                         <button className="btn btn-secondary btn-sm" onClick={() => handleComplete(b.name)}>
                           <CheckCircle size={14} /> Complete
+                        </button>
+                        <button className="btn btn-ghost btn-sm" onClick={() => handleConvertToGoal(b.name)} title="Convert to goal">
+                          <ArrowLeftRight size={14} />
                         </button>
                         <button className="btn btn-ghost btn-sm" onClick={() => handleHide(b.name)} title="Hide (allows deletion)">
                           <EyeOff size={14} />
