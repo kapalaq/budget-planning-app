@@ -540,6 +540,11 @@ def get_all_goals(user_id: int = Depends(get_current_user)):
     return _handle(user_id, "get_all_goals")
 
 
+@app.post("/goals/convert-to-bill")
+def convert_goal_to_bill(body: Dict[str, Any], user_id: int = Depends(get_current_user)):
+    return _handle(user_id, "convert_goal_to_bill", body)
+
+
 @app.get("/goals/{name}")
 def get_goal_detail(name: str, user_id: int = Depends(get_current_user)):
     return _handle(user_id, "get_goal_detail", {"name": name})
@@ -570,11 +575,6 @@ def spend_from_goal(body: Dict[str, Any], user_id: int = Depends(get_current_use
     return _handle(user_id, "spend_from_goal", body)
 
 
-@app.post("/goals/convert-to-bill")
-def convert_goal_to_bill(body: Dict[str, Any], user_id: int = Depends(get_current_user)):
-    return _handle(user_id, "convert_goal_to_bill", body)
-
-
 @app.delete("/goals/{name}")
 def delete_goal(name: str, user_id: int = Depends(get_current_user)):
     return _handle(user_id, "delete_goal", {"name": name})
@@ -594,6 +594,11 @@ def add_bill(body: Dict[str, Any], user_id: int = Depends(get_current_user)):
 @app.get("/bills/all")
 def get_all_bills(user_id: int = Depends(get_current_user)):
     return _handle(user_id, "get_all_bills")
+
+
+@app.post("/bills/convert-to-goal")
+def convert_bill_to_goal(body: Dict[str, Any], user_id: int = Depends(get_current_user)):
+    return _handle(user_id, "convert_bill_to_goal", body)
 
 
 @app.get("/bills/{name}")
@@ -624,11 +629,6 @@ def save_to_bill(body: Dict[str, Any], user_id: int = Depends(get_current_user))
 @app.post("/bills/spend")
 def spend_from_bill(body: Dict[str, Any], user_id: int = Depends(get_current_user)):
     return _handle(user_id, "spend_from_bill", body)
-
-
-@app.post("/bills/convert-to-goal")
-def convert_bill_to_goal(body: Dict[str, Any], user_id: int = Depends(get_current_user)):
-    return _handle(user_id, "convert_bill_to_goal", body)
 
 
 @app.delete("/bills/{name}")
