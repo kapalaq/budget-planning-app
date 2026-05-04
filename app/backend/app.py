@@ -570,9 +570,9 @@ def spend_from_goal(body: Dict[str, Any], user_id: int = Depends(get_current_use
     return _handle(user_id, "spend_from_goal", body)
 
 
-@app.post("/goals/{name}/convert-to-bill")
-def convert_goal_to_bill(name: str, user_id: int = Depends(get_current_user)):
-    return _handle(user_id, "convert_goal_to_bill", {"name": name})
+@app.post("/goals/convert-to-bill")
+def convert_goal_to_bill(body: Dict[str, Any], user_id: int = Depends(get_current_user)):
+    return _handle(user_id, "convert_goal_to_bill", body)
 
 
 @app.delete("/goals/{name}")
@@ -626,9 +626,9 @@ def spend_from_bill(body: Dict[str, Any], user_id: int = Depends(get_current_use
     return _handle(user_id, "spend_from_bill", body)
 
 
-@app.post("/bills/{name}/convert-to-goal")
-def convert_bill_to_goal(name: str, user_id: int = Depends(get_current_user)):
-    return _handle(user_id, "convert_bill_to_goal", {"name": name})
+@app.post("/bills/convert-to-goal")
+def convert_bill_to_goal(body: Dict[str, Any], user_id: int = Depends(get_current_user)):
+    return _handle(user_id, "convert_bill_to_goal", body)
 
 
 @app.delete("/bills/{name}")
